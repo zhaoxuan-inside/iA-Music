@@ -1,0 +1,6 @@
+Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+Running Gradle task 'assembleDebug'...                          
+Picked up JAVA_TOOL_OPTIONS: -Djdk.net.unixdomain.tmpdir=E:/HardStone.Android/java-tmp -Djava.io.tmpdir=E:/HardStone.Android/java-tmp
+Flutter assets will be downloaded from https://storage.flutter-io.cn. Make sure you trust this source!
+Running Gradle task 'assembleDebug'...                             99.0s
+√ Built build\app\outputs\flutter-apk\app-debug.apk

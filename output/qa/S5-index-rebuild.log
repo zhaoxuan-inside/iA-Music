@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "db_path": "E:\\HardStone.iCodeing\\GitHub\\iA-Music\\hs_dev_docs\\_00_project_foundation\\_05_doc_index\\doc_index.sqlite",
+  "db_path_posix": "E:/HardStone.iCodeing/GitHub/iA-Music/hs_dev_docs/_00_project_foundation/_05_doc_index/doc_index.sqlite",
+  "inserted": 55,
+  "features_inserted": 10,
+  "pages_inserted": 1,
+  "pattern_clusters_inserted": 0,
+  "data_schemas_inserted": 0,
+  "method_dependencies_inserted": 0,
+  "test_cases_inserted": 20,
+  "audit_changes_inserted": 11,
+  "symbols_inserted": 0,
+  "fts": true,
+  "rebuilt_at": "2026-10-18T16:30:40Z"
+}

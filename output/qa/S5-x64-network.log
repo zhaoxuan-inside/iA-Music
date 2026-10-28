@@ -1,0 +1,5 @@
+--------- beginning of main
+10-18 16:38:15.662  3264  3286 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+10-18 16:38:15.899  3264  3293 I flutter : The Dart VM service is listening on http://127.0.0.1:37525/NoRlY_B2iQA=/
+10-18 16:38:20.790  3264  3264 I flutter : S5_PROBE_RESULT {"sqliteVersion":"3.50.4","kind":"none","elapsedMs":1519,"requests":0,"responses":[],"coverExists":false,"audioUnchanged":true,"registeredKind":"none"}
+10-18 16:39:03.876  3264  3264 I flutter : S5_PROBE_RETRY {"kind":"fetched","requests":7,"responses":["musicbrainz.org:200","coverartarchive.org:307","archive.org:302","dn711104.ca.archive.org:200","coverartarchive.org:307","archive.org:302","dn711104.ca.archive.org:200"],"coverExists":true,"audioUnchanged":true,"registeredKind":"fetched","sameTrackId":1}

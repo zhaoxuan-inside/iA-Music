@@ -1,0 +1,19 @@
+REQUEST 2026-10-18T16:34:20.052117Z https://musicbrainz.org/ws/2/recording/?query=recording%3A%22Come+Together%22+AND+artist%3A%22The+Beatles%22&fmt=json&limit=5
+REQUEST 2026-10-18T16:34:21.394609Z https://coverartarchive.org/release/8be54fb7-b6d1-4afe-b4fb-d3958106414f
+REQUEST 2026-10-18T16:34:22.483564Z https://coverartarchive.org/release/d8da5039-6b88-4fd3-961a-d9f4b023f0f6
+REQUEST 2026-10-18T16:34:23.502454Z https://archive.org/download/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/index.json
+REQUEST 2026-10-18T16:34:24.509699Z https://dn711004.ca.archive.org/0/items/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/index.json
+REQUEST 2026-10-18T16:34:25.785906Z https://coverartarchive.org/release/d8da5039-6b88-4fd3-961a-d9f4b023f0f6/46117932077-1200.jpg
+REQUEST 2026-10-18T16:34:26.795143Z https://archive.org/download/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6-46117932077_thumb1200.jpg
+REQUEST 2026-10-18T16:34:27.919942Z https://dn711004.ca.archive.org/0/items/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6-46117932077_thumb1200.jpg
+RESPONSE 200 https://musicbrainz.org/ws/2/recording/?query=recording%3A%22Come+Together%22+AND+artist%3A%22The+Beatles%22&fmt=json&limit=5
+RESPONSE 404 https://coverartarchive.org/release/8be54fb7-b6d1-4afe-b4fb-d3958106414f
+RESPONSE 307 https://coverartarchive.org/release/d8da5039-6b88-4fd3-961a-d9f4b023f0f6
+RESPONSE 302 https://archive.org/download/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/index.json
+RESPONSE 200 https://dn711004.ca.archive.org/0/items/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/index.json
+RESPONSE 307 https://coverartarchive.org/release/d8da5039-6b88-4fd3-961a-d9f4b023f0f6/46117932077-1200.jpg
+RESPONSE 302 https://archive.org/download/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6-46117932077_thumb1200.jpg
+RESPONSE 200 https://dn711004.ca.archive.org/0/items/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6/mbid-d8da5039-6b88-4fd3-961a-d9f4b023f0f6-46117932077_thumb1200.jpg
+RESULT caa C:\Users\HARDST~1\AppData\Local\Temp\ia_cover_c7d2fac0/cover.jpg
+JPEG_BYTES 112406
+Running build hooks...Running build hooks...
