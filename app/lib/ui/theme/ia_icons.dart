@@ -33,6 +33,7 @@ abstract final class IaIcon {
   static IconData get link => Symbols.link_rounded;
   static IconData get download => Symbols.download_rounded;
   static IconData get extract => Symbols.travel_explore_rounded;
+  static IconData get autoFix => Symbols.auto_fix_high_rounded; // 识别修正
   static IconData get refresh => Symbols.refresh_rounded;
   static IconData get close => Symbols.close_rounded;
   static IconData get back => Symbols.arrow_back_rounded;

@@ -23,6 +23,8 @@ Future<void> main() async {
   final support = await getApplicationSupportDirectory();
   final gate = await openIaDatabase('${support.path}/ia_music.db');
   final hub = LibraryHub(gate.db);
+  // 启动重挂既有仓库 watcher + 增量补扫（关闭期间盘上变更入库 → 识别修正入队）。
+  await hub.attachWatchers();
   // T9B 启动续泵（拆分年代 resolved 队列可长；合规门禁在 resumeQueued 内一致执行）。
   await hub.extract.resumeQueued();
   hub.wireExtractRevisionToRevisions();

@@ -12,15 +12,19 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/drift.dart';
 import 'package:ia_music/adapters/android_downloader_adapter.dart';
 import 'package:ia_music/adapters/bilibili_auth_adapter.dart';
 import 'package:ia_music/adapters/bilibili_client.dart';
 import 'package:ia_music/adapters/bilibili_search_adapter.dart';
 import 'package:ia_music/adapters/cover_fetch_adapter.dart';
 import 'package:ia_music/adapters/downloader_adapter.dart';
+import 'package:ia_music/adapters/lrclib_adapter.dart';
+import 'package:ia_music/adapters/netease_lyric_search.dart';
 import 'package:ia_music/adapters/subtitle_adapter.dart';
 import 'package:ia_music/extract/extract_queue.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/library/enrich_service.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
@@ -44,6 +48,20 @@ final class LibraryHub {
 
   final CoverFetchAdapter _coverFetch = CoverFetchAdapter();
   late final CoverChain covers = CoverChain(data, _coverFetch);
+
+  // ── 识别修正域（2026-10-30：本地扫描曲目歌名/歌词/封面自动修正） ──────
+  final LrclibAdapter _lrclib = LrclibAdapter();
+  final NetEaseLyricSearch _netease = NetEaseLyricSearch();
+
+  /// 层级兜底（LRCLIB→网易→ASR）；tier3 委托 extract.lyrics（B 站链路全
+  /// 托管，含其自身 onTrackEnriched）——两者皆 late final，首次触达均装配。
+  late final EnrichService enrich = EnrichService(
+    db: _db,
+    lrclib: _lrclib,
+    songSearch: _netease,
+    asrFallback: (trackId) => extract.lyrics.runForTrack(trackId),
+    onTrackEnriched: _onTrackEnriched,
+  );
 
   /// S6 提取域（会话生命周期=壳层；串行队列+真实 Process 下载）。
   /// hasLoginCookies：B 站登录 Cookie 门（任务/解析自动携 Cookie=登录音质）。
@@ -137,6 +155,47 @@ final class LibraryHub {
   }
 
   final Map<int, RootWatcher> _watchers = {};
+  final Map<int, StreamSubscription<ScanReport>> _watcherSubs = {};
+
+  /// 挂 watcher 并常驻接线（REQ-LIB-02 入库即见）：增量终态与全量终态同流 +
+  /// 新增轨自动入队识别修正。订阅随 hub 生命周期（dispose 统一停）——
+  /// 此前挂在 addRepositoryAndScan 内、初始全量扫描完即 cancel，此后
+  /// watcher 增量报告无人消费（实证缺口，一并修复）。
+  Future<void> _attachWatcher(int rootId, String path) async {
+    final watcher = RootWatcher(
+      db: _db,
+      scanService: _scan,
+      rootId: rootId,
+      rootPath: path,
+    );
+    _watchers[rootId] = watcher;
+    _watcherSubs[rootId] = watcher.reports.listen((r) {
+      if (!_events.isClosed) {
+        _events.add(ScanDone(r)); // 增量终态与全量终态同流
+      }
+      enrich.enqueueAll(r.addedTrackIds);
+      _bump();
+    });
+    await watcher.start();
+  }
+
+  /// 启动重挂（2026-10-30 补缺口：_watchers 会话级，重启后既有根不再监听）：
+  /// 逐根重建 watcher + **增量补扫**——应用关闭期间盘上新增/变更的文件由
+  /// 枚举 diff 入库（addedTrackIds 自动入队识别修正）。
+  Future<void> attachWatchers() async {
+    final roots = await _dao.rootsSnapshot();
+    for (final r in roots) {
+      if (_watchers.containsKey(r.id)) {
+        continue;
+      }
+      try {
+        await _attachWatcher(r.id, r.path);
+        await _runFullScan(r.id, incremental: true);
+      } catch (_) {
+        // 根目录盘上消失等装配异常：不阻塞其余根（下次 rescan 可恢复）。
+      }
+    }
+  }
 
   /// 添加仓库并全量扫描（REQ-LIB-01）。
   Future<ScanReport> addRepositoryAndScan(
@@ -158,26 +217,8 @@ final class LibraryHub {
         );
 
     // watcher 先挂（扫描与其后变更的竞态统一由 RootWatcher._dirty 补扫）；
-    // 增量报告也走同一事件流（REQ-LIB-02 入库即见）。
-    final watcher = RootWatcher(
-      db: _db,
-      scanService: _scan,
-      rootId: rootId,
-      rootPath: path,
-    );
-    _watchers[rootId] = watcher;
-    final watchSub = watcher.reports.listen((r) {
-      if (!_events.isClosed) {
-        _events.add(ScanDone(r)); // 增量终态与全量终态同流
-      }
-      _bump();
-    });
-    await watcher.start();
-    try {
-      return await _runFullScan(rootId, onProgress: onProgress);
-    } finally {
-      await watchSub.cancel();
-    }
+    await _attachWatcher(rootId, path);
+    return _runFullScan(rootId, onProgress: onProgress);
   }
 
   /// 显式全量再扫（REQ-LIB-05「触发下一次扫描」锚位）。
@@ -197,13 +238,27 @@ final class LibraryHub {
     _bump();
   }
 
-  /// 全量扫描事件桥：进度回调 + 事件广播 + revision 递增（终态返回）。
+  /// 手动识别修正（设置页每根按钮）：根内全部活轨入队，返回排队数。
+  Future<int> enrichRoot(int rootId) async {
+    final rows = await (_db.select(_db.tracks)
+          ..where((t) => t.rootId.equals(rootId) & t.deletedAt.isNull()))
+        .get();
+    enrich.enqueueAll(rows.map((r) => r.id));
+    return rows.length;
+  }
+
+  /// 扫描事件桥（默认 full；启动补扫=incremental）：进度回调 + 事件广播 +
+  /// revision 递增 + **新增轨入队识别修正**（终态返回）。
   Future<ScanReport> _runFullScan(
     int rootId, {
+    bool incremental = false,
     void Function(int processed, int admitted, int skipped)? onProgress,
   }) async {
-    final events = await _scan.scan(rootId: rootId).toList();
+    final events = await _scan
+        .scan(rootId: rootId, mode: incremental ? ScanMode.incremental : ScanMode.full)
+        .toList();
     final done = events.whereType<ScanDone>().last;
+    enrich.enqueueAll(done.report.addedTrackIds);
     for (final e in events) {
       if (!_events.isClosed) {
         _events.add(e);
@@ -224,11 +279,18 @@ final class LibraryHub {
   Future<void> dispose() async {
     await extract.dispose();
     _coverFetch.close();
+    _lrclib.close();
+    _netease.dispose();
+    enrich.dispose();
     biliClient.dispose();
     for (final w in _watchers.values) {
       await w.stop();
     }
     _watchers.clear();
+    for (final s in _watcherSubs.values) {
+      await s.cancel();
+    }
+    _watcherSubs.clear();
     await _events.close();
     await _revisions.close();
   }

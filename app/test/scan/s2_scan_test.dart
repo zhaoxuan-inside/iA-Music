@@ -116,6 +116,13 @@ void main() {
       // 字典 upsert（两歌手/两专辑）
       expect(await db.select(db.artists).get(), hasLength(2));
       expect(await db.select(db.albums).get(), hasLength(2));
+
+      // 新增轨 id 清单（识别修正入队消费）：首扫=全部入库 id；未变重扫=空
+      expect(report.addedTrackIds, hasLength(10));
+      final second = (await scanService.scan(rootId: rootId, mode: ScanMode.full).toList()).last
+          as ScanDone;
+      expect(second.report.added, 0);
+      expect(second.report.addedTrackIds, isEmpty);
     });
 
     test('同 root 并发扫描 → 程序级拒绝（§3.1 任务锁）', () async {

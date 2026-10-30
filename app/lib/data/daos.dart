@@ -523,6 +523,49 @@ class LibraryDao {
     });
   }
 
+  /// 身份回写（识别修正共用：B 站 ASR 正文反查 / 本地 LRCLIB·网易命中同路）。
+  /// 字典 upsert（artist/album）+ tracks 展示字段 + FTS **同一事务**（D9-1）；
+  /// null/空参数=该字段不动。
+  Future<void> applyIdentity(
+    int trackId, {
+    String? title,
+    String? artist,
+    String? album,
+    required int nowMs,
+  }) {
+    return _db.transaction(() async {
+      final row = await (_db.select(_db.tracks)
+            ..where((t) => t.id.equals(trackId)))
+          .getSingleOrNull();
+      if (row == null) {
+        return;
+      }
+      final hasTitle = title != null && title.trim().isNotEmpty;
+      final hasArtist = artist != null && artist.trim().isNotEmpty;
+      final hasAlbum = album != null && album.trim().isNotEmpty;
+      final artistId =
+          hasArtist ? await _upsertArtist(artist, nowMs: nowMs) : null;
+      final albumId = hasAlbum ? await _upsertAlbum(album, nowMs: nowMs) : null;
+      await (_db.update(_db.tracks)..where((t) => t.id.equals(trackId))).write(
+        TracksCompanion(
+          title: hasTitle ? Value(title) : const Value.absent(),
+          artistDisplay: hasArtist ? Value(artist) : const Value.absent(),
+          albumDisplay: hasAlbum ? Value(album) : const Value.absent(),
+          artistId: artistId != null ? Value(artistId) : const Value.absent(),
+          albumId: albumId != null ? Value(albumId) : const Value.absent(),
+          updatedAt: Value(nowMs),
+        ),
+      );
+      // FTS 全列重写：未回写的字段取库内现值（禁漂写禁半清空）。
+      await _db.updateTrackIndex(
+        trackId,
+        title: hasTitle ? title : (row.title ?? ''),
+        artist: hasArtist ? artist : (row.artistDisplay ?? ''),
+        album: hasAlbum ? album : (row.albumDisplay ?? ''),
+      );
+    });
+  }
+
   /// 复活（软删行同路径文件回归：清 deleted_at/missing_at + 刷新元数据 + FTS 同事务）。
   Future<void> reviveTrack(
     int trackId, {

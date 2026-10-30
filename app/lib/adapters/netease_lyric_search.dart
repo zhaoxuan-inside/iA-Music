@@ -42,12 +42,29 @@ abstract class LyricTextSearchPort {
   Future<({String url, List<int> bytes})?> fetchCover(int songId) async => null;
 }
 
-final class NetEaseLyricSearch implements LyricTextSearchPort {
+/// 歌名/歌手名称检索面（本地扫描识别修正 tier 2；NetEase 实现，测试注入 fake）。
+abstract class SongSearchPort {
+  /// 名称搜索 + 时长锚确认（±[nameSearchToleranceMs]）；未命中 → null 不抛。
+  Future<LyricsIdentity?> searchByName({
+    required String title,
+    String? artist,
+    int? durationMs,
+  });
+
+  Future<String?> fetchSyncedLyrics(int songId);
+
+  Future<({String url, List<int> bytes})?> fetchCover(int songId);
+}
+
+final class NetEaseLyricSearch implements LyricTextSearchPort, SongSearchPort {
   NetEaseLyricSearch();
 
   static const int minLineChars = 6;
   static const int maxQueryLines = 3;
   static const int durationToleranceMs = 6000;
+
+  /// 名称搜索时长锚（比正文反查更严：歌名+歌手已对上，时长再卡 3s）。
+  static const int nameSearchToleranceMs = 3000;
   static const int maxCandidatesPerLine = 10;
 
   final HttpClient _http = HttpClient()
@@ -96,10 +113,47 @@ final class NetEaseLyricSearch implements LyricTextSearchPort {
     return null;
   }
 
-  Future<List<LyricsIdentity>> _searchLine(String line) async {
+  Future<List<LyricsIdentity>> _searchLine(String line) =>
+      _searchSongs(line, type: '1006'); // 歌词搜索（正文索引）
+
+  /// 歌名/歌手名称搜索（本地识别修正 tier 2）：锚定确认 → 首个命中身份。
+  @override
+  Future<LyricsIdentity?> searchByName({
+    required String title,
+    String? artist,
+    int? durationMs,
+  }) async {
+    final q = '${artist?.trim() ?? ''} ${title.trim()}'.trim();
+    if (q.isEmpty) {
+      return null;
+    }
+    for (final cand in await _searchSongs(q, type: '1')) {
+      if (durationMs == null) {
+        return cand;
+      }
+      final realDur = await _songDurationMs(cand.songId);
+      if (realDur != null &&
+          (realDur - durationMs).abs() <= nameSearchToleranceMs) {
+        return LyricsIdentity(
+          songId: cand.songId,
+          title: cand.title,
+          artist: cand.artist,
+          album: cand.album,
+          durationMs: realDur,
+        );
+      }
+    }
+    return null;
+  }
+
+  /// 网易 web 搜索：type=1 歌曲名 / 1006 歌词正文（共用传输与解析纪律）。
+  Future<List<LyricsIdentity>> _searchSongs(
+    String query, {
+    required String type,
+  }) async {
     final uri = Uri.https('music.163.com', '/api/search/get/web', {
-      's': line,
-      'type': '1006', // 歌词搜索（正文索引）
+      's': query,
+      'type': type,
       'offset': '0',
       'total': 'true',
       'limit': '$maxCandidatesPerLine',

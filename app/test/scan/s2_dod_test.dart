@@ -204,6 +204,8 @@ void main() {
       final scanBack =
           (await scanService.scan(rootId: rootId).toList()).last as ScanDone;
       expect(scanBack.report.added, 1, reason: '07 复活计为重入架');
+      expect(scanBack.report.addedTrackIds, [goneId],
+          reason: '复活轨 id 上报（识别修正入队消费）');
       final revived = (await db
           .customSelect(
               'SELECT deleted_at, missing_at, file_size FROM tracks WHERE id=?',

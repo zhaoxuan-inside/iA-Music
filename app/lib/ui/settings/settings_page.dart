@@ -158,6 +158,15 @@ class SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// 手动识别修正（根内全部活轨重跑 LRCLIB→网易→ASR 兜底；串行限速）。
+  Future<void> _enrichRoot(int rootId) async {
+    final n = await widget.hub.enrichRoot(rootId);
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('已排队识别修正：$n 首')));
+    }
+  }
+
   Future<void> _pickTheme() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -297,12 +306,25 @@ class SettingsPageState extends State<SettingsPage> {
                           size: 20, color: p.secondaryText),
                       title: Text(roots[i].path,
                           maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: IconButton(
-                        key: ValueKey('repo_rescan_$i'),
-                        tooltip: '重新扫描',
-                        onPressed: () => unawaited(_rescan(roots[i].id)),
-                        icon: Icon(IaIcon.refresh,
-                            size: 18, color: p.secondaryText),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            key: ValueKey('repo_enrich_$i'),
+                            tooltip: '识别修正（歌名/歌词/封面）',
+                            onPressed: () =>
+                                unawaited(_enrichRoot(roots[i].id)),
+                            icon: Icon(IaIcon.autoFix,
+                                size: 18, color: p.secondaryText),
+                          ),
+                          IconButton(
+                            key: ValueKey('repo_rescan_$i'),
+                            tooltip: '重新扫描',
+                            onPressed: () => unawaited(_rescan(roots[i].id)),
+                            icon: Icon(IaIcon.refresh,
+                                size: 18, color: p.secondaryText),
+                          ),
+                        ],
                       ),
                     ),
                   if (roots.isEmpty)

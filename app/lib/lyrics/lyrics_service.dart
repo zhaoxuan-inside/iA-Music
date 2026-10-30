@@ -13,7 +13,6 @@ library;
 
 import 'dart:io';
 
-import 'package:drift/drift.dart';
 import 'package:ia_music/adapters/asr_adapter.dart';
 import 'package:ia_music/adapters/netease_lyric_search.dart';
 import 'package:ia_music/data/daos.dart';
@@ -42,6 +41,9 @@ final class LyricsService {
 
   final IaDatabase _db;
   final LyricsDao _lyrics;
+
+  /// 身份回写门面（LibraryDao.applyIdentity：字典 upsert + tracks + FTS 同事务）。
+  late final LibraryDao _lib = LibraryDao(_db);
 
   /// 本地 ASR 兜底（2026-10-25 装配：SenseVoice 应用内原生形态优先）。
   final LocalAsrPort? asr;
@@ -180,31 +182,12 @@ final class LyricsService {
         durationMs: track.durationMs,
       );
       if (id != null && id.title.isNotEmpty) {
-        final nowMs = DateTime.now().millisecondsSinceEpoch;
-        int? artistId;
-        if (id.artist.isNotEmpty) {
-          artistId = await _upsertArtistName(id.artist, nowMs);
-        }
-        await (_db.update(
-          _db.tracks,
-        )..where((t) => t.id.equals(track.id))).write(
-          TracksCompanion(
-            title: Value(id.title),
-            artistDisplay: id.artist.isNotEmpty
-                ? Value(id.artist)
-                : const Value.absent(),
-            albumDisplay: (id.album ?? '').isNotEmpty
-                ? Value(id.album!)
-                : const Value.absent(),
-            artistId: artistId != null ? Value(artistId) : const Value.absent(),
-            updatedAt: Value(nowMs),
-          ),
-        );
-        await _db.updateTrackIndex(
+        await _lib.applyIdentity(
           track.id,
           title: id.title,
           artist: id.artist,
-          album: id.album ?? '',
+          album: id.album,
+          nowMs: DateTime.now().millisecondsSinceEpoch,
         );
         // D12-4①②「补全成完整的歌」：标准歌词回填 + 网易封面落盘
         //（fetched 档 `<音频名>.cover.jpg` 与 CoverChain 天然衔接，零链改动）。
@@ -240,25 +223,5 @@ final class LyricsService {
     } catch (_) {
       // 补全失败不回滚身份写回（歌名/歌手已落库；下次扫描可重试封面链）。
     }
-  }
-
-  /// 字典 upsert（与 LibraryDao._upsertArtist 同构；norm 唯一键复用）。
-  Future<int?> _upsertArtistName(String display, int nowMs) async {
-    final norm = normalizeName(display);
-    final found = await (_db.select(
-      _db.artists,
-    )..where((a) => a.nameNorm.equals(norm))).getSingleOrNull();
-    if (found != null) {
-      return found.id;
-    }
-    return _db
-        .into(_db.artists)
-        .insert(
-          ArtistsCompanion.insert(
-            name: display,
-            nameNorm: norm,
-            updatedAt: nowMs,
-          ),
-        );
   }
 }

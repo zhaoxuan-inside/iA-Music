@@ -56,6 +56,7 @@ final class ScanReport {
     required this.updated,
     required this.missing,
     required this.skippedPaths,
+    required this.addedTrackIds,
   });
 
   /// 本轮有效音频总数（=新增 + 既有可用）。
@@ -75,6 +76,9 @@ final class ScanReport {
 
   /// skipped 具名清单（evidence/UI 排查用）。
   final List<String> skippedPaths;
+
+  /// 新入库/复活的 track id（识别修正入队消费；变更既有轨不含）。
+  final List<int> addedTrackIds;
 }
 
 /// Port 依赖口径：批解析在 isolate 内复用 adapter 的**同步核心**
@@ -127,6 +131,7 @@ class ScanService {
       var updated = 0;
       var processed = 0;
       final skippedPaths = <String>[];
+      final addedIds = <int>[]; // 新入库/复活轨 id（识别修正入队消费）
       final pending = <String>[]; // 本 flush 批的相对路径
 
       Future<void> flush() async {
@@ -185,6 +190,7 @@ class ScanService {
               album: album,
               durationMs: durationMs,
             );
+            addedIds.add(row.id);
             added++;
             admitted++;
             continue;
@@ -224,7 +230,8 @@ class ScanService {
           admitted++;
         }
         if (inserts.isNotEmpty) {
-          await _dao.insertTrackBatch(inserts); // ≤200=批 200/事务
+          final ids = await _dao.insertTrackBatch(inserts); // ≤200=批 200/事务
+          addedIds.addAll(ids);
         }
       }
 
@@ -281,6 +288,7 @@ class ScanService {
         updated: updated,
         missing: missing,
         skippedPaths: List.unmodifiable(skippedPaths),
+        addedTrackIds: List.unmodifiable(addedIds),
       ));
     } finally {
       _busyRoots.remove(rootId);

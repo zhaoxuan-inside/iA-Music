@@ -174,4 +174,9 @@ final class LrclibAdapter implements LyricsPort {
       return const [];
     }
   }
+
+  /// 传输层释放（hub.dispose 消费；同 NetEaseLyricSearch.dispose 惯例）。
+  void close() {
+    _http.close();
+  }
 }
