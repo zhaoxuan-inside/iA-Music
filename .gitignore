@@ -1,0 +1,5 @@
+# 构建产物（历史大文件曾致 GitHub GH001 推送被拒）
+output/app_mobile/
+
+# ZCode 工作区本地配置
+.zcode/
