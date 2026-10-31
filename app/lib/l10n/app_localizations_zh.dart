@@ -769,4 +769,33 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get dbRecoveryHint => '数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。';
+
+  @override
+  String get eqBandsNote => '5 段均衡 · ±12dB · 拖动实时生效';
+
+  @override
+  String get eqPresetDefault => '默认';
+
+  @override
+  String get eqPresetPop => '流行';
+
+  @override
+  String get eqPresetRock => '摇滚';
+
+  @override
+  String get eqPresetClassical => '古典';
+
+  @override
+  String get eqPresetJazz => '爵士';
+
+  @override
+  String get eqPresetBass => '低音增强';
+
+  @override
+  String get eqPresetCustom => '自定义';
+
+  @override
+  String eqBandLabel(String hz) {
+    return '$hz';
+  }
 }

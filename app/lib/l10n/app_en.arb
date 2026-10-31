@@ -243,5 +243,16 @@
   "qrDataIncomplete": "Login QR data incomplete",
   "pollFailed": "Login status check failed ({code})",
 
-  "dbRecoveryHint": "Database failed to open: read-only protection is on; your data is safe. Use the repair guide in Settings."
+  "dbRecoveryHint": "Database failed to open: read-only protection is on; your data is safe. Use the repair guide in Settings.",
+
+  "eqBandsNote": "5 bands · ±12dB · applies live while dragging",
+  "eqPresetDefault": "Default",
+  "eqPresetPop": "Pop",
+  "eqPresetRock": "Rock",
+  "eqPresetClassical": "Classical",
+  "eqPresetJazz": "Jazz",
+  "eqPresetBass": "Bass Boost",
+  "eqPresetCustom": "Custom",
+  "eqBandLabel": "{hz} Hz",
+  "@eqBandLabel": { "placeholders": { "hz": { "type": "String" } } }
 }

@@ -14,11 +14,12 @@
 /// * 队列索引一律取 `state.playlist.index`（引擎准权；不自累加）。
 /// * 事件节流：position ≤250ms 心跳（契约承诺；实测更密，220ms 窗口防超发）。
 /// * `stop/quit` reason 吞掉（自驱 loadAndPlay/jump 与 dispose 触发误发）。
-/// * EQ=S3 明示不支持线（TASK-S3 规则；包内 EqualizerEffect 真实现存在→
-///   S4/RV-A 收敛时以 setAudioEffects 直桥，登记为移交项非隐瞒）。
+/// * EQ=setAudioEffects 直桥（WS1/REQ-PLAY-07）：5 段=EqualizerEffect 串联，
+///   全 0 复位；见 setEqBands 注。媒体会话每 Player 一次（见 _publishSession）。
 /// * restore=载入+定位+**自动起播**（ARCH §3.2 电台连续性；裁决记录入 IMPL-S3）。
-/// * MediaSession（SMTC/MPRIS/Android 会话桥）由包内建；每 Player 只发一次
-///   （两 Player 并发声明会 StateError——本适配层单 Player，复位标志随 dispose）。
+/// * MediaSession（SMTC/MPRIS/Android 前台服务桥）由包内建：每 Player 一次
+///   所有权声明（两 Player 并发声明会 StateError）；元数据随曲更新经
+///   updateMediaSession（REQ-PLAY-05），命令回流经 EngineMediaCommand。
 library;
 
 import 'dart:async';
@@ -36,6 +37,7 @@ class MpvEngineAdapter implements EnginePort {
   bool _inited = false;
   bool _disposed = false;
   bool _sessionPublished = false;
+  bool _sessionFavorite = false; // 媒体会话红心态（null 语义=不变的回退值）
   Duration _lastTick = Duration.zero;
   EngineState _state = EngineState.idle;
 
@@ -78,7 +80,8 @@ class MpvEngineAdapter implements EnginePort {
       ..add(p.stream.playing.listen(_onPlayingValue))
       ..add(p.stream.completed.listen(_onCompletedValue))
       ..add(p.stream.endFile.listen(_onEndFile))
-      ..add(p.stream.position.listen(_onPosition));
+      ..add(p.stream.position.listen(_onPosition))
+      ..add(p.stream.mediaSessionCommands.listen(_onMediaCommand));
     // 配置面：⚠️ bufferMs（→mpv audio-buffer）与 preloadNextCount（→
     // setPrefetchPlaylist）均不落引擎——实测两类都会破坏包的事件观测面：
     // buffer 调用后 playing 状态不再发（probe B：pos 推进但无 playing 事件）；
@@ -177,6 +180,40 @@ class MpvEngineAdapter implements EnginePort {
     return p.state.playlist.items.length;
   }
 
+  /// 媒体会话命令回流（REQ-PLAY-05）：OS 通知栏/锁屏/媒体键/蓝牙 →
+  /// 契约事件（调用方=服务执行；play/pause/next/previous/seek 均为 emit-only）。
+  void _onMediaCommand(MediaSessionCommand c) {
+    if (_disposed) {
+      return;
+    }
+    switch (c) {
+      case MediaSessionCommandPlay _:
+        _emit(const EngineMediaCommand(MediaCommandKind.play));
+      case MediaSessionCommandPause _:
+        _emit(const EngineMediaCommand(MediaCommandKind.pause));
+      case MediaSessionCommandPlayPause _:
+        _emit(const EngineMediaCommand(MediaCommandKind.playPause));
+      case MediaSessionCommandStop _:
+        _emit(const EngineMediaCommand(MediaCommandKind.stop));
+      case MediaSessionCommandNext _:
+        _emit(const EngineMediaCommand(MediaCommandKind.next));
+      case MediaSessionCommandPrevious _:
+        _emit(const EngineMediaCommand(MediaCommandKind.previous));
+      case MediaSessionCommandSeekTo(:final position):
+        _emit(EngineMediaCommand(MediaCommandKind.seekTo,
+            positionMs: position.inMilliseconds));
+      case MediaSessionCommandSeekBy(:final offset):
+        _emit(EngineMediaCommand(MediaCommandKind.seekBy,
+            offsetMs: offset.inMilliseconds));
+      case MediaSessionCommandLike _:
+        _emit(const EngineMediaCommand(MediaCommandKind.like));
+      case MediaSessionCommandSetRepeatMode _:
+      case MediaSessionCommandSetShuffle _:
+      case MediaSessionCommandSetPlaybackRate _:
+        break; // 包内已 auto-apply 且不广告对应 MediaAction——不应到达；防御吞
+    }
+  }
+
   void _emit(EngineEvent e) {
     if (!_events.isClosed) {
       _events.add(e);
@@ -237,10 +274,35 @@ class MpvEngineAdapter implements EnginePort {
     }
   }
 
-  /// S3 明示不支持线（TASK-S3 规则；真机 RV-A 结论回填后 S4 直桥真 EQ）。
+  /// EQ 直桥（WS1/REQ-PLAY-07）：5 段=5 个 ffmpeg lavfi `equalizer` 滤镜串联
+  /// （包内 EqualizerEffect，gain 单位 dB）。全 0 → 清空滤镜链（复位）。
+  /// 抛契约异常面照旧（未 init→StateError；包异常→EngineFailureException）。
   @override
-  Future<void> setEqBands(List<double> gains) {
-    throw const EngineCapabilityException();
+  Future<void> setEqBands(List<double> gains) async {
+    final p = _p;
+    const bands = [60.0, 230.0, 910.0, 3600.0, 14000.0];
+    final effects = <AudioEffect>[];
+    for (var i = 0; i < bands.length; i++) {
+      final g = i < gains.length ? gains[i] : 0.0;
+      if (g == 0) {
+        continue; // 0dB 段不进链——减少无谓的 DSP 开销
+      }
+      effects.add(EqualizerEffect(frequency: bands[i], gain: g));
+    }
+    try {
+      await p.setAudioEffects(effects);
+    } on Object catch (e, st) {
+      Error.throwWithStackTrace(
+        EngineFailureException(message: 'setEqBands 失败: $e', detail: '$gains'),
+        st,
+      );
+    }
+  }
+
+  /// 音量直桥（WS1）：mpv `volume` 属性（percent，100=不衰减）。
+  @override
+  Future<void> setVolume(double volume) async {
+    await _p.setVolume(volume);
   }
 
   /// 插队（S4）：mpv `loadfile <path> insert-next` —— 当前曲后立即播放位。
@@ -312,16 +374,56 @@ class MpvEngineAdapter implements EnginePort {
       return;
     }
     final t = at.isEmpty ? null : at.first;
+    await _applySession(
+      title: t?.title,
+      artist: t?.artistDisplay,
+      durationMs: t?.durationMs,
+    );
+  }
+
+  /// 媒体会话元数据随曲更新（REQ-PLAY-05）：换曲/红心态由服务侧推送。
+  /// 同一 Player 重复 setMediaSession=更新语义（所有权标志不受扰）。
+  @override
+  Future<void> updateMediaSession(MediaSessionInfo info) async {
+    if (_disposed || _player == null) {
+      return;
+    }
+    if (Platform.environment['FLUTTER_TEST'] != null) {
+      return;
+    }
+    await _applySession(
+      title: info.title,
+      artist: info.artist,
+      durationMs: info.durationMs,
+      favorite: info.favorite,
+    );
+  }
+
+  Future<void> _applySession({
+    String? title,
+    String? artist,
+    int? durationMs,
+    bool? favorite,
+  }) async {
+    final p = _player;
+    if (p == null) {
+      return;
+    }
+    // 包面 isFavorite 非空 bool：null=不改变 → 回退上一次已知态
+    if (favorite != null) {
+      _sessionFavorite = favorite;
+    }
     try {
       await p.setMediaSession(MediaSession(
-        title: t?.title,
-        artist: t?.artistDisplay,
-        duration: t != null && t.durationMs > 0
-            ? Duration(milliseconds: t.durationMs)
+        title: title,
+        artist: artist,
+        duration: durationMs != null && durationMs > 0
+            ? Duration(milliseconds: durationMs)
             : null,
+        isFavorite: _sessionFavorite,
       ));
     } on Object {
-      // 真头环境桥仍失败（罕见；如 MPRIS 无显示会话）——音频主线不受阻
+      // 真桥失败（如 MPRIS 无显示会话/临时不可用）——音频主线不受阻
     }
   }
 

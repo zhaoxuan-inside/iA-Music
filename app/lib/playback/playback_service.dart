@@ -26,6 +26,7 @@ import 'package:contracts/contracts.dart';
 import '../data/daos.dart';
 import '../data/ia_database.dart';
 import '../l10n/s.dart';
+import '../playlists/playlist_service.dart';
 
 /// UI 消费快照（非契约；页面 StreamBuilder 直接吃）。
 class PlaybackSnapshot {
@@ -78,6 +79,10 @@ class PlaybackService {
   /// 会话快照 settings 键（schema settings 指纹面板外的小键，DEC-009 惯例）。
   static const sessionKey = 'playback.session';
 
+  /// EQ 增益（5 段 dB JSON 数组）与音量（percent 数字）持久化键（WS1）。
+  static const eqKey = 'playback.eq';
+  static const volumeKey = 'playback.volume';
+
   /// 历史阈值 8 → 自动冲（延迟合并写；不再大=实时性优先，诚实注记 IMPL-S3）。
   static const historyFlushThreshold = 8;
 
@@ -91,11 +96,15 @@ class PlaybackService {
   int _recoverTries = 0;
   bool _playing = false;
   PlaybackNotice? _lastNotice;
+  int? _sessionTrackId; // 媒体会话随曲更新去重锚（REQ-PLAY-05）
+  PlaylistService? _plSvc; // 惰性歌单服务（媒体命令 like 回流面）
 
   final List<TrackLite> _queue = <TrackLite>[];
   int _current = 0;
   int _positionMs = 0;
   PlaybackMode _mode = PlaybackMode.loops; // PRD §3.1 默认列表循环
+  double _volume = 100.0; // percent；持久化见 volumeKey
+  List<double> _eq = const [0, 0, 0, 0, 0]; // 5 段 dB（UI 读面）
 
   Stream<PlaybackSnapshot> get status => _status.stream;
   Stream<PlaybackNotice> get notices => _notices.stream;
@@ -133,7 +142,34 @@ class PlaybackService {
     _inited = true;
     await engine.init(EngineConfig(adapterOverride: adapterOverride));
     _sub = engine.events.listen(_onEngineEvent);
+    await _restoreAudioPrefs();
     _push();
+  }
+
+  /// 启动回放持久化的音量/EQ（best-effort：读不到/应用失败不阻塞播放主线）。
+  Future<void> _restoreAudioPrefs() async {
+    try {
+      final vol = await data.shell.value(volumeKey);
+      if (vol != null && vol.isNotEmpty) {
+        final v = double.tryParse(vol);
+        if (v != null && v >= 0) {
+          _volume = v.clamp(0.0, 150.0);
+          await engine.setVolume(_volume);
+        }
+      }
+      final eq = await data.shell.value(eqKey);
+      if (eq != null && eq.isNotEmpty) {
+        final list = (jsonDecode(eq) as List? ?? const [])
+            .map((e) => (e as num).toDouble())
+            .toList(growable: false);
+        if (list.length == 5) {
+          await engine.setEqBands(list);
+          _eq = list;
+        }
+      }
+    } on Object {
+      // 预置恢复失败（引擎不支持/值损坏）→ 保持默认，UI 打开时可见真实态
+    }
   }
 
   // ── 状态/通知面 ────────────────────────────────────────────
@@ -147,8 +183,22 @@ class PlaybackService {
       );
 
   void _push() {
-    if (!_status.isClosed) {
-      _status.add(_snap());
+    if (_status.isClosed) {
+      return;
+    }
+    _status.add(_snap());
+    // 媒体会话随曲更新（REQ-PLAY-05）：换曲即推送元数据（title/artist/duration；
+    // favorite=null=不改变红心态）。position tick 高频到达，trackId 去重。
+    final cur = _queue.isNotEmpty && _current >= 0 && _current < _queue.length
+        ? _queue[_current]
+        : null;
+    if (cur != null && cur.id != _sessionTrackId) {
+      _sessionTrackId = cur.id;
+      unawaited(engine.updateMediaSession(MediaSessionInfo(
+        title: cur.title,
+        artist: cur.artistDisplay,
+        durationMs: cur.durationMs > 0 ? cur.durationMs : null,
+      )));
     }
   }
 
@@ -430,17 +480,35 @@ class PlaybackService {
     }
   }
 
-  /// EQ 明示/真桥统一缝（DoD3 两分支共用 UI 面；真机结论回填=分支选择）。
-  /// * 引擎支持（RV-A 后）→ true=实时生效；
-  ///   不支持（现状）→ EngineCapabilityException → false=明示不支持。
+  /// EQ 统一缝（WS1 直桥后=真生效；失败仍 false=UI 明示不支持面保留）。
+  /// * 成功即持久化（`playback.eq`，5 段 dB JSON），init 时回放。
   Future<bool> setEqBands(List<double> gains) async {
     _requireAlive();
     try {
       await engine.setEqBands(gains);
+      _eq = List.of(gains.take(5), growable: false);
+      await data.shell.put(
+        eqKey,
+        jsonEncode([for (final g in gains.take(5)) g]),
+        nowMs: _nowMs(),
+      );
       return true;
     } on EngineCapabilityException {
       return false;
     }
+  }
+
+  /// 音量（percent，0..150；>100=增益，PRD REQ-PLAY-01 桌面滑杆面）。
+  double get volume => _volume;
+
+  /// 当前 EQ 增益（只读快照；UI 初始化回显用）。
+  List<double> get eqGains => List.unmodifiable(_eq);
+
+  Future<void> setVolume(double v) async {
+    _requireAlive();
+    _volume = v.clamp(0.0, 150.0);
+    await engine.setVolume(_volume);
+    await data.shell.put(volumeKey, _volume.toString(), nowMs: _nowMs());
   }
 
   // ── 引擎事件接线 ──────────────────────────────────────────
@@ -471,7 +539,72 @@ class PlaybackService {
         _onEngineFailure(cause);
       case EngineSessionLost():
         _onSessionLost();
+      case EngineMediaCommand(:final kind, :final positionMs, :final offsetMs):
+        _onMediaCommand(kind, positionMs, offsetMs);
     }
+  }
+
+  /// OS→App 媒体命令（REQ-PLAY-05）：通知栏/锁屏/媒体键/蓝牙。
+  void _onMediaCommand(MediaCommandKind kind, int? positionMs, int? offsetMs) {
+    switch (kind) {
+      case MediaCommandKind.play:
+        unawaited(play());
+      case MediaCommandKind.pause:
+        unawaited(pause());
+      case MediaCommandKind.playPause:
+        _playing ? unawaited(pause()) : unawaited(play());
+      case MediaCommandKind.stop:
+        unawaited(pause());
+      case MediaCommandKind.next:
+        unawaited(next());
+      case MediaCommandKind.previous:
+        unawaited(previous());
+      case MediaCommandKind.seekTo:
+        if (positionMs != null) {
+          unawaited(seekTo(positionMs));
+        }
+      case MediaCommandKind.seekBy:
+        if (offsetMs != null) {
+          unawaited(seekTo((_positionMs + offsetMs).clamp(0, 1 << 31)));
+        }
+      case MediaCommandKind.like:
+        unawaited(_toggleFavoriteForMedia());
+    }
+  }
+
+  /// 通知栏红心（MediaAction.like 回流）：对当前曲 toggle 并回写会话态。
+  Future<void> _toggleFavoriteForMedia() async {
+    final cur = snapshot.currentTrack;
+    if (cur == null) {
+      return;
+    }
+    final added = await (_plSvc ??= PlaylistService(data)).toggleFavorite(
+      cur.id,
+      nowMs: _nowMs(),
+    );
+    await engine.updateMediaSession(MediaSessionInfo(
+      title: cur.title,
+      artist: cur.artistDisplay,
+      durationMs: cur.durationMs > 0 ? cur.durationMs : null,
+      favorite: added,
+    ));
+  }
+
+  /// 页面红心切换后回写媒体会话（REQ-PL-01 通知面一致性）。
+  Future<void> notifyFavoriteChanged(int trackId, bool favorite) async {
+    if (_sessionTrackId != trackId) {
+      return;
+    }
+    final cur = snapshot.currentTrack;
+    if (cur == null) {
+      return;
+    }
+    await engine.updateMediaSession(MediaSessionInfo(
+      title: cur.title,
+      artist: cur.artistDisplay,
+      durationMs: cur.durationMs > 0 ? cur.durationMs : null,
+      favorite: favorite,
+    ));
   }
 
   void _onItemEnded(int qi) {

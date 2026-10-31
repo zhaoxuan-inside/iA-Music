@@ -96,15 +96,26 @@ void main() {
   );
 
   test(
-    'setEqBands：S3 明示不支持线→EngineCapabilityException（真机 RV-A 结论后 S4 收敛）',
+    'setEqBands：WS1 直桥=mpv af equalizer 5 段生效不抛；全 0=复位链',
     timeout: Timeout(Duration(seconds: 30)),
     () async {
       await engine.init(const EngineConfig());
-      expect(
-        () => engine.setEqBands([0, 0, 0, 0, 0]),
-        throwsA(isA<EngineCapabilityException>()),
-        reason: 'S3 契约面=明示不支持路径',
-      );
+      // 提升增益（非 0 段进链）→ 不抛=直桥生效（真声验证归真机走查）
+      await engine.setEqBands([2, 0, -1, 4, 0]);
+      // 全 0=清空滤镜链（复位）——幂等不抛
+      await engine.setEqBands([0, 0, 0, 0, 0]);
+      await engine.dispose();
+    },
+  );
+
+  test(
+    'setVolume：percent 直桥（100=不衰减；0=静音）不抛',
+    timeout: Timeout(Duration(seconds: 30)),
+    () async {
+      await engine.init(const EngineConfig());
+      await engine.setVolume(80);
+      await engine.setVolume(100);
+      await engine.dispose();
     },
   );
 

@@ -6,10 +6,13 @@
 ///   × DEC-005 外观三选。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/l10n/app_localizations.dart';
@@ -22,6 +25,7 @@ import 'package:ia_music/ui/theme/ia_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await _requestNotificationPermission(); // REQ-PLAY-05：后台播放通知（Android 13+）
   final support = await getApplicationSupportDirectory();
   final gate = await openIaDatabase('${support.path}/ia_music.db');
   final hub = LibraryHub(gate.db);
@@ -40,6 +44,18 @@ Future<void> main() async {
     locale: locale,
     accent: accent,
   ));
+}
+
+/// Android 13+ 通知运行时权限（媒体会话通知面；best-effort 不阻塞启动）。
+Future<void> _requestNotificationPermission() async {
+  if (!Platform.isAndroid) {
+    return;
+  }
+  try {
+    await Permission.notification.request();
+  } on Object {
+    // 未授权→通知栏控制不可用，App 内播放不受影响
+  }
 }
 
 final class IaMusicApp extends StatefulWidget {

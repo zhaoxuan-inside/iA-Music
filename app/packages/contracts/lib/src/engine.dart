@@ -45,6 +45,40 @@ final class EngineSessionLost extends EngineEvent {
   const EngineSessionLost();
 }
 
+/// 媒体命令类别（OS→App 回流：通知栏/锁屏/媒体键/蓝牙，REQ-PLAY-05）。
+enum MediaCommandKind { play, pause, playPause, stop, next, previous, seekTo, seekBy, like }
+
+/// 媒体会话命令回流（实现从包内 `mediaSessionCommands` 流映射；
+/// play/pause/next/previous/seek 由调用方执行——服务是队列与模式权威）。
+final class EngineMediaCommand extends EngineEvent {
+  const EngineMediaCommand(this.kind, {this.positionMs, this.offsetMs});
+
+  final MediaCommandKind kind;
+
+  /// kind=seekTo：绝对位置毫秒。
+  final int? positionMs;
+
+  /// kind=seekBy：相对偏移毫秒（负=回退）。
+  final int? offsetMs;
+}
+
+/// 媒体会话元数据（随曲更新：换曲/红心态变化时由服务侧推送）。
+final class MediaSessionInfo {
+  const MediaSessionInfo({
+    this.title,
+    this.artist,
+    this.durationMs,
+    this.favorite,
+  });
+
+  final String? title;
+  final String? artist;
+  final int? durationMs;
+
+  /// null=不改变当前红心态（仅换曲更新元数据时）。
+  final bool? favorite;
+}
+
 /// 引擎配置（跨端桥/缓冲）。
 final class EngineConfig {
   const EngineConfig({
@@ -93,11 +127,18 @@ abstract class EnginePort {
   /// 5 段 EQ（60/230/910/3600/14000 Hz，-12..+12 dB）；不支持端→`EngineCapabilityException`。
   Future<void> setEqBands(List<double> gains);
 
+  /// 应用音量（percent，100=不衰减；>100 为增益，实现可按端钳制）。
+  Future<void> setVolume(double volume);
+
   /// **插队**（REQ-PLAY-06）：把 [item] 插为当前曲之后立刻播放的下一首。
   /// * 语义=mvp「下一首播放」：不打断当前曲、引擎物理 playlist 立即增长
   ///   （mpv `loadfile <path> insert-next` 转义阀，S8 详记）。
   /// * 自然推进与手动 next 均按新序命中（游标/镜像同事务增列口径）。
   Future<void> insertNext(TrackLite item);
+
+  /// 更新媒体会话元数据（REQ-PLAY-05：换曲/红心态变化随曲更新通知面；
+  /// 实现只更新元数据，不重夺会话所有权）。
+  Future<void> updateMediaSession(MediaSessionInfo info);
 
   /// 事件流（progress/state/ended/sessionLost/error）。
   Stream<EngineEvent> get events;

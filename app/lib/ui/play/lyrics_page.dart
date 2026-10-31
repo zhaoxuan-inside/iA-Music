@@ -93,8 +93,21 @@ class _LyricsPageState extends State<LyricsPage> {
     if (trackId == null || trackId == _loadedFor) return;
     final meta = await widget.data.lyrics.metaFor(trackId);
     List<LrcLine> lines = const [];
-    final path = meta?.lrcPath;
-    if (path != null) {
+    final rel = meta?.lrcPath;
+    if (rel != null) {
+      var path = rel;
+      if (!File(path).isAbsolute) {
+        // lrcPath 落账为仓库相对路径（extract_queue/enrich/lyrics_service 惯例），
+        // 与播放侧 joinAbs 同口径拼根；根缺失（仓库被移除）则读取失败走降级。
+        final row = await widget.data.library.rowById(trackId);
+        final roots = await widget.data.library.rootsSnapshot();
+        final root = row == null
+            ? null
+            : roots.where((r) => r.id == row.rootId).firstOrNull;
+        if (root != null) {
+          path = PlaybackService.joinAbs(root.path, rel);
+        }
+      }
       try {
         lines = parseLrc(await File(path).readAsString());
       } catch (_) {

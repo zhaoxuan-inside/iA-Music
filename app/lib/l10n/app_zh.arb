@@ -304,5 +304,16 @@
   "pollFailed": "登录状态查询失败（{code}）",
   "@pollFailed": { "placeholders": { "code": { "type": "String" } } },
 
-  "dbRecoveryHint": "数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。"
+  "dbRecoveryHint": "数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。",
+
+  "eqBandsNote": "5 段均衡 · ±12dB · 拖动实时生效",
+  "eqPresetDefault": "默认",
+  "eqPresetPop": "流行",
+  "eqPresetRock": "摇滚",
+  "eqPresetClassical": "古典",
+  "eqPresetJazz": "爵士",
+  "eqPresetBass": "低音增强",
+  "eqPresetCustom": "自定义",
+  "eqBandLabel": "{hz}",
+  "@eqBandLabel": { "placeholders": { "hz": { "type": "String" } } }
 }

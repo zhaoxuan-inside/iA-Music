@@ -823,4 +823,33 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get dbRecoveryHint =>
       'Database failed to open: read-only protection is on; your data is safe. Use the repair guide in Settings.';
+
+  @override
+  String get eqBandsNote => '5 bands · ±12dB · applies live while dragging';
+
+  @override
+  String get eqPresetDefault => 'Default';
+
+  @override
+  String get eqPresetPop => 'Pop';
+
+  @override
+  String get eqPresetRock => 'Rock';
+
+  @override
+  String get eqPresetClassical => 'Classical';
+
+  @override
+  String get eqPresetJazz => 'Jazz';
+
+  @override
+  String get eqPresetBass => 'Bass Boost';
+
+  @override
+  String get eqPresetCustom => 'Custom';
+
+  @override
+  String eqBandLabel(String hz) {
+    return '$hz Hz';
+  }
 }

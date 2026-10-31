@@ -1393,6 +1393,60 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。'**
   String get dbRecoveryHint;
+
+  /// No description provided for @eqBandsNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'5 段均衡 · ±12dB · 拖动实时生效'**
+  String get eqBandsNote;
+
+  /// No description provided for @eqPresetDefault.
+  ///
+  /// In zh, this message translates to:
+  /// **'默认'**
+  String get eqPresetDefault;
+
+  /// No description provided for @eqPresetPop.
+  ///
+  /// In zh, this message translates to:
+  /// **'流行'**
+  String get eqPresetPop;
+
+  /// No description provided for @eqPresetRock.
+  ///
+  /// In zh, this message translates to:
+  /// **'摇滚'**
+  String get eqPresetRock;
+
+  /// No description provided for @eqPresetClassical.
+  ///
+  /// In zh, this message translates to:
+  /// **'古典'**
+  String get eqPresetClassical;
+
+  /// No description provided for @eqPresetJazz.
+  ///
+  /// In zh, this message translates to:
+  /// **'爵士'**
+  String get eqPresetJazz;
+
+  /// No description provided for @eqPresetBass.
+  ///
+  /// In zh, this message translates to:
+  /// **'低音增强'**
+  String get eqPresetBass;
+
+  /// No description provided for @eqPresetCustom.
+  ///
+  /// In zh, this message translates to:
+  /// **'自定义'**
+  String get eqPresetCustom;
+
+  /// No description provided for @eqBandLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'{hz}'**
+  String eqBandLabel(String hz);
 }
 
 class _AppLocalizationsDelegate

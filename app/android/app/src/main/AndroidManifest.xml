@@ -3,6 +3,10 @@
     <!-- S8 Android 仓库选择：读取公共音乐目录（API 33+ 媒体权限；旧版本走存储权限） -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+    <!-- WS1/REQ-PLAY-05 后台播放：mpv_audio_kit 的 MpvMediaSessionService
+         （foregroundServiceType=mediaPlayback）经插件 manifest 合并；WAKE_LOCK
+         补后台播放期间 CPU 唤醒；POST_NOTIFICATIONS 运行时请求在 main.dart。 -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
         android:label="ia_music"
         android:name="${applicationName}"

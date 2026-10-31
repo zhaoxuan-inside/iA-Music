@@ -56,11 +56,13 @@ class _ShufflePageState extends State<ShufflePage> {
   Future<void> _toggleHeart() async {
     final cur = widget.service.snapshot.currentTrack;
     if (cur == null) return;
-    await PlaylistService(widget.data).toggleFavorite(
+    final added = await PlaylistService(widget.data).toggleFavorite(
       cur.id,
       nowMs: DateTime.now().millisecondsSinceEpoch,
     );
     await _refreshFav();
+    // 媒体会话红心态回写（REQ-PLAY-05：通知栏/锁屏一致）
+    unawaited(widget.service.notifyFavoriteChanged(cur.id, added));
   }
 
   @override

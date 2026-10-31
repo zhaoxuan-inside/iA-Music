@@ -84,6 +84,8 @@ class NowPlayingPageState extends State<NowPlayingPage> {
       nowMs: DateTime.now().millisecondsSinceEpoch,
     );
     if (mounted) setState(() => _fav = added);
+    // 媒体会话红心态回写（REQ-PLAY-05：通知栏/锁屏一致）
+    unawaited(widget.service.notifyFavoriteChanged(cur.id, added));
     return added;
   }
 
@@ -222,6 +224,7 @@ class NowPlayingPageState extends State<NowPlayingPage> {
               pos: pos,
               duration: duration,
               fav: _fav,
+              showVolume: wide,
               onDislike: () => unawaited(dislike()),
               onTogglePlay: () => unawaited(togglePlay()),
               onShuffle: () => unawaited(toggleShuffle()),
@@ -356,8 +359,8 @@ final class _Details extends StatelessWidget {
   }
 }
 
-/// 五键控制排 + 进度 + 工具排（Harmonoid 签名形态）。
-final class _Controls extends StatelessWidget {
+/// 五键控制排 + 进度 + 音量（桌面）+ 工具排（Harmonoid 签名形态）。
+final class _Controls extends StatefulWidget {
   const _Controls({
     required this.service,
     required this.playing,
@@ -372,6 +375,7 @@ final class _Controls extends StatelessWidget {
     required this.onHeart,
     required this.onLyrics,
     required this.onQueue,
+    this.showVolume = false,
   });
 
   final PlaybackService service;
@@ -388,10 +392,26 @@ final class _Controls extends StatelessWidget {
   final VoidCallback onLyrics;
   final VoidCallback onQueue;
 
+  /// 桌面（宽布局）显示音量滑杆（PRD §3.1：Android 走系统音量）。
+  final bool showVolume;
+
+  @override
+  State<_Controls> createState() => _ControlsState();
+}
+
+final class _ControlsState extends State<_Controls> {
+  /// 拖动预览位（null=未拖动；拖动中显示拖动态并停用进度推进回显）。
+  int? _dragMs;
+
+  /// 音量本地拖动值（onChangeEnd 落服务并持久化）。
+  double? _volumeDrag;
+
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
     final t = sOf(context);
+    final w = widget;
+    final shownPos = _dragMs ?? w.pos;
     return Center(
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -404,14 +424,15 @@ final class _Controls extends StatelessWidget {
               children: [
                 IconButton(
                   key: const ValueKey('play_shuffle_key'),
-                  tooltip: mode == PlaybackMode.random
+                  tooltip: w.mode == PlaybackMode.random
                       ? t.shuffleOnTooltip
                       : t.modeRandom,
-                  onPressed: onShuffle,
+                  onPressed: w.onShuffle,
                   icon: Icon(
                     IaIcon.shuffle,
                     size: 24,
-                    color: mode == PlaybackMode.random ? p.accent : p.secondaryText,
+                    color:
+                        w.mode == PlaybackMode.random ? p.accent : p.secondaryText,
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -421,7 +442,7 @@ final class _Controls extends StatelessWidget {
                   iconSize: 30,
                   constraints:
                       const BoxConstraints(minWidth: 52, minHeight: 52),
-                  onPressed: () => unawaited(service.previous()),
+                  onPressed: () => unawaited(w.service.previous()),
                   icon: Icon(IaIcon.previous, color: p.mainText),
                 ),
                 const SizedBox(width: 16),
@@ -434,9 +455,9 @@ final class _Controls extends StatelessWidget {
                       shape: const CircleBorder(),
                       padding: EdgeInsets.zero,
                     ),
-                    onPressed: onTogglePlay,
+                    onPressed: w.onTogglePlay,
                     child: Icon(
-                      playing ? IaIcon.pause : IaIcon.play,
+                      w.playing ? IaIcon.pause : IaIcon.play,
                       size: 34,
                       fill: 1.0,
                     ),
@@ -449,22 +470,25 @@ final class _Controls extends StatelessWidget {
                   iconSize: 30,
                   constraints:
                       const BoxConstraints(minWidth: 52, minHeight: 52),
-                  onPressed: () => unawaited(service.next()),
+                  onPressed: () => unawaited(w.service.next()),
                   icon: Icon(IaIcon.next, color: p.mainText),
                 ),
                 const SizedBox(width: 14),
                 IconButton(
                   key: const ValueKey('play_repeat_key'),
-                  tooltip: switch (mode) {
+                  tooltip: switch (w.mode) {
                     PlaybackMode.loops => t.modeLoops,
                     PlaybackMode.single => t.modeSingle,
                     _ => t.modeSequence,
                   },
-                  onPressed: onRepeat,
+                  onPressed: w.onRepeat,
                   icon: Icon(
-                    mode == PlaybackMode.single ? IaIcon.repeatOne : IaIcon.repeat,
+                    w.mode == PlaybackMode.single
+                        ? IaIcon.repeatOne
+                        : IaIcon.repeat,
                     size: 24,
-                    color: (mode == PlaybackMode.loops || mode == PlaybackMode.single)
+                    color: (w.mode == PlaybackMode.loops ||
+                            w.mode == PlaybackMode.single)
                         ? p.accent
                         : p.secondaryText,
                   ),
@@ -472,7 +496,7 @@ final class _Controls extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // 进度 + 双侧时间
+            // 进度 + 双侧时间（拖动预览：拖动中显示拖动态，松手落 seek）
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
               child: Column(
@@ -487,10 +511,13 @@ final class _Controls extends StatelessWidget {
                     ),
                     child: Slider(
                       key: const ValueKey('play_progress'),
-                      value: pos.toDouble(),
-                      max: duration.toDouble(),
-                      onChanged: (_) {},
-                      onChangeEnd: (v) => unawaited(service.seekTo(v.round())),
+                      value: (_dragMs ?? w.pos).toDouble(),
+                      max: w.duration.toDouble(),
+                      onChanged: (v) => setState(() => _dragMs = v.round()),
+                      onChangeEnd: (v) {
+                        setState(() => _dragMs = null);
+                        unawaited(w.service.seekTo(v.round()));
+                      },
                     ),
                   ),
                   Padding(
@@ -499,7 +526,7 @@ final class _Controls extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          iaMmss(pos),
+                          iaMmss(shownPos),
                           style: TextStyle(
                             fontSize: 11,
                             color: p.secondaryText,
@@ -507,7 +534,7 @@ final class _Controls extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          iaMmss(duration),
+                          iaMmss(w.duration),
                           style: TextStyle(
                             fontSize: 11,
                             color: p.secondaryText,
@@ -520,6 +547,54 @@ final class _Controls extends StatelessWidget {
                 ],
               ),
             ),
+            if (w.showVolume) ...[
+              const SizedBox(height: 2),
+              // 音量滑杆（桌面；PRD REQ-PLAY-01）
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 280),
+                child: Row(
+                  key: const ValueKey('play_volume_row'),
+                  children: [
+                    Icon(IaIcon.volume, size: 18, color: p.secondaryText),
+                    Expanded(
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          thumbShape:
+                              const RoundSliderThumbShape(enabledThumbRadius: 6),
+                          overlayShape:
+                              const RoundSliderOverlayShape(overlayRadius: 12),
+                        ),
+                        child: Slider(
+                          key: const ValueKey('play_volume'),
+                          value: (_volumeDrag ?? w.service.volume)
+                              .clamp(0.0, 100.0),
+                          min: 0,
+                          max: 100,
+                          onChanged: (v) => setState(() => _volumeDrag = v),
+                          onChangeEnd: (v) {
+                            setState(() => _volumeDrag = null);
+                            unawaited(w.service.setVolume(v));
+                          },
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 38,
+                      child: Text(
+                        '${((_volumeDrag ?? w.service.volume).round())}',
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: p.secondaryText,
+                          fontFeatures: kIaNumericFeatures,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 4),
             // 工具排：垃圾桶 | 歌词 | 红心
             Row(
@@ -528,24 +603,24 @@ final class _Controls extends StatelessWidget {
                 IconButton(
                   key: const ValueKey('play_dislike'),
                   tooltip: t.dislikeLongTooltip,
-                  onPressed: onDislike,
+                  onPressed: w.onDislike,
                   icon: Icon(IaIcon.delete, size: 22, color: p.secondaryText),
                 ),
                 IconButton(
                   key: const ValueKey('play_lyrics_entry'),
                   tooltip: t.lyricsTitle,
-                  onPressed: onLyrics,
+                  onPressed: w.onLyrics,
                   icon: Icon(IaIcon.lyrics, size: 24, color: p.secondaryText),
                 ),
                 IconButton(
                   key: const ValueKey('play_heart'),
-                  tooltip: fav ? t.unheartTooltip : t.heartLongTooltip,
-                  onPressed: onHeart,
+                  tooltip: w.fav ? t.unheartTooltip : t.heartLongTooltip,
+                  onPressed: w.onHeart,
                   icon: Icon(
-                    fav ? IaIcon.heart : IaIcon.heart,
-                    fill: fav ? 1.0 : 0.0,
+                    IaIcon.heart,
+                    fill: w.fav ? 1.0 : 0.0,
                     size: 24,
-                    color: fav ? p.heart : p.secondaryText,
+                    color: w.fav ? p.heart : p.secondaryText,
                   ),
                 ),
               ],
