@@ -8,6 +8,8 @@ library;
 
 import 'dart:io';
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,8 +22,12 @@ import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
 import 'package:ia_music/ui/shell/app_shell.dart';
 import 'package:ia_music/ui/shell/locale_controller.dart';
+import 'package:ia_music/ui/shell/onboarding_page.dart';
 import 'package:ia_music/ui/theme/accent_controller.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
+
+/// 应用版本（与 pubspec.yaml 同步；WS8 发布时一并 bump）。
+const String kIaAppVersion = '1.0.2+3';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -83,6 +89,20 @@ final class IaMusicApp extends StatefulWidget {
 }
 
 class _IaMusicAppState extends State<IaMusicApp> {
+  /// FTUE 门（REQ-ONB-01）：首次安装（无 onboarding.done 标记）→ 引导页。
+  bool? _onboardDone; // null=读取中
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(() async {
+      final raw = await widget.hub.data.shell.value(kOnboardingDoneKey);
+      if (mounted) {
+        setState(() => _onboardDone = raw == 'true');
+      }
+    }());
+  }
+
   @override
   Widget build(BuildContext context) {
     // 三层：seed（换曲）× themeMode（DEC-005 三选）× locale（D5-2 语言三选）；
@@ -125,12 +145,21 @@ class _IaMusicAppState extends State<IaMusicApp> {
               ),
             ),
           ),
-          home: AppShell(
-            hub: widget.hub,
-            appearance: widget.appearance,
-            locale: widget.locale,
-            accent: widget.accent,
-          ),
+          home: _onboardDone == false
+              ? OnboardingPage(
+                  hub: widget.hub,
+                  onDone: () async {
+                    if (mounted) {
+                      setState(() => _onboardDone = true);
+                    }
+                  },
+                )
+              : AppShell(
+                  hub: widget.hub,
+                  appearance: widget.appearance,
+                  locale: widget.locale,
+                  accent: widget.accent,
+                ),
           ),
         ),
       ),

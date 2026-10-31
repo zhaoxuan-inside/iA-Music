@@ -416,5 +416,25 @@
   "lyricsSection": "歌词",
   "fontSizeS": "小",
   "fontSizeM": "标准",
-  "fontSizeL": "大"
+  "fontSizeL": "大",
+
+  "onboardingTitle": "你的音乐放在哪？",
+  "onboardingSubtitle": "选择音乐所在文件夹，iA-Music 会自动扫描入库",
+  "onboardingUseSuggested": "使用『音乐』文件夹",
+  "onboardingPickFolder": "选择其他文件夹…",
+  "onboardingScanning": "已发现 {n} 首",
+  "@onboardingScanning": { "placeholders": { "n": { "type": "int" } } },
+  "onboardingScanDone": "扫描完成：{n} 首已入库",
+  "@onboardingScanDone": { "placeholders": { "n": { "type": "int" } } },
+  "onboardingNext": "下一步",
+  "onboardingStart": "开始聆听",
+  "onboardingSkip": "跳过，直接开始",
+  "onboardingStep2Title": "试试提取你的第一首歌",
+  "onboardingStep2Body": "从 B 站复制分享链接粘贴到这里（可选）",
+  "onboardingExtract": "提取这首歌",
+  "searchViewAll": "查看全部",
+  "settingsEffects": "音效",
+  "complianceReview": "合规声明（回看）",
+  "versionLabel": "版本 {v}",
+  "@versionLabel": { "placeholders": { "v": { "type": "String" } } }
 }

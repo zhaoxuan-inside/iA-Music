@@ -31,6 +31,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
+    // 全新库 → FTUE 引导（REQ-ONB-01）；跳过后进主壳（两用例共用前置）。
+    final onboard = find.byKey(const ValueKey('onboarding_page'));
+    if (onboard.evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('onboarding_skip')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
     // 资料库中心：单曲即首页（D12-3；默认中文=zh，导航文案走 C63 本地化）。
     expect(find.text('单曲'), findsWidgets, reason: '首页=单曲大标题（桌面另有侧栏同名项）');
     // 移动 4 Tab（曲库/搜索/歌单/设置）。
@@ -64,6 +72,14 @@ void main() {
         locale: LocaleController(hub.data, AppLanguage.zh)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
+
+    // 全新库 → FTUE：跳过后进桌面壳（与 REQ-ONB-01 行为一致）。
+    final onboard = find.byKey(const ValueKey('onboarding_page'));
+    if (onboard.evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('onboarding_skip')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+    }
 
     // 侧栏子树（D12-3：SEARCH / LIBRARY[TRACKS·ALBUMS·ARTISTS] / PLAYLISTS / SETTINGS）。
     expect(find.byKey(const ValueKey('nav_tracks')), findsOneWidget);

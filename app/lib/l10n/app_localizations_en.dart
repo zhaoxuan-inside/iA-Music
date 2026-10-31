@@ -1133,4 +1133,59 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get fontSizeL => 'Large';
+
+  @override
+  String get onboardingTitle => 'Where is your music?';
+
+  @override
+  String get onboardingSubtitle =>
+      'Pick a folder — iA-Music scans it automatically';
+
+  @override
+  String get onboardingUseSuggested => 'Use the \'Music\' folder';
+
+  @override
+  String get onboardingPickFolder => 'Choose another folder…';
+
+  @override
+  String onboardingScanning(int n) {
+    return '$n found';
+  }
+
+  @override
+  String onboardingScanDone(int n) {
+    return 'Scan complete: $n tracks imported';
+  }
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingStart => 'Start listening';
+
+  @override
+  String get onboardingSkip => 'Skip';
+
+  @override
+  String get onboardingStep2Title => 'Try extracting your first song';
+
+  @override
+  String get onboardingStep2Body => 'Paste a Bilibili share link (optional)';
+
+  @override
+  String get onboardingExtract => 'Extract this song';
+
+  @override
+  String get searchViewAll => 'Show all';
+
+  @override
+  String get settingsEffects => 'Audio effects';
+
+  @override
+  String get complianceReview => 'Compliance notice (review)';
+
+  @override
+  String versionLabel(String v) {
+    return 'Version $v';
+  }
 }

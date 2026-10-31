@@ -355,5 +355,25 @@
   "lyricsSection": "Lyrics",
   "fontSizeS": "Small",
   "fontSizeM": "Standard",
-  "fontSizeL": "Large"
+  "fontSizeL": "Large",
+
+  "onboardingTitle": "Where is your music?",
+  "onboardingSubtitle": "Pick a folder — iA-Music scans it automatically",
+  "onboardingUseSuggested": "Use the 'Music' folder",
+  "onboardingPickFolder": "Choose another folder…",
+  "onboardingScanning": "{n} found",
+  "@onboardingScanning": { "placeholders": { "n": { "type": "int" } } },
+  "onboardingScanDone": "Scan complete: {n} tracks imported",
+  "@onboardingScanDone": { "placeholders": { "n": { "type": "int" } } },
+  "onboardingNext": "Next",
+  "onboardingStart": "Start listening",
+  "onboardingSkip": "Skip",
+  "onboardingStep2Title": "Try extracting your first song",
+  "onboardingStep2Body": "Paste a Bilibili share link (optional)",
+  "onboardingExtract": "Extract this song",
+  "searchViewAll": "Show all",
+  "settingsEffects": "Audio effects",
+  "complianceReview": "Compliance notice (review)",
+  "versionLabel": "Version {v}",
+  "@versionLabel": { "placeholders": { "v": { "type": "String" } } }
 }

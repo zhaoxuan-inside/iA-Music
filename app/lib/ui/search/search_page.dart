@@ -19,6 +19,9 @@ import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/extract/extract_page.dart';
+import 'package:ia_music/ui/library/albums_page.dart';
+import 'package:ia_music/ui/library/artists_page.dart';
+import 'package:ia_music/ui/playlists/playlists_page.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
@@ -53,6 +56,12 @@ class SearchPageState extends State<SearchPage> {
   List<SearchResult> _biliRows = const [];
   String _biliError = '';
 
+  /// 分区结果（WS5/REQ-NAV-04：歌手/专辑/歌单；展开态=查看全部）。
+  List<({Artist artist, int count, int sampleTrackId})> _artistHits = const [];
+  List<({Album album, int count, int sampleTrackId})> _albumHits = const [];
+  List<Playlist> _playlistHits = const [];
+  final Set<String> _expandedSections = {};
+
   /// 错误性质：true=风控要求登录（显示扫码 CTA）；false=网络/其他（重试）。
   bool _biliErrorIsAuth = false;
   bool _biliLoading = false;
@@ -86,14 +95,34 @@ class SearchPageState extends State<SearchPage> {
   Future<void> _searchLocal() async {
     final q = _controller.text.trim();
     if (q.isEmpty) {
-      if (mounted) setState(() => _localRows = const []);
+      if (mounted) {
+        setState(() {
+          _localRows = const [];
+          _artistHits = const [];
+          _albumHits = const [];
+          _playlistHits = const [];
+          _expandedSections.clear();
+        });
+      }
       return;
     }
     if (_inflight) return;
     _inflight = true;
     try {
       final rows = await widget.hub.data.library.search(q);
-      if (mounted) setState(() => _localRows = rows);
+      // 分区结果（WS5/REQ-NAV-04：歌手/专辑/歌单；每区 ≤3 条 + 查看全部）
+      final artists = await widget.hub.data.library.searchArtistsNamed(q);
+      final albums = await widget.hub.data.library.searchAlbumsNamed(q);
+      final playlists = await widget.hub.data.library.searchPlaylistsNamed(q);
+      if (mounted) {
+        setState(() {
+          _localRows = rows;
+          _artistHits = artists;
+          _albumHits = albums;
+          _playlistHits = playlists;
+          _expandedSections.clear();
+        });
+      }
     } finally {
       _inflight = false;
     }
@@ -191,6 +220,60 @@ class SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 分区跳转（复用各域详情页；REQ-NAV-04 分区→详情闭环）。
+  Future<void> _openArtistDetail(int artistId) async {
+    final hit = (await widget.hub.data.library.artistsWithCounts())
+        .where((e) => e.artist.id == artistId)
+        .firstOrNull;
+    if (hit == null || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ArtistDetailPage(
+        hub: widget.hub,
+        artist: hit.artist,
+        sampleTrackId: hit.sampleTrackId,
+        playTracks: (ids, {startIndex = 0}) async {
+          final svc = await widget.ensurePlayback();
+          await svc.playTrackIds(ids, startIndex: startIndex);
+          return svc;
+        },
+        onPlayRequested: () {},
+      ),
+    ));
+  }
+
+  Future<void> _openAlbumDetail(int albumId, int sampleTrackId, String name) async {
+    final album = (await widget.hub.data.library.albumsWithCounts())
+        .where((e) => e.album.id == albumId)
+        .map((e) => e.album)
+        .firstOrNull;
+    if (album == null || !mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => AlbumDetailPage(
+        hub: widget.hub,
+        album: album,
+        count: 0,
+        sampleTrackId: sampleTrackId,
+        playTracks: (ids, {startIndex = 0}) async {
+          final svc = await widget.ensurePlayback();
+          await svc.playTrackIds(ids, startIndex: startIndex);
+          return svc;
+        },
+        onPlayRequested: () {},
+      ),
+    ));
+  }
+
+  Future<void> _openPlaylistDetail(int playlistId, String name) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PlaylistDetailPage(
+        playlistId: playlistId,
+        title: name,
+        data: widget.hub.data,
+        ensurePlayback: widget.ensurePlayback,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
@@ -261,7 +344,7 @@ class SearchPageState extends State<SearchPage> {
     );
   }
 
-  List<Widget> _localBody(dynamic p) {
+  List<Widget> _localBody(IaPalette p) {
     final t = sOf(context);
     if (_controller.text.isEmpty) {
       return [
@@ -277,7 +360,10 @@ class SearchPageState extends State<SearchPage> {
         ),
       ];
     }
-    if (_localRows.isEmpty) {
+    if (_localRows.isEmpty &&
+        _artistHits.isEmpty &&
+        _albumHits.isEmpty &&
+        _playlistHits.isEmpty) {
       return [
         Center(
           child: Padding(
@@ -290,58 +376,148 @@ class SearchPageState extends State<SearchPage> {
         ),
       ];
     }
+    // 分区（REQ-NAV-04）：曲目 / 歌手 / 专辑 / 歌单；每区 ≤3 条 + 查看全部
+    final tracksAll = _expandedSections.contains('tracks');
+    final shownTracks = tracksAll ? _localRows : _localRows.take(3);
     return [
-      for (var i = 0; i < _localRows.length; i++)
-        InkWell(
-          key: ValueKey('search_local_row_$i'),
-          onTap: () => unawaited(_playLocal(_localRows, i)),
-          onLongPress: () => unawaited(_openTrackMenu(_localRows[i])),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                CoverArt(
-                  trackId: _localRows[i].id,
-                  title: _localRows[i].title ?? '',
-                  data: widget.hub.data,
-                  chain: widget.hub.covers,
-                  size: 44,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _localRows[i].title ?? sOf(context).untitled,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        _localRows[i].artistDisplay ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            TextStyle(fontSize: 12, color: p.secondaryText),
-                      ),
-                    ],
+      if (_localRows.isNotEmpty) ...[
+        _sectionHeader(t.navTracks, 'tracks', _localRows.length),
+        for (var i = 0; i < shownTracks.length; i++)
+          InkWell(
+            key: ValueKey('search_local_row_$i'),
+            onTap: () => unawaited(_playLocal(_localRows, i)),
+            onLongPress: () => unawaited(_openTrackMenu(_localRows[i])),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  CoverArt(
+                    trackId: _localRows[i].id,
+                    title: _localRows[i].title ?? '',
+                    data: widget.hub.data,
+                    chain: widget.hub.covers,
+                    size: 44,
                   ),
-                ),
-                Text(
-                  iaMmss(_localRows[i].durationMs ?? 0),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: p.secondaryText,
-                    fontFeatures: kIaNumericFeatures,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _localRows[i].title ?? sOf(context).untitled,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _localRows[i].artistDisplay ?? '',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              TextStyle(fontSize: 12, color: p.secondaryText),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  Text(
+                    iaMmss(_localRows[i].durationMs ?? 0),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: p.secondaryText,
+                      fontFeatures: kIaNumericFeatures,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+      ],
+      if (_artistHits.isNotEmpty) ...[
+        _sectionHeader(t.navArtists, 'artists', _artistHits.length),
+        for (final e in (_expandedSections.contains('artists')
+            ? _artistHits
+            : _artistHits.take(3)))
+          ListTile(
+            key: ValueKey('search_artist_${e.artist.id}'),
+            dense: true,
+            leading: Icon(IaIcon.person, size: 20, color: p.secondaryText),
+            title: Text(e.artist.name, maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            subtitle: Text(t.trackCount(e.count)),
+            onTap: () {
+              // 分区命中 → 跳转歌手详情页（复用 ArtistsPage 的详情构造）
+              unawaited(_openArtistDetail(e.artist.id));
+            },
+          ),
+      ],
+      if (_albumHits.isNotEmpty) ...[
+        _sectionHeader(t.navAlbums, 'albums', _albumHits.length),
+        for (final e in (_expandedSections.contains('albums')
+            ? _albumHits
+            : _albumHits.take(3)))
+          ListTile(
+            key: ValueKey('search_album_${e.album.id}'),
+            dense: true,
+            leading: Icon(IaIcon.album, size: 20, color: p.secondaryText),
+            title: Text(e.album.name, maxLines: 1,
+                overflow: TextOverflow.ellipsis),
+            subtitle: Text(t.trackCount(e.count)),
+            onTap: () => unawaited(
+                _openAlbumDetail(e.album.id, e.sampleTrackId, e.album.name)),
+          ),
+      ],
+      if (_playlistHits.isNotEmpty) ...[
+        _sectionHeader(t.navPlaylists, 'playlists', _playlistHits.length),
+        for (final pl in (_expandedSections.contains('playlists')
+            ? _playlistHits
+            : _playlistHits.take(3)))
+          ListTile(
+            key: ValueKey('search_playlist_${pl.id}'),
+            dense: true,
+            leading: Icon(IaIcon.playlist, size: 20, color: p.secondaryText),
+            title: Text(pl.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            onTap: () => unawaited(_openPlaylistDetail(pl.id, pl.name)),
+          ),
+      ],
     ];
+  }
+
+  /// 分区头：标题 + 计数 + 查看全部切换（≤3 条截断时才显示）。
+  Widget _sectionHeader(String label, String key, int total) {
+    final p = context.ia;
+    final t = sOf(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 2),
+      child: Row(
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: p.secondaryText,
+                  letterSpacing: 0.05)),
+          const SizedBox(width: 8),
+          Text('$total',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: p.secondaryText,
+                  fontFeatures: kIaNumericFeatures)),
+          const Spacer(),
+          if (total > 3)
+            TextButton(
+              key: ValueKey('search_more_$key'),
+              onPressed: () => setState(() {
+                _expandedSections.contains(key)
+                    ? _expandedSections.remove(key)
+                    : _expandedSections.add(key);
+              }),
+              child: Text(t.searchViewAll,
+                  style: const TextStyle(fontSize: 12)),
+            ),
+        ],
+      ),
+    );
   }
 
   List<Widget> _biliBody(dynamic p) {

@@ -1963,6 +1963,102 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'大'**
   String get fontSizeL;
+
+  /// No description provided for @onboardingTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'你的音乐放在哪？'**
+  String get onboardingTitle;
+
+  /// No description provided for @onboardingSubtitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择音乐所在文件夹，iA-Music 会自动扫描入库'**
+  String get onboardingSubtitle;
+
+  /// No description provided for @onboardingUseSuggested.
+  ///
+  /// In zh, this message translates to:
+  /// **'使用『音乐』文件夹'**
+  String get onboardingUseSuggested;
+
+  /// No description provided for @onboardingPickFolder.
+  ///
+  /// In zh, this message translates to:
+  /// **'选择其他文件夹…'**
+  String get onboardingPickFolder;
+
+  /// No description provided for @onboardingScanning.
+  ///
+  /// In zh, this message translates to:
+  /// **'已发现 {n} 首'**
+  String onboardingScanning(int n);
+
+  /// No description provided for @onboardingScanDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'扫描完成：{n} 首已入库'**
+  String onboardingScanDone(int n);
+
+  /// No description provided for @onboardingNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一步'**
+  String get onboardingNext;
+
+  /// No description provided for @onboardingStart.
+  ///
+  /// In zh, this message translates to:
+  /// **'开始聆听'**
+  String get onboardingStart;
+
+  /// No description provided for @onboardingSkip.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过，直接开始'**
+  String get onboardingSkip;
+
+  /// No description provided for @onboardingStep2Title.
+  ///
+  /// In zh, this message translates to:
+  /// **'试试提取你的第一首歌'**
+  String get onboardingStep2Title;
+
+  /// No description provided for @onboardingStep2Body.
+  ///
+  /// In zh, this message translates to:
+  /// **'从 B 站复制分享链接粘贴到这里（可选）'**
+  String get onboardingStep2Body;
+
+  /// No description provided for @onboardingExtract.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取这首歌'**
+  String get onboardingExtract;
+
+  /// No description provided for @searchViewAll.
+  ///
+  /// In zh, this message translates to:
+  /// **'查看全部'**
+  String get searchViewAll;
+
+  /// No description provided for @settingsEffects.
+  ///
+  /// In zh, this message translates to:
+  /// **'音效'**
+  String get settingsEffects;
+
+  /// No description provided for @complianceReview.
+  ///
+  /// In zh, this message translates to:
+  /// **'合规声明（回看）'**
+  String get complianceReview;
+
+  /// No description provided for @versionLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'版本 {v}'**
+  String versionLabel(String v);
 }
 
 class _AppLocalizationsDelegate

@@ -1078,4 +1078,58 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get fontSizeL => '大';
+
+  @override
+  String get onboardingTitle => '你的音乐放在哪？';
+
+  @override
+  String get onboardingSubtitle => '选择音乐所在文件夹，iA-Music 会自动扫描入库';
+
+  @override
+  String get onboardingUseSuggested => '使用『音乐』文件夹';
+
+  @override
+  String get onboardingPickFolder => '选择其他文件夹…';
+
+  @override
+  String onboardingScanning(int n) {
+    return '已发现 $n 首';
+  }
+
+  @override
+  String onboardingScanDone(int n) {
+    return '扫描完成：$n 首已入库';
+  }
+
+  @override
+  String get onboardingNext => '下一步';
+
+  @override
+  String get onboardingStart => '开始聆听';
+
+  @override
+  String get onboardingSkip => '跳过，直接开始';
+
+  @override
+  String get onboardingStep2Title => '试试提取你的第一首歌';
+
+  @override
+  String get onboardingStep2Body => '从 B 站复制分享链接粘贴到这里（可选）';
+
+  @override
+  String get onboardingExtract => '提取这首歌';
+
+  @override
+  String get searchViewAll => '查看全部';
+
+  @override
+  String get settingsEffects => '音效';
+
+  @override
+  String get complianceReview => '合规声明（回看）';
+
+  @override
+  String versionLabel(String v) {
+    return '版本 $v';
+  }
 }

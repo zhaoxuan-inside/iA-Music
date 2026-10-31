@@ -66,6 +66,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
+    // 全新库 → FTUE 引导：跳过进主壳（REQ-ONB-01 行为本身即被引导页测试覆盖）。
+    final onboard = find.byKey(const ValueKey('onboarding_page'));
+    if (onboard.evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const ValueKey('onboarding_skip')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+
     // 中文默认：侧栏/Tab 文案为中文（桌面侧栏 SETTINGS 项；宽屏断言）。
     await tester.binding.setSurfaceSize(const Size(1400, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));

@@ -443,6 +443,64 @@ class LibraryDao {
         .get();
   }
 
+  // ═══ 搜索分区（WS5/REQ-NAV-04：曲目外的歌手/专辑/歌单分区） ═══
+  // 排序=精确 > 前缀 > 包含（PRD §3.2）；normalizeName 口径与 FTS 一致。
+
+  /// 名称分区检索通用：内存排序（数据量=字典表级，万库规模仍远小于万）。
+  List<T> _rankNames<T>(String q, List<T> rows, String Function(T) nameOf,
+      {required int limit}) {
+    final nq = normalizeName(q);
+    int rank(String name) {
+      final n = normalizeName(name);
+      if (n == nq) return 0;
+      if (n.startsWith(nq)) return 1;
+      if (n.contains(nq)) return 2;
+      return 3;
+    }
+
+    final out = <T>[for (final r in rows) if (rank(nameOf(r)) < 3) r];
+    out.sort((a, b) {
+      final c = rank(nameOf(a)).compareTo(rank(nameOf(b)));
+      return c != 0 ? c : nameOf(a).compareTo(nameOf(b));
+    });
+    return out.take(limit).toList(growable: false);
+  }
+
+  /// 歌手分区（含曲目计数与采样轨——头像/跳转面复用 artistsWithCounts 载荷）。
+  Future<List<({Artist artist, int count, int sampleTrackId})>>
+      searchArtistsNamed(String query, {int limit = 3}) async {
+    final all = await artistsWithCounts();
+    return _rankNames(
+      query,
+      all,
+      (e) => e.artist.name,
+      limit: limit,
+    );
+  }
+
+  /// 专辑分区（同构）。
+  Future<List<({Album album, int count, int sampleTrackId})>>
+      searchAlbumsNamed(String query, {int limit = 3}) async {
+    final all = await albumsWithCounts();
+    return _rankNames(
+      query,
+      all,
+      (e) => e.album.name,
+      limit: limit,
+    );
+  }
+
+  /// 歌单分区（排除软删与系统红心——红心无检索语义）。
+  Future<List<Playlist>> searchPlaylistsNamed(String query,
+      {int limit = 3}) async {
+    final rows = await (_db.select(_db.playlists)
+          ..where((p) =>
+              p.deletedAt.isNull() &
+              p.kind.equals('user')))
+        .get();
+    return _rankNames(query, rows, (p) => p.name, limit: limit);
+  }
+
   SimpleSelectStatement<$TracksTable, Track> _tracksSortedQuery(LibSort sort) {
     final q = _db.select(_db.tracks)..where((t) => t.deletedAt.isNull());
     switch (sort) {
