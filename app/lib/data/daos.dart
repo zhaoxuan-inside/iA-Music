@@ -1347,6 +1347,15 @@ class ShellDao {
               downloadedAt: Value(downloadedAt),
             ),
           );
+
+  /// 模型注册行（WS4 模型管理页读面）。
+  Future<List<ModelRegistryData>> modelsAll() =>
+      (_db.select(_db.modelRegistry)..orderBy([(m) => OrderingTerm.asc(m.modelId)]))
+          .get();
+
+  /// 删除注册行（WS4 模型删除；文件清理由调用方负责）。
+  Future<int> deleteModel(String modelId) =>
+      (_db.delete(_db.modelRegistry)..where((m) => m.modelId.equals(modelId))).go();
 }
 
 // ── 聚合门面 ───────────────────────────────────────────────

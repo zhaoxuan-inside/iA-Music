@@ -16,6 +16,7 @@ import 'package:ia_music/l10n/app_localizations.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
 import 'package:ia_music/ui/settings/directory_browser_page.dart';
+import 'package:ia_music/ui/settings/model_manager_page.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
 import 'package:ia_music/ui/shell/locale_controller.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
@@ -53,6 +54,7 @@ class SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _reloadRoots();
+    unawaited(_loadFontSize());
     unawaited(_refresh());
     widget.appearance.addListener(_onAppearance);
   }
@@ -215,9 +217,57 @@ class SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  /// 少播名单清空（REQ-PLAY-04 设置面；WS2 接线）。
-  Future<void> _clearFewWatch() async {
+  static const _kLyricsFontSizeKey = 'lyrics.fontSize';
+  String _fontSize = 'm'; // s / m / l
+
+  String _fontSizeLabel(AppLocalizations t) => switch (_fontSize) {
+        's' => t.fontSizeS,
+        'l' => t.fontSizeL,
+        _ => t.fontSizeM,
+      };
+
+  Future<void> _loadFontSize() async {
+    final v = await widget.hub.data.shell.value(_kLyricsFontSizeKey);
+    if (mounted && v != null && ['s', 'm', 'l'].contains(v)) {
+      setState(() => _fontSize = v);
+    }
+  }
+
+  Future<void> _pickFontSize() async {
     final t = sOf(context);
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (v, label) in [
+              ('s', t.fontSizeS),
+              ('m', t.fontSizeM),
+              ('l', t.fontSizeL),
+            ])
+              ListTile(
+                key: ValueKey('fontsize_$v'),
+                title: Text(label),
+                trailing: _fontSize == v ? Icon(IaIcon.check) : null,
+                onTap: () => Navigator.pop(ctx, v),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() => _fontSize = picked);
+    await widget.hub.data.shell.put(
+      _kLyricsFontSizeKey,
+      picked,
+      nowMs: DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  /// 少播名单清空（REQ-PLAY-04 设置面；WS2 接线）。
+  Future<void> _clearFewWatch() async {    final t = sOf(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -522,6 +572,37 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text(t.fewWatchClear),
             subtitle: Text(t.dislikeLongTooltip),
             onTap: () => unawaited(_clearFewWatch()),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            t.lyricsSection,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: p.mainText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ListTile(
+            key: const ValueKey('lyrics_model_entry'),
+            dense: true,
+            leading:
+                Icon(IaIcon.autoFix, size: 20, color: p.secondaryText),
+            title: Text(t.modelManagerTitle),
+            trailing: Icon(IaIcon.arrowForward),
+            onTap: () async {
+              await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => ModelManagerPage(hub: widget.hub),
+              ));
+            },
+          ),
+          ListTile(
+            key: const ValueKey('lyrics_fontsize_entry'),
+            dense: true,
+            leading: Icon(IaIcon.lyrics, size: 20, color: p.secondaryText),
+            title: Text(t.lyricsFontSize),
+            subtitle: Text(_fontSizeLabel(t)),
+            onTap: () => unawaited(_pickFontSize()),
           ),
           const SizedBox(height: 24),
           Text(

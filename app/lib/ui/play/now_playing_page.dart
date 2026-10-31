@@ -9,6 +9,7 @@ import 'package:contracts/contracts.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/l10n/app_localizations.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
@@ -29,11 +30,15 @@ final class NowPlayingPage extends StatefulWidget {
     required this.service,
     required this.data,
     this.covers,
+    this.hub,
   });
 
   final PlaybackService service;
   final DataAccess data;
   final CoverChain? covers;
+
+  /// 组合根（WS4：歌词页生成歌词/粘贴入口需要；null=相关入口隐藏）。
+  final LibraryHub? hub;
 
   @override
   State<NowPlayingPage> createState() => NowPlayingPageState();
@@ -123,6 +128,7 @@ class NowPlayingPageState extends State<NowPlayingPage> {
         service: widget.service,
         data: widget.data,
         covers: widget.covers,
+        hub: widget.hub,
       ),
     ));
     unawaited(refreshFav());

@@ -961,4 +961,121 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get extractNotification => '提取任务进行中';
+
+  @override
+  String get lyricsOffset => '歌词偏移';
+
+  @override
+  String lyricsOffsetValue(String s) {
+    return '偏移 $s 秒';
+  }
+
+  @override
+  String get lyricsOffsetWriteBack => '写入 .lrc 文件';
+
+  @override
+  String get lyricsOffsetSaved => '偏移已保存';
+
+  @override
+  String get lyricsOffsetReset => '归零';
+
+  @override
+  String get lyricsPaste => '粘贴歌词';
+
+  @override
+  String get lyricsPasteHint => '粘贴歌词（支持 LRC 格式）';
+
+  @override
+  String get lyricsPasteSaved => '歌词已保存';
+
+  @override
+  String get lyricsGen => '生成歌词（本地 AI）';
+
+  @override
+  String get lyricsGenStarted => '歌词生成已开始';
+
+  @override
+  String get lyricsGenNoModel => '需要先在设置中下载歌词模型';
+
+  @override
+  String get lyricsPreviewTitle => '预览歌词';
+
+  @override
+  String get lyricsPreviewSave => '保存歌词';
+
+  @override
+  String get lyricsPreviewSaved => '歌词已保存';
+
+  @override
+  String get lyricsFontSize => '歌词字号';
+
+  @override
+  String get modelManagerTitle => '歌词模型';
+
+  @override
+  String get modelStatusAbsent => '未下载';
+
+  @override
+  String get modelStatusPresent => '已就绪';
+
+  @override
+  String get modelDownload => '下载模型';
+
+  @override
+  String get modelDelete => '删除模型';
+
+  @override
+  String get modelDeleteConfirm => '删除已下载的模型？生成歌词功能将回到未就绪状态。';
+
+  @override
+  String get modelDeleted => '模型已删除';
+
+  @override
+  String modelDownloading(int pct) {
+    return '下载中 $pct%';
+  }
+
+  @override
+  String modelSizeLabel(int mb) {
+    return '大小：$mb MB';
+  }
+
+  @override
+  String get modelDownloadDone => '模型已就绪';
+
+  @override
+  String get modelDownloadFailed => '下载失败：检查网络后重试';
+
+  @override
+  String get tracksSelect => '多选';
+
+  @override
+  String tracksSelected(int n) {
+    return '已选 $n 首';
+  }
+
+  @override
+  String get batchLyricsTitle => '批量生成歌词';
+
+  @override
+  String batchLyricsRunning(int done, int total) {
+    return '生成中 $done/$total';
+  }
+
+  @override
+  String batchLyricsDone(int ok, int skip, int fail) {
+    return '批量生成完成：成功 $ok · 跳过 $skip · 失败 $fail';
+  }
+
+  @override
+  String get lyricsSection => '歌词';
+
+  @override
+  String get fontSizeS => '小';
+
+  @override
+  String get fontSizeM => '标准';
+
+  @override
+  String get fontSizeL => '大';
 }

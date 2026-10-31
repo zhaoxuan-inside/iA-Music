@@ -1015,4 +1015,122 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get extractNotification => 'Extraction in progress';
+
+  @override
+  String get lyricsOffset => 'Lyrics offset';
+
+  @override
+  String lyricsOffsetValue(String s) {
+    return 'Offset ${s}s';
+  }
+
+  @override
+  String get lyricsOffsetWriteBack => 'Write to .lrc file';
+
+  @override
+  String get lyricsOffsetSaved => 'Offset saved';
+
+  @override
+  String get lyricsOffsetReset => 'Reset';
+
+  @override
+  String get lyricsPaste => 'Paste lyrics';
+
+  @override
+  String get lyricsPasteHint => 'Paste lyrics (LRC supported)';
+
+  @override
+  String get lyricsPasteSaved => 'Lyrics saved';
+
+  @override
+  String get lyricsGen => 'Generate lyrics (on-device AI)';
+
+  @override
+  String get lyricsGenStarted => 'Lyrics generation started';
+
+  @override
+  String get lyricsGenNoModel => 'Download the lyrics model in Settings first';
+
+  @override
+  String get lyricsPreviewTitle => 'Preview lyrics';
+
+  @override
+  String get lyricsPreviewSave => 'Save lyrics';
+
+  @override
+  String get lyricsPreviewSaved => 'Lyrics saved';
+
+  @override
+  String get lyricsFontSize => 'Lyrics font size';
+
+  @override
+  String get modelManagerTitle => 'Lyrics model';
+
+  @override
+  String get modelStatusAbsent => 'Not downloaded';
+
+  @override
+  String get modelStatusPresent => 'Ready';
+
+  @override
+  String get modelDownload => 'Download model';
+
+  @override
+  String get modelDelete => 'Delete model';
+
+  @override
+  String get modelDeleteConfirm =>
+      'Delete the downloaded model? Lyric generation returns to not-ready.';
+
+  @override
+  String get modelDeleted => 'Model deleted';
+
+  @override
+  String modelDownloading(int pct) {
+    return 'Downloading $pct%';
+  }
+
+  @override
+  String modelSizeLabel(int mb) {
+    return 'Size: $mb MB';
+  }
+
+  @override
+  String get modelDownloadDone => 'Model ready';
+
+  @override
+  String get modelDownloadFailed => 'Download failed: check network and retry';
+
+  @override
+  String get tracksSelect => 'Select';
+
+  @override
+  String tracksSelected(int n) {
+    return '$n selected';
+  }
+
+  @override
+  String get batchLyricsTitle => 'Batch generate lyrics';
+
+  @override
+  String batchLyricsRunning(int done, int total) {
+    return 'Generating $done/$total';
+  }
+
+  @override
+  String batchLyricsDone(int ok, int skip, int fail) {
+    return 'Batch done: $ok ok · $skip skipped · $fail failed';
+  }
+
+  @override
+  String get lyricsSection => 'Lyrics';
+
+  @override
+  String get fontSizeS => 'Small';
+
+  @override
+  String get fontSizeM => 'Standard';
+
+  @override
+  String get fontSizeL => 'Large';
 }

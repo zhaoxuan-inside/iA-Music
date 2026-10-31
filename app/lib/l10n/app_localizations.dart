@@ -1753,6 +1753,216 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'提取任务进行中'**
   String get extractNotification;
+
+  /// No description provided for @lyricsOffset.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词偏移'**
+  String get lyricsOffset;
+
+  /// No description provided for @lyricsOffsetValue.
+  ///
+  /// In zh, this message translates to:
+  /// **'偏移 {s} 秒'**
+  String lyricsOffsetValue(String s);
+
+  /// No description provided for @lyricsOffsetWriteBack.
+  ///
+  /// In zh, this message translates to:
+  /// **'写入 .lrc 文件'**
+  String get lyricsOffsetWriteBack;
+
+  /// No description provided for @lyricsOffsetSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'偏移已保存'**
+  String get lyricsOffsetSaved;
+
+  /// No description provided for @lyricsOffsetReset.
+  ///
+  /// In zh, this message translates to:
+  /// **'归零'**
+  String get lyricsOffsetReset;
+
+  /// No description provided for @lyricsPaste.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴歌词'**
+  String get lyricsPaste;
+
+  /// No description provided for @lyricsPasteHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'粘贴歌词（支持 LRC 格式）'**
+  String get lyricsPasteHint;
+
+  /// No description provided for @lyricsPasteSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词已保存'**
+  String get lyricsPasteSaved;
+
+  /// No description provided for @lyricsGen.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成歌词（本地 AI）'**
+  String get lyricsGen;
+
+  /// No description provided for @lyricsGenStarted.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词生成已开始'**
+  String get lyricsGenStarted;
+
+  /// No description provided for @lyricsGenNoModel.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要先在设置中下载歌词模型'**
+  String get lyricsGenNoModel;
+
+  /// No description provided for @lyricsPreviewTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'预览歌词'**
+  String get lyricsPreviewTitle;
+
+  /// No description provided for @lyricsPreviewSave.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存歌词'**
+  String get lyricsPreviewSave;
+
+  /// No description provided for @lyricsPreviewSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词已保存'**
+  String get lyricsPreviewSaved;
+
+  /// No description provided for @lyricsFontSize.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词字号'**
+  String get lyricsFontSize;
+
+  /// No description provided for @modelManagerTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词模型'**
+  String get modelManagerTitle;
+
+  /// No description provided for @modelStatusAbsent.
+  ///
+  /// In zh, this message translates to:
+  /// **'未下载'**
+  String get modelStatusAbsent;
+
+  /// No description provided for @modelStatusPresent.
+  ///
+  /// In zh, this message translates to:
+  /// **'已就绪'**
+  String get modelStatusPresent;
+
+  /// No description provided for @modelDownload.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载模型'**
+  String get modelDownload;
+
+  /// No description provided for @modelDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除模型'**
+  String get modelDelete;
+
+  /// No description provided for @modelDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除已下载的模型？生成歌词功能将回到未就绪状态。'**
+  String get modelDeleteConfirm;
+
+  /// No description provided for @modelDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型已删除'**
+  String get modelDeleted;
+
+  /// No description provided for @modelDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载中 {pct}%'**
+  String modelDownloading(int pct);
+
+  /// No description provided for @modelSizeLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'大小：{mb} MB'**
+  String modelSizeLabel(int mb);
+
+  /// No description provided for @modelDownloadDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'模型已就绪'**
+  String get modelDownloadDone;
+
+  /// No description provided for @modelDownloadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载失败：检查网络后重试'**
+  String get modelDownloadFailed;
+
+  /// No description provided for @tracksSelect.
+  ///
+  /// In zh, this message translates to:
+  /// **'多选'**
+  String get tracksSelect;
+
+  /// No description provided for @tracksSelected.
+  ///
+  /// In zh, this message translates to:
+  /// **'已选 {n} 首'**
+  String tracksSelected(int n);
+
+  /// No description provided for @batchLyricsTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量生成歌词'**
+  String get batchLyricsTitle;
+
+  /// No description provided for @batchLyricsRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'生成中 {done}/{total}'**
+  String batchLyricsRunning(int done, int total);
+
+  /// No description provided for @batchLyricsDone.
+  ///
+  /// In zh, this message translates to:
+  /// **'批量生成完成：成功 {ok} · 跳过 {skip} · 失败 {fail}'**
+  String batchLyricsDone(int ok, int skip, int fail);
+
+  /// No description provided for @lyricsSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌词'**
+  String get lyricsSection;
+
+  /// No description provided for @fontSizeS.
+  ///
+  /// In zh, this message translates to:
+  /// **'小'**
+  String get fontSizeS;
+
+  /// No description provided for @fontSizeM.
+  ///
+  /// In zh, this message translates to:
+  /// **'标准'**
+  String get fontSizeM;
+
+  /// No description provided for @fontSizeL.
+  ///
+  /// In zh, this message translates to:
+  /// **'大'**
+  String get fontSizeL;
 }
 
 class _AppLocalizationsDelegate

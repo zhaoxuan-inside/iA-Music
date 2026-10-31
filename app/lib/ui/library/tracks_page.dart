@@ -14,7 +14,9 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
+import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/lyrics/lyrics_service.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/play/playback_notice.dart';
@@ -111,6 +113,10 @@ class TracksPageState extends State<TracksPage> {
   bool _inflight = false;
   StreamSubscription<int>? _revSub;
 
+  /// 多选模式（WS4：批量生成歌词入口；REQ-LYRAI-03 批量勾选排队）。
+  Set<int> _selected = {};
+  bool get _selecting => _selected.isNotEmpty;
+
   @override
   void initState() {
     super.initState();
@@ -146,6 +152,75 @@ class TracksPageState extends State<TracksPage> {
       startIndex: index,
     );
     widget.onPlayRequested();
+  }
+
+  /// 批量生成歌词（WS4/REQ-LYRAI-03：串行队列 + 进度；无歌词轨才跑 ASR，
+  /// 已有歌词轨跳过）。完成后汇总 SnackBar（REQ-LYRAI-04 预览在歌词页做）。
+  Future<void> _batchGenerateLyrics() async {
+    final ids = _selected.toList(growable: false);
+    if (ids.isEmpty) return;
+    var done = 0, ok = 0, skip = 0, fail = 0;
+    final total = ids.length;
+    await showDialog<void>(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (dlgCtx, setDlg) {
+          // 串行泵（页侧 Future 链；dialog 常驻=进度面）
+          unawaited(() async {
+            for (final id in ids) {
+              try {
+                final meta = await widget.hub.data.lyrics.metaFor(id);
+                if (meta != null &&
+                    meta.type != LyricsSourceType.none) {
+                  skip++;
+                } else {
+                  final outcome =
+                      await widget.hub.extract.lyrics.runForTrack(id);
+                  if (outcome.kind == LyricsOutcomeKind.asrGenerated) {
+                    ok++;
+                  } else {
+                    fail++;
+                  }
+                }
+              } on Object {
+                fail++;
+              }
+              done++;
+              setDlg(() {});
+            }
+            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+          }());
+          return AlertDialog(
+            key: const ValueKey('batch_lyrics_dialog'),
+            title: Text(sOf(dlgCtx).batchLyricsTitle),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LinearProgressIndicator(
+                  key: const ValueKey('batch_lyrics_progress'),
+                  value: total == 0 ? 0 : done / total,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  done >= total
+                      ? sOf(dlgCtx)
+                          .batchLyricsDone(ok, skip, fail)
+                      : sOf(dlgCtx).batchLyricsRunning(done, total),
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content:
+            Text(sOf(context).batchLyricsDone(ok, skip, fail))));
+    setState(() => _selected = {});
+    unawaited(_reload());
   }
 
   @override
@@ -243,14 +318,46 @@ class TracksPageState extends State<TracksPage> {
                 color: p.secondaryText,
               ),
             ),
+            IconButton(
+              key: const ValueKey('tracks_select'),
+              tooltip: t.tracksSelect,
+              onPressed: () => setState(
+                  () => _selected = _selected.isEmpty ? {_rows.firstOrNull?.id ?? 0} : {}),
+              icon: Icon(
+                _selecting ? IaIcon.close : IaIcon.check,
+                color: _selecting ? p.accent : p.secondaryText,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          t.trackCount(_rows.length),
+          _selecting
+              ? t.tracksSelected(_selected.length)
+              : t.trackCount(_rows.length),
+          key: const ValueKey('tracks_count'),
           style: TextStyle(fontSize: 12, color: p.secondaryText),
         ),
         const SizedBox(height: 12),
+        // 多选模式操作条（WS4/REQ-LYRAI-03：批量生成歌词）
+        if (_selecting)
+          Row(
+            children: [
+              FilledButton.tonalIcon(
+                key: const ValueKey('tracks_batch_lyrics'),
+                onPressed: _selected.isEmpty
+                    ? null
+                    : () => unawaited(_batchGenerateLyrics()),
+                icon: Icon(IaIcon.autoFix, size: 18),
+                label: Text(t.batchLyricsTitle),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () => setState(() => _selected = {}),
+                child: Text(t.cancel),
+              ),
+            ],
+          ),
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -287,24 +394,38 @@ class TracksPageState extends State<TracksPage> {
     final msg = sOf(context);
     final t = _rows[i];
     final missing = t.missingAt != null;
+    final checked = _selected.contains(t.id);
+    void toggle() => setState(() {
+          _selected.contains(t.id)
+              ? _selected.remove(t.id)
+              : _selected.add(t.id);
+        });
     return InkWell(
       key: ValueKey('track_row_${t.id}'),
-      onTap: missing ? null : () => unawaited(_play(i)),
-      onLongPress: () => unawaited(showTrackMenu(
-        context,
-        track: t,
-        hub: widget.hub,
-        service: widget.service,
-        onChanged: () => unawaited(_reload()),
-      )),
-      onSecondaryTap: () => unawaited(showTrackMenu(
-        context,
-        track: t,
-        hub: widget.hub,
-        service: widget.service,
-        onChanged: () => unawaited(_reload()),
-      )),
-      child: Padding(
+      onTap: _selecting
+          ? toggle
+          : (missing ? null : () => unawaited(_play(i))),
+      onLongPress: _selecting
+          ? toggle
+          : () => unawaited(showTrackMenu(
+                context,
+                track: t,
+                hub: widget.hub,
+                service: widget.service,
+                onChanged: () => unawaited(_reload()),
+              )),
+      onSecondaryTap: _selecting
+          ? toggle
+          : () => unawaited(showTrackMenu(
+                context,
+                track: t,
+                hub: widget.hub,
+                service: widget.service,
+                onChanged: () => unawaited(_reload()),
+              )),
+      child: Opacity(
+        opacity: _selecting && !checked ? 0.55 : 1.0,
+        child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
@@ -381,6 +502,7 @@ class TracksPageState extends State<TracksPage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

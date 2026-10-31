@@ -99,6 +99,7 @@ class AppShellState extends State<AppShell> {
         service: svc,
         data: widget.hub.data,
         covers: widget.hub.covers,
+        hub: widget.hub,
       ),
     ));
   }
