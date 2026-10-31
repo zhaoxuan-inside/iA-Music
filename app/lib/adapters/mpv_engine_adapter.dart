@@ -381,6 +381,32 @@ class MpvEngineAdapter implements EnginePort {
     );
   }
 
+  /// 移除队列条目（WS2/REQ-PLAY-06）：raw `playlist-remove <idx>`；
+  /// 目标不得为当前播放条（调用方守卫）；目标在游标前 → 游标前移。
+  @override
+  Future<void> removeQueueIndex(int index) async {
+    final p = _p;
+    try {
+      await p.sendRawCommand(['playlist-remove', '$index']);
+    } on Object catch (e, st) {
+      Error.throwWithStackTrace(
+        EngineFailureException(message: 'removeQueueIndex 失败: $e'),
+        st,
+      );
+    }
+    if (index < _cursor) {
+      _cursor--;
+    }
+  }
+
+  /// 停止并清空引擎队列（WS2/REQ-PLAY-06）：包 `stop`（mpv stop=清列表）。
+  @override
+  Future<void> stopAll() async {
+    final p = _p;
+    await p.stop();
+    _cursor = 0;
+  }
+
   /// 媒体会话元数据随曲更新（REQ-PLAY-05）：换曲/红心态由服务侧推送。
   /// 同一 Player 重复 setMediaSession=更新语义（所有权标志不受扰）。
   @override

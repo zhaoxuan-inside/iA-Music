@@ -426,6 +426,34 @@ class PlaybackService {
     await flushHistory();
   }
 
+  /// 队列移除单曲（REQ-PLAY-06 队列管理；WS2）：当前播放条不可移（UI 守卫）。
+  /// 引擎侧 `playlist-remove` 原位删除（不打断当前曲）；游标随实移修正。
+  Future<void> removeFromQueue(int index) async {
+    _requireAlive();
+    if (index < 0 || index >= _queue.length || index == _current) {
+      return;
+    }
+    await engine.removeQueueIndex(index);
+    _queue.removeAt(index);
+    if (index < _current) {
+      _current--;
+    }
+    await _persistSession();
+    _push();
+  }
+
+  /// 队列清空（REQ-PLAY-06 队列管理；WS2）：停播+引擎列表清空。
+  Future<void> clearQueue() async {
+    _requireAlive();
+    await engine.stopAll();
+    _queue.clear();
+    _current = 0;
+    _positionMs = 0;
+    _playing = false;
+    await flushHistory();
+    _push();
+  }
+
   Future<void> seekTo(int ms) {
     _requireAlive();
     return engine.seekTo(ms);

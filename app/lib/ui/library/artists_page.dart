@@ -12,6 +12,7 @@ import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/library/tracks_page.dart' show LibrarySegmentBar;
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
+import 'package:ia_music/ui/shared/track_menu.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -292,6 +293,12 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
             InkWell(
               key: ValueKey('artist_track_${_tracks[i].id}'),
               onTap: () => unawaited(_play(startIndex: i)),
+              onLongPress: () => unawaited(showTrackMenu(
+                context,
+                track: _tracks[i],
+                hub: widget.hub,
+                onChanged: () => unawaited(_load()),
+              )),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(

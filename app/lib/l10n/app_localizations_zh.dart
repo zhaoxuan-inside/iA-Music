@@ -798,4 +798,119 @@ class AppLocalizationsZh extends AppLocalizations {
   String eqBandLabel(String hz) {
     return '$hz';
   }
+
+  @override
+  String get menuPlayNext => '下一首播放';
+
+  @override
+  String get menuAddToPlaylist => '加入歌单';
+
+  @override
+  String get menuEditTitle => '编辑标题';
+
+  @override
+  String get menuRemoveTrack => '从曲库移除';
+
+  @override
+  String get editTitleLabel => '歌曲标题';
+
+  @override
+  String get save => '保存';
+
+  @override
+  String removeTrackConfirm(String title) {
+    return '从曲库移除《$title》？音频文件不会被删除。';
+  }
+
+  @override
+  String addedToPlaylist(String name) {
+    return '已加入「$name」';
+  }
+
+  @override
+  String alreadyInPlaylist(String title, String name) {
+    return '《$title》已在「$name」中';
+  }
+
+  @override
+  String get playlistNewName => '歌单名称';
+
+  @override
+  String get playlistRename => '重命名歌单';
+
+  @override
+  String get playlistDelete => '删除歌单';
+
+  @override
+  String playlistDeleteConfirm(String name) {
+    return '删除歌单「$name」？曲目保留在曲库。';
+  }
+
+  @override
+  String get queueClear => '清空队列';
+
+  @override
+  String get queueClearConfirm => '清空当前播放队列？';
+
+  @override
+  String get queueRemoveTooltip => '移出队列';
+
+  @override
+  String get historyTitle => '播放历史';
+
+  @override
+  String get historyClear => '清空历史';
+
+  @override
+  String get historyClearConfirm => '清空全部播放历史？';
+
+  @override
+  String get historyEmpty => '还没有播放记录';
+
+  @override
+  String get historyToday => '今天';
+
+  @override
+  String get historyYesterday => '昨天';
+
+  @override
+  String get cardFavorites => '喜欢';
+
+  @override
+  String get cardHistory => '历史';
+
+  @override
+  String get cardLocal => '本地';
+
+  @override
+  String get repoRemoveTooltip => '移除仓库';
+
+  @override
+  String repoRemoveConfirm(String name) {
+    return '移除仓库「$name」？曲库记录将移除，音频文件保留。';
+  }
+
+  @override
+  String get fewWatchClear => '清空少播名单';
+
+  @override
+  String get fewWatchCleared => '少播名单已清空';
+
+  @override
+  String get playbackSection => '播放';
+
+  @override
+  String get repoRemoved => '仓库已移除';
+
+  @override
+  String get trackRemoved => '已从曲库移除';
+
+  @override
+  String get renamed => '已重命名';
+
+  @override
+  String get playlistDeleted => '歌单已删除';
+
+  @override
+  String get historyCleared => '播放历史已清空';
 }

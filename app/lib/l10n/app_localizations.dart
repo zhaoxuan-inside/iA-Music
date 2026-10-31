@@ -1447,6 +1447,216 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'{hz}'**
   String eqBandLabel(String hz);
+
+  /// No description provided for @menuPlayNext.
+  ///
+  /// In zh, this message translates to:
+  /// **'下一首播放'**
+  String get menuPlayNext;
+
+  /// No description provided for @menuAddToPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'加入歌单'**
+  String get menuAddToPlaylist;
+
+  /// No description provided for @menuEditTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'编辑标题'**
+  String get menuEditTitle;
+
+  /// No description provided for @menuRemoveTrack.
+  ///
+  /// In zh, this message translates to:
+  /// **'从曲库移除'**
+  String get menuRemoveTrack;
+
+  /// No description provided for @editTitleLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌曲标题'**
+  String get editTitleLabel;
+
+  /// No description provided for @save.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存'**
+  String get save;
+
+  /// No description provided for @removeTrackConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'从曲库移除《{title}》？音频文件不会被删除。'**
+  String removeTrackConfirm(String title);
+
+  /// No description provided for @addedToPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'已加入「{name}」'**
+  String addedToPlaylist(String name);
+
+  /// No description provided for @alreadyInPlaylist.
+  ///
+  /// In zh, this message translates to:
+  /// **'《{title}》已在「{name}」中'**
+  String alreadyInPlaylist(String title, String name);
+
+  /// No description provided for @playlistNewName.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单名称'**
+  String get playlistNewName;
+
+  /// No description provided for @playlistRename.
+  ///
+  /// In zh, this message translates to:
+  /// **'重命名歌单'**
+  String get playlistRename;
+
+  /// No description provided for @playlistDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单'**
+  String get playlistDelete;
+
+  /// No description provided for @playlistDeleteConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除歌单「{name}」？曲目保留在曲库。'**
+  String playlistDeleteConfirm(String name);
+
+  /// No description provided for @queueClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空队列'**
+  String get queueClear;
+
+  /// No description provided for @queueClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空当前播放队列？'**
+  String get queueClearConfirm;
+
+  /// No description provided for @queueRemoveTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'移出队列'**
+  String get queueRemoveTooltip;
+
+  /// No description provided for @historyTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放历史'**
+  String get historyTitle;
+
+  /// No description provided for @historyClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空历史'**
+  String get historyClear;
+
+  /// No description provided for @historyClearConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空全部播放历史？'**
+  String get historyClearConfirm;
+
+  /// No description provided for @historyEmpty.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有播放记录'**
+  String get historyEmpty;
+
+  /// No description provided for @historyToday.
+  ///
+  /// In zh, this message translates to:
+  /// **'今天'**
+  String get historyToday;
+
+  /// No description provided for @historyYesterday.
+  ///
+  /// In zh, this message translates to:
+  /// **'昨天'**
+  String get historyYesterday;
+
+  /// No description provided for @cardFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'喜欢'**
+  String get cardFavorites;
+
+  /// No description provided for @cardHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'历史'**
+  String get cardHistory;
+
+  /// No description provided for @cardLocal.
+  ///
+  /// In zh, this message translates to:
+  /// **'本地'**
+  String get cardLocal;
+
+  /// No description provided for @repoRemoveTooltip.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除仓库'**
+  String get repoRemoveTooltip;
+
+  /// No description provided for @repoRemoveConfirm.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除仓库「{name}」？曲库记录将移除，音频文件保留。'**
+  String repoRemoveConfirm(String name);
+
+  /// No description provided for @fewWatchClear.
+  ///
+  /// In zh, this message translates to:
+  /// **'清空少播名单'**
+  String get fewWatchClear;
+
+  /// No description provided for @fewWatchCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'少播名单已清空'**
+  String get fewWatchCleared;
+
+  /// No description provided for @playbackSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放'**
+  String get playbackSection;
+
+  /// No description provided for @repoRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'仓库已移除'**
+  String get repoRemoved;
+
+  /// No description provided for @trackRemoved.
+  ///
+  /// In zh, this message translates to:
+  /// **'已从曲库移除'**
+  String get trackRemoved;
+
+  /// No description provided for @renamed.
+  ///
+  /// In zh, this message translates to:
+  /// **'已重命名'**
+  String get renamed;
+
+  /// No description provided for @playlistDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'歌单已删除'**
+  String get playlistDeleted;
+
+  /// No description provided for @historyCleared.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放历史已清空'**
+  String get historyCleared;
 }
 
 class _AppLocalizationsDelegate

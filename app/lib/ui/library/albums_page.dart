@@ -12,6 +12,7 @@ import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/library/tracks_page.dart' show LibrarySegmentBar;
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
+import 'package:ia_music/ui/shared/track_menu.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -225,9 +226,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     final rows =
         await widget.hub.data.library.tracksOfAlbum(widget.album.id);
     if (mounted) setState(() => _tracks = rows);
-  }
-
-  Future<void> _play({int startIndex = 0}) async {
+  }  Future<void> _play({int startIndex = 0}) async {
     if (_tracks.isEmpty) return;
     await widget.playTracks(
       [for (final t in _tracks) t.id],
@@ -325,10 +324,16 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
     );
   }
 
-  Widget _trackRow(dynamic p, Track t, int i) {
+  Widget _trackRow(IaPalette p, Track t, int i) {
     return InkWell(
       key: ValueKey('album_track_${t.id}'),
       onTap: () => unawaited(_play(startIndex: i)),
+      onLongPress: () => unawaited(showTrackMenu(
+        context,
+        track: t,
+        hub: widget.hub,
+        onChanged: () => unawaited(_load()),
+      )),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(

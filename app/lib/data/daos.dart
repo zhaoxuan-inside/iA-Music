@@ -638,6 +638,21 @@ class LibraryDao {
       (_db.update(_db.tracks)..where((t) => t.id.equals(trackId)))
           .write(TracksCompanion(deletedAt: Value(nowMs), updatedAt: Value(nowMs)));
 
+  /// 仓库移除（WS2/REQ-ONB-04）：根内全部软删（含缺失态行）+ 根行删除
+  /// （同事务；音频文件本体不动——总览删除策略红线）。
+  Future<int> removeRoot(int rootId, int nowMs) async {
+    final affected = await _db.transaction<int>(() async {
+      final updated = await (_db.update(_db.tracks)
+            ..where((t) => t.rootId.equals(rootId) & t.deletedAt.isNull()))
+          .write(TracksCompanion(deletedAt: Value(nowMs), updatedAt: Value(nowMs)));
+      await (_db.delete(_db.repositoryRoots)
+            ..where((r) => r.id.equals(rootId)))
+          .go();
+      return updated;
+    });
+    return affected;
+  }
+
   // ⑥ dup 检测（REQ-EXT-06）：同 source_type+source_id 任意行（含软删）。
   Future<Track?> findBySource(String sourceType, String? sourceId) {
     return (_db.select(_db.tracks)
@@ -764,6 +779,9 @@ class HistoryDao {
         .getSingle();
     return row.read(_db.playHistory.id.count()) ?? 0;
   }
+
+  /// 清空历史（REQ-PL-05 管理面；WS2 UI 接线）。
+  Future<int> clearAllHistory() => _db.delete(_db.playHistory).go();
 }
 
 // ── 歌单域 ────────────────────────────────────────────────
@@ -891,6 +909,11 @@ class PlaylistDao {
           .write(PlaylistsCompanion(updatedAt: Value(nowMs)));
     });
   }
+
+  /// 歌单重命名（REQ-PL-02；WS2 UI 面）。
+  Future<void> renamePlaylist(int playlistId, String name, int nowMs) =>
+      (_db.update(_db.playlists)..where((p) => p.id.equals(playlistId)))
+          .write(PlaylistsCompanion(name: Value(name), updatedAt: Value(nowMs)));
 
   /// 歌单删除（REQ-PL-02：删除=软删不物理删）。
   Future<void> softDeletePlaylist(int playlistId, int nowMs) =>

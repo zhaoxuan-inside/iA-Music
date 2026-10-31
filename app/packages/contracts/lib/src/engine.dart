@@ -136,6 +136,13 @@ abstract class EnginePort {
   /// * 自然推进与手动 next 均按新序命中（游标/镜像同事务增列口径）。
   Future<void> insertNext(TrackLite item);
 
+  /// 移除队列第 [index] 条（REQ-PLAY-06 队列管理；**不得为当前播放条**，
+  /// 调用方守卫；实现同步维护游标；不打断当前曲播放）。
+  Future<void> removeQueueIndex(int index);
+
+  /// 停止播放并清空引擎队列（REQ-PLAY-06 队列清空）。
+  Future<void> stopAll();
+
   /// 更新媒体会话元数据（REQ-PLAY-05：换曲/红心态变化随曲更新通知面；
   /// 实现只更新元数据，不重夺会话所有权）。
   Future<void> updateMediaSession(MediaSessionInfo info);

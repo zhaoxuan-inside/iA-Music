@@ -171,6 +171,7 @@ class AppShellState extends State<AppShell> {
           data: widget.hub.data,
           ensurePlayback: ensurePlayback,
           onChanged: _bump,
+          onGoLibrary: () => jumpTo(ShellSection.tracks), // 本地卡→曲库 Tab
         ),
         SearchPage(
           hub: widget.hub,

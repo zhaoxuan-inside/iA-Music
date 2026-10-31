@@ -22,6 +22,7 @@ import 'package:ia_music/ui/extract/extract_page.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
+import 'package:ia_music/ui/shared/track_menu.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -176,6 +177,19 @@ class SearchPageState extends State<SearchPage> {
     );
   }
 
+  /// 行上下文菜单（WS2）：起播域就绪后弹出（服务面：下一首播放可用）。
+  Future<void> _openTrackMenu(Track track) async {
+    final svc = await widget.ensurePlayback();
+    if (!mounted) return;
+    await showTrackMenu(
+      context,
+      track: track,
+      hub: widget.hub,
+      service: svc,
+      onChanged: () => unawaited(_searchLocal()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
@@ -280,6 +294,7 @@ class SearchPageState extends State<SearchPage> {
         InkWell(
           key: ValueKey('search_local_row_$i'),
           onTap: () => unawaited(_playLocal(_localRows, i)),
+          onLongPress: () => unawaited(_openTrackMenu(_localRows[i])),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 6),
             child: Row(

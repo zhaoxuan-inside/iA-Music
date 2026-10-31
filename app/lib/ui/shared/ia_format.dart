@@ -11,6 +11,12 @@ String iaMmss(int ms) {
   return '$m:${s.toString().padLeft(2, '0')}';
 }
 
+/// 时刻 HH:mm（历史行播放时刻；Unix ms）。
+String iaHHmm(int unixMs) {
+  final d = DateTime.fromMillisecondsSinceEpoch(unixMs);
+  return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+}
+
 /// 播放量（B 站式 12.3万；英文 UI 记 12.3M/1.2B）。
 String iaPlayCount(int? n) {
   if (n == null) return '';

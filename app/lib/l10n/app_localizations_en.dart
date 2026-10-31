@@ -852,4 +852,119 @@ class AppLocalizationsEn extends AppLocalizations {
   String eqBandLabel(String hz) {
     return '$hz Hz';
   }
+
+  @override
+  String get menuPlayNext => 'Play next';
+
+  @override
+  String get menuAddToPlaylist => 'Add to playlist';
+
+  @override
+  String get menuEditTitle => 'Edit title';
+
+  @override
+  String get menuRemoveTrack => 'Remove from library';
+
+  @override
+  String get editTitleLabel => 'Track title';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String removeTrackConfirm(String title) {
+    return 'Remove \"$title\" from the library? The audio file will not be deleted.';
+  }
+
+  @override
+  String addedToPlaylist(String name) {
+    return 'Added to \"$name\"';
+  }
+
+  @override
+  String alreadyInPlaylist(String title, String name) {
+    return '\"$title\" is already in \"$name\"';
+  }
+
+  @override
+  String get playlistNewName => 'Playlist name';
+
+  @override
+  String get playlistRename => 'Rename playlist';
+
+  @override
+  String get playlistDelete => 'Delete playlist';
+
+  @override
+  String playlistDeleteConfirm(String name) {
+    return 'Delete playlist \"$name\"? Tracks stay in the library.';
+  }
+
+  @override
+  String get queueClear => 'Clear queue';
+
+  @override
+  String get queueClearConfirm => 'Clear the current play queue?';
+
+  @override
+  String get queueRemoveTooltip => 'Remove from queue';
+
+  @override
+  String get historyTitle => 'Play history';
+
+  @override
+  String get historyClear => 'Clear history';
+
+  @override
+  String get historyClearConfirm => 'Clear all play history?';
+
+  @override
+  String get historyEmpty => 'No play history yet';
+
+  @override
+  String get historyToday => 'Today';
+
+  @override
+  String get historyYesterday => 'Yesterday';
+
+  @override
+  String get cardFavorites => 'Favorites';
+
+  @override
+  String get cardHistory => 'History';
+
+  @override
+  String get cardLocal => 'Local';
+
+  @override
+  String get repoRemoveTooltip => 'Remove repository';
+
+  @override
+  String repoRemoveConfirm(String name) {
+    return 'Remove repository \"$name\"? Library records are removed; audio files are kept.';
+  }
+
+  @override
+  String get fewWatchClear => 'Clear dislike list';
+
+  @override
+  String get fewWatchCleared => 'Dislike list cleared';
+
+  @override
+  String get playbackSection => 'Playback';
+
+  @override
+  String get repoRemoved => 'Repository removed';
+
+  @override
+  String get trackRemoved => 'Removed from library';
+
+  @override
+  String get renamed => 'Renamed';
+
+  @override
+  String get playlistDeleted => 'Playlist deleted';
+
+  @override
+  String get historyCleared => 'Play history cleared';
 }

@@ -45,11 +45,20 @@ class SettingsPageState extends State<SettingsPage> {
   BiliAccount _account = BiliAccount.anonymous;
   bool _coverOnline = true;
 
+  /// 仓库根快照（State 缓存 Future——build 内 FutureBuilder 现建会在每次
+  /// 重建时重查库；WS2 修复）。动作后 `_reloadRoots()` 显式刷新。
+  Future<List<RepositoryRoot>>? _rootsFuture;
+
   @override
   void initState() {
     super.initState();
+    _reloadRoots();
     unawaited(_refresh());
     widget.appearance.addListener(_onAppearance);
+  }
+
+  void _reloadRoots() {
+    _rootsFuture = widget.hub.rootsSnapshot();
   }
 
   @override
@@ -146,7 +155,9 @@ class SettingsPageState extends State<SettingsPage> {
     try {
       await widget.hub.addRepositoryAndScan(dir);
       widget.onChanged?.call();
+      _reloadRoots();
       if (mounted) {
+        setState(() {});
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(t.repoAdded(dir))));
       }
@@ -161,9 +172,73 @@ class SettingsPageState extends State<SettingsPage> {
   Future<void> _rescan(int rootId) async {
     await widget.hub.rescanNow(rootId: rootId);
     widget.onChanged?.call();
+    _reloadRoots();
     if (mounted) {
+      setState(() {});
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(sOf(context).rescanTriggered)));
+    }
+  }
+
+  /// 仓库移除（WS2/REQ-ONB-04）：确认 → hub.removeRepository（软删根内曲目，
+  /// 音频文件保留）→ 刷新。列表后续由 FutureBuilder 消费新快照。
+  Future<void> _removeRoot(RepositoryRoot root) async {
+    final t = sOf(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.repoRemoveTooltip),
+        content: Text(t.repoRemoveConfirm(root.path)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(t.cancel)),
+          FilledButton(
+            key: const ValueKey('repo_remove_confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(t.repoRemoveTooltip),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.hub.removeRepository(
+      root.id,
+      nowMs: DateTime.now().millisecondsSinceEpoch,
+    );
+    widget.onChanged?.call();
+    _reloadRoots();
+    if (mounted) {
+      setState(() {});
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(sOf(context).repoRemoved)));
+    }
+  }
+
+  /// 少播名单清空（REQ-PLAY-04 设置面；WS2 接线）。
+  Future<void> _clearFewWatch() async {
+    final t = sOf(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.fewWatchClear),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(t.cancel)),
+          FilledButton(
+            key: const ValueKey('few_watch_clear_confirm'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(t.fewWatchClear),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.hub.data.history.clearFewWatch();
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(sOf(context).fewWatchCleared)));
     }
   }
 
@@ -364,7 +439,7 @@ class SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 8),
           FutureBuilder<List<RepositoryRoot>>(
-            future: widget.hub.rootsSnapshot(),
+            future: _rootsFuture,
             builder: (context, snap) {
               final roots = snap.data ?? const <RepositoryRoot>[];
               return Column(
@@ -395,6 +470,14 @@ class SettingsPageState extends State<SettingsPage> {
                             icon: Icon(IaIcon.refresh,
                                 size: 18, color: p.secondaryText),
                           ),
+                          IconButton(
+                            key: ValueKey('repo_remove_$i'),
+                            tooltip: t.repoRemoveTooltip,
+                            onPressed: () =>
+                                unawaited(_removeRoot(roots[i])),
+                            icon: Icon(IaIcon.delete,
+                                size: 18, color: p.secondaryText),
+                          ),
                         ],
                       ),
                     ),
@@ -421,6 +504,25 @@ class SettingsPageState extends State<SettingsPage> {
               icon: Icon(IaIcon.add),
               label: Text(t.repoAddLabel),
             ),
+          const SizedBox(height: 24),
+          Text(
+            t.playbackSection,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: p.mainText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ListTile(
+            key: const ValueKey('few_watch_clear_entry'),
+            dense: true,
+            leading:
+                Icon(IaIcon.delete, size: 20, color: p.secondaryText),
+            title: Text(t.fewWatchClear),
+            subtitle: Text(t.dislikeLongTooltip),
+            onTap: () => unawaited(_clearFewWatch()),
+          ),
           const SizedBox(height: 24),
           Text(
             t.aboutSection,

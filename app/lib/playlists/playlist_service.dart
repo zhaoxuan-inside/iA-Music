@@ -72,6 +72,22 @@ class PlaylistService {
   Future<void> removeFrom(int playlistId, int trackId) =>
       data.playlists.removeTrack(playlistId, trackId);
 
+  /// 重命名（REQ-PL-02；WS2 UI 面）。
+  Future<void> rename(int playlistId, String name, {required int nowMs}) =>
+      data.playlists.renamePlaylist(playlistId, name, nowMs);
+
+  /// 拖拽排序（REQ-PL-04；WS2 UI 面——此前 DAO 原语无 UI 调用）。
+  Future<void> reorder(
+    int playlistId, {
+    required List<int> orderedTrackIds,
+    required int nowMs,
+  }) =>
+      data.playlists.reorder(
+        playlistId,
+        orderedTrackIds: orderedTrackIds,
+        nowMs: nowMs,
+      );
+
   /// 歌单曲行（REQ-PL-04/06：idx_pt_pos 顺序）。
   Future<List<Track>> rows(int playlistId) async =>
       [for (final (_, t) in await data.playlists.browse(playlistId)) t];

@@ -1,4 +1,4 @@
-/// 播放队列页（REQ-PLAY-06；当前曲高亮，点行跳播）。
+/// 播放队列页（REQ-PLAY-06；当前曲高亮，点行跳播 + 移除单曲 + 清空——WS2）。
 library;
 
 import 'dart:async';
@@ -18,13 +18,48 @@ final class QueuePage extends StatelessWidget {
 
   final PlaybackService service;
 
+  Future<void> _confirmClear(BuildContext context) async {
+    final t = sOf(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: Text(t.queueClear),
+        content: Text(t.queueClearConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dlgCtx, false),
+            child: Text(t.cancel),
+          ),
+          FilledButton(
+            key: const ValueKey('queue_clear_confirm'),
+            onPressed: () => Navigator.pop(dlgCtx, true),
+            child: Text(t.queueClear),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await service.clearQueue();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
     final t = sOf(context);
     return Scaffold(
       key: const ValueKey('queue_page'),
-      appBar: AppBar(title: Text(t.queueTitle)),
+      appBar: AppBar(
+        title: Text(t.queueTitle),
+        actions: [
+          IconButton(
+            key: const ValueKey('queue_clear'),
+            tooltip: t.queueClear,
+            onPressed: () => unawaited(_confirmClear(context)),
+            icon: Icon(IaIcon.delete),
+          ),
+        ],
+      ),
       body: StreamBuilder<PlaybackSnapshot>(
         initialData: service.snapshot,
         stream: service.status,
@@ -39,14 +74,12 @@ final class QueuePage extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             itemCount: queue.length,
             itemBuilder: (context, i) {
-              final t = queue[i];
+              final item = queue[i];
               final current = i == curIndex;
               return InkWell(
                 key: ValueKey('queue_row_$i'),
-                onTap: () => unawaited(service.playTrackIds(
-                  [for (final q in queue) q.id],
-                  startIndex: i,
-                )),
+                // 跳选=服务权威 jumpTo（历史/会话一致），不再整队重建
+                onTap: current ? null : () => unawaited(service.jumpTo(i)),
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -75,7 +108,7 @@ final class QueuePage extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          t.title,
+                          item.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -88,13 +121,23 @@ final class QueuePage extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        iaMmss(t.durationMs),
+                        iaMmss(item.durationMs),
                         style: TextStyle(
                           fontSize: 12,
                           color: p.secondaryText,
                           fontFeatures: kIaNumericFeatures,
                         ),
                       ),
+                      if (!current)
+                        IconButton(
+                          key: ValueKey('queue_remove_$i'),
+                          tooltip: t.queueRemoveTooltip,
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () =>
+                              unawaited(service.removeFromQueue(i)),
+                          icon: Icon(IaIcon.close,
+                              size: 18, color: p.secondaryText),
+                        ),
                     ],
                   ),
                 ),

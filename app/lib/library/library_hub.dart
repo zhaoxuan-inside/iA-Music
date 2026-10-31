@@ -238,6 +238,17 @@ final class LibraryHub {
     _bump();
   }
 
+  /// 仓库移除（WS2/REQ-ONB-04）：停 watcher → 根内软删+根行删除 → bump。
+  /// 音频文件本体不动（总览删除策略红线）。
+  Future<void> removeRepository(int rootId, {required int nowMs}) async {
+    await _watchers[rootId]?.stop();
+    _watchers.remove(rootId);
+    await _watcherSubs[rootId]?.cancel();
+    _watcherSubs.remove(rootId);
+    await _dao.removeRoot(rootId, nowMs);
+    _bump();
+  }
+
   /// 手动识别修正（设置页每根按钮）：根内全部活轨入队，返回排队数。
   Future<int> enrichRoot(int rootId) async {
     final rows = await (_db.select(_db.tracks)

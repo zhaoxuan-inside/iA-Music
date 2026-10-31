@@ -20,6 +20,7 @@ import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/play/playback_notice.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
+import 'package:ia_music/ui/shared/track_menu.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -289,6 +290,20 @@ class TracksPageState extends State<TracksPage> {
     return InkWell(
       key: ValueKey('track_row_${t.id}'),
       onTap: missing ? null : () => unawaited(_play(i)),
+      onLongPress: () => unawaited(showTrackMenu(
+        context,
+        track: t,
+        hub: widget.hub,
+        service: widget.service,
+        onChanged: () => unawaited(_reload()),
+      )),
+      onSecondaryTap: () => unawaited(showTrackMenu(
+        context,
+        track: t,
+        hub: widget.hub,
+        service: widget.service,
+        onChanged: () => unawaited(_reload()),
+      )),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
