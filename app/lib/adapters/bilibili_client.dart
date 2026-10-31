@@ -54,7 +54,9 @@ final class BilibiliClient {
       : _secure = secureStore ?? SecureStoreAdapter();
 
   final SecureStorePort _secure;
-  final HttpClient _http = HttpClient()..userAgent = kUaWeb;
+  final HttpClient _http = HttpClient()
+    ..userAgent = kUaWeb
+    ..connectionTimeout = const Duration(seconds: 15); // WS7：B 站接口抖动防无限挂起
 
   /// 登录 Cookie（SecureStore 装载）+ 免登录 buvid 合并池。
   final Map<String, BiliCookie> _jar = {};
@@ -170,6 +172,9 @@ final class BilibiliClient {
   // ── HTTP ────────────────────────────────────────────────
 
   /// GET JSON（Cookie 池自动携带；返回顶层 {code,message,data}）。
+  /// WS7：连接级 + 请求级双超时——B 站接口抖动不再无限挂起（搜索/登录轮询面）。
+  static const kBiliRequestTimeout = Duration(seconds: 15);
+
   Future<Map<String, dynamic>> getJson(Uri uri,
       {Map<String, String>? extraHeaders}) async {
     final req = await _http.getUrl(uri);
@@ -180,11 +185,11 @@ final class BilibiliClient {
       req.headers.set(HttpHeaders.cookieHeader, cookieHeader);
     }
     extraHeaders?.forEach(req.headers.set);
-    final res = await req.close();
+    final res = await req.close().timeout(kBiliRequestTimeout);
     if (res.statusCode != 200) {
       throw HttpException('HTTP ${res.statusCode}', uri: uri);
     }
-    final body = await res.transform(utf8.decoder).join();
+    final body = await res.transform(utf8.decoder).join().timeout(kBiliRequestTimeout);
     final j = jsonDecode(body);
     if (j is! Map<String, dynamic>) {
       throw FormatException(msg.responseNotJson);

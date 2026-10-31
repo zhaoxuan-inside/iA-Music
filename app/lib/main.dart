@@ -27,7 +27,7 @@ import 'package:ia_music/ui/theme/accent_controller.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
 /// 应用版本（与 pubspec.yaml 同步；WS8 发布时一并 bump）。
-const String kIaAppVersion = '1.0.2+3';
+const String kIaAppVersion = '1.1.0+4';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -183,12 +183,13 @@ void main() {
     final row = await DataAccess(db).library.rowById(id);
     expect(row!.title, '旧曲');
     expect(row.coverKind, isNull);
+    // WS6 schema v3：迁移链走到当前版本（v1→v2→v3 全链；kIaSchemaVersion）。
     expect(
       (await db.customSelect('PRAGMA user_version').getSingle())
           .data
           .values
           .single,
-      2,
+      kIaSchemaVersion,
     );
     expect(
       (await db

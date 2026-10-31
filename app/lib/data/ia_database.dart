@@ -237,9 +237,12 @@ class IaDatabase extends _$IaDatabase {
             await m.addColumn(tracks, tracks.coverCheckedAt);
           }
           // v2 → v3（WS6 同步域）：playlists 增跨端身份 uuid（可空列并存）
-          // + 存量行回填随机 UUID（crypto RandomArt 无关——直接 Random.secure hex）。
+          // + 存量行回填随机 UUID（Random.secure hex）。列存在性守卫：
+          // 老夹具/老库可能已带该列（ALTER 重复列=SqliteException）。
           if (from < 3) {
-            await m.addColumn(playlists, playlists.uuid);
+            if (!await _columnExists(m, 'playlists', 'uuid')) {
+              await m.addColumn(playlists, playlists.uuid);
+            }
             final rows =
                 await customSelect('SELECT id FROM playlists WHERE uuid IS NULL')
                     .get();
@@ -264,6 +267,12 @@ class IaDatabase extends _$IaDatabase {
       );
 
   /// 校验：quick_check=ok + 期望表齐备；失败抛 SchemaGateException（回退门）。
+
+  /// 列存在性（迁移守卫；PRAGMA table_info 直查）。
+  Future<bool> _columnExists(Migrator m, String table, String column) async {
+    final rows = await customSelect('PRAGMA table_info($table)').get();
+    return rows.any((r) => r.data['name'] == column);
+  }
   Future<void> _validateSchema() async {
     final quickRow =
         (await customSelect('PRAGMA quick_check').get()).first;

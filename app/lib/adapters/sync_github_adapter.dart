@@ -16,10 +16,10 @@ import 'package:contracts/contracts.dart';
 
 /// GitHub Contents API 适配器。
 final class GitHubAdapter implements SyncChannelPort {
-  GitHubAdapter(this._credentials, {ChannelConfig? config}) : _config = config;
+  GitHubAdapter({required this._credentials, this._config});
 
   final Future<String?> Function(String refKey) _credentials;
-  ChannelConfig? _config;
+  final ChannelConfig? _config;
   HttpClient? _http;
 
   static const _timeout = Duration(seconds: 15);

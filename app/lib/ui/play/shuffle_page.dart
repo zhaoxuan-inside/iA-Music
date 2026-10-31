@@ -35,6 +35,7 @@ final class ShufflePage extends StatefulWidget {
 
 class _ShufflePageState extends State<ShufflePage> {
   bool _fav = false;
+  double _dragDy = 0; // D6-7 拖拽跟手位移（WS7）
 
   @override
   void initState() {
@@ -97,15 +98,27 @@ class _ShufflePageState extends State<ShufflePage> {
                 ),
                 Expanded(
                   // 轮盘：当前曲大卡 + 下一曲预览卡；整盘上滑=切歌。
+                  // D6-7 拖拽跟手（WS7）：位移随手指 + 绕轴微旋转，松手回弹。
                   child: GestureDetector(
                     key: const ValueKey('shuffle_wheel'),
                     behavior: HitTestBehavior.opaque,
+                    onVerticalDragStart: (_) =>
+                        setState(() => _dragDy = 0),
+                    onVerticalDragUpdate: (d) => setState(() {
+                      _dragDy = (_dragDy + d.delta.dy).clamp(-240.0, 60.0);
+                    }),
                     onVerticalDragEnd: (d) {
+                      setState(() => _dragDy = 0); // 松手回弹
                       if ((d.primaryVelocity ?? 0) < -180) {
                         unawaited(_next()); // 仅上滑
                       }
                     },
-                    child: Padding(
+                    onVerticalDragCancel: () => setState(() => _dragDy = 0),
+                    child: Transform.translate(
+                      offset: Offset(0, _dragDy),
+                      child: Transform.rotate(
+                        angle: _dragDy / 1500, // 绕转盘轴心微旋转
+                        child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 28),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -135,6 +148,8 @@ class _ShufflePageState extends State<ShufflePage> {
                       ),
                     ),
                   ),
+                ),
+                ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(28, 16, 28, 24),

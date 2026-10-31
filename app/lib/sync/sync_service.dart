@@ -71,7 +71,7 @@ final class SyncService {
       case SyncChannelType.webdav:
         return WebDavAdapter(credentials: _secure.read, config: cfg);
       case SyncChannelType.github:
-        return GitHubAdapter(_secure.read, config: cfg);
+        return GitHubAdapter(credentials: _secure.read, config: cfg);
       case SyncChannelType.onedrive:
         return OneDriveAdapter(
           credentials: _secure.read,
@@ -158,7 +158,7 @@ final class SyncService {
       case SyncChannelType.webdav:
         return WebDavAdapter(credentials: _secure.read, config: cfg);
       case SyncChannelType.github:
-        return GitHubAdapter(_secure.read, config: cfg);
+        return GitHubAdapter(credentials: _secure.read, config: cfg);
       case SyncChannelType.onedrive:
         return OneDriveAdapter(
           credentials: _secure.read,

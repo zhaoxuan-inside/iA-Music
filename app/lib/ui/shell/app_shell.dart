@@ -61,6 +61,21 @@ class AppShellState extends State<AppShell> {
   PlaybackService? _playback;
   PlaybackService? get playbackOrNull => _playback;
 
+  @override
+  void initState() {
+    super.initState();
+    // WS7/REQ-PLAY 恢复闭环：冷启动恢复上次会话（有快照才恢复；自动起播=
+    // 电台连续性裁决 IMPL-S3 §4）。best-effort：无快照/恢复失败不阻塞首帧。
+    unawaited(() async {
+      try {
+        final svc = await ensurePlayback();
+        await svc.restoreFromDisk();
+      } on Object {
+        // 会话损坏/引擎失败——空态起步（壳层空态面已覆盖）
+      }
+    }());
+  }
+
   Future<PlaybackService> ensurePlayback() async {
     var svc = _playback;
     if (svc == null || !svc.isReady) {
