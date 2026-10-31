@@ -8,7 +8,9 @@ import 'package:contracts/contracts.dart';
 import 'package:drift/drift.dart';
 
 import 'package:ia_music/adapters/secure_store_adapter.dart';
+import 'package:ia_music/adapters/sync_gdrive_adapter.dart';
 import 'package:ia_music/adapters/sync_github_adapter.dart';
+import 'package:ia_music/adapters/sync_onedrive_adapter.dart';
 import 'package:ia_music/adapters/sync_webdav_adapter.dart';
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
@@ -63,7 +65,7 @@ final class SyncService {
   }
 
   /// 通道 Port 选择器（ADR-0001 R2：WebDAV=全量；GitHub=轻数据；
-  /// OneDrive/GDrive=文件型云盘）。
+  /// OneDrive/GDrive=文件型云盘 + OAuth 设备码流）。
   SyncChannelPort _buildPort(SyncChannelData channel, ChannelConfig cfg) {
     switch (channel.type) {
       case SyncChannelType.webdav:
@@ -71,9 +73,17 @@ final class SyncService {
       case SyncChannelType.github:
         return GitHubAdapter(_secure.read, config: cfg);
       case SyncChannelType.onedrive:
+        return OneDriveAdapter(
+          credentials: _secure.read,
+          credentialsWriter: _secure.write,
+          config: cfg,
+        );
       case SyncChannelType.gdrive:
-        // OAuth 适配器（设备码流）——适配器文件就绪后在此装配
-        throw ChannelAuthFailedException('通道 ${channel.type.name} 适配器装配缺失');
+        return GoogleDriveAdapter(
+          credentials: _secure.read,
+          credentialsWriter: _secure.write,
+          config: cfg,
+        );
     }
   }
 
@@ -150,8 +160,17 @@ final class SyncService {
       case SyncChannelType.github:
         return GitHubAdapter(_secure.read, config: cfg);
       case SyncChannelType.onedrive:
+        return OneDriveAdapter(
+          credentials: _secure.read,
+          credentialsWriter: _secure.write,
+          config: cfg,
+        );
       case SyncChannelType.gdrive:
-        throw ChannelAuthFailedException('通道 ${type.name} 适配器装配缺失');
+        return GoogleDriveAdapter(
+          credentials: _secure.read,
+          credentialsWriter: _secure.write,
+          config: cfg,
+        );
     }
   }
 
