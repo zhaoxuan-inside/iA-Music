@@ -913,4 +913,52 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get historyCleared => '播放历史已清空';
+
+  @override
+  String get qualityLabel => '音质';
+
+  @override
+  String get quality64 => '64k';
+
+  @override
+  String get quality128 => '128k';
+
+  @override
+  String get quality192 => '192k';
+
+  @override
+  String get qualityHires => 'Hi-Res';
+
+  @override
+  String get qualityHint => '登录 B 站后可选高码率';
+
+  @override
+  String get statusDownloading => '下载中';
+
+  @override
+  String get statusPaused => '已暂停';
+
+  @override
+  String get statusTranscoding => '转码中';
+
+  @override
+  String get statusRegistered => '已入库';
+
+  @override
+  String get statusFailed => '失败';
+
+  @override
+  String get statusDup => '重复';
+
+  @override
+  String get taskPause => '暂停';
+
+  @override
+  String get taskRetry => '重试';
+
+  @override
+  String get taskSkipDup => '跳过';
+
+  @override
+  String get extractNotification => '提取任务进行中';
 }

@@ -141,7 +141,8 @@ class SearchPageState extends State<SearchPage> {
     try {
       await widget.hub.extract.enqueueUrl(
         r.url,
-        quality: TaskQuality.k192,
+        // 快捷入队=默认最高音质（PRD REQ-EXT-01；登录 Cookie 自动携带）
+        quality: TaskQuality.hires,
         withLyrics: true,
         withText: true,
         nowMs: DateTime.now().millisecondsSinceEpoch,

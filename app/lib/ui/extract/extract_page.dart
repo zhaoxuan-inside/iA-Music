@@ -37,8 +37,10 @@ class ExtractPageState extends State<ExtractPage> {
   String _parseError = '';
   bool _withLyrics = true;
   bool _withText = true;
+  TaskQuality _quality = TaskQuality.hires; // PRD REQ-EXT-01：默认最高可用
   Map<int, ExtractTask> _tasks = {};
   final Map<int, String> _messages = {};
+  final Map<int, double> _progress = {}; // ExtractProgress percent（WS3 接线）
   StreamSubscription<ExtractQueueEvent>? _sub;
 
   @override
@@ -78,7 +80,18 @@ class ExtractPageState extends State<ExtractPage> {
           _tasks[e.taskId] = existing.copyWith(status: e.status);
         }
         _messages[e.taskId] = e.message ?? '';
+        // 终态清理进度条（入库/失败/暂停保留最后值由 percent 覆盖）
+        switch (e.status) {
+          case ExtractTaskStatus.registered:
+          case ExtractTaskStatus.dup:
+            _progress.remove(e.taskId);
+          default:
+            break;
+        }
       });
+    } else if (e is ExtractProgress) {
+      if (!mounted) return;
+      setState(() => _progress[e.taskId] = e.percent);
     }
   }
 
@@ -110,7 +123,7 @@ class ExtractPageState extends State<ExtractPage> {
     final now = DateTime.now().millisecondsSinceEpoch;
     final (task, isNew) = await widget.hub.extract.enqueue(
       meta,
-      quality: TaskQuality.k192,
+      quality: _quality,
       withLyrics: _withLyrics,
       withText: _withText,
       nowMs: now,
@@ -195,6 +208,35 @@ class ExtractPageState extends State<ExtractPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            // 音质选择（REQ-EXT-01：登录后可选高码率；默认最高）
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(t.qualityLabel,
+                    style:
+                        TextStyle(fontSize: 12, color: p.secondaryText)),
+                const SizedBox(width: 4),
+                for (final (q, label) in [
+                  (TaskQuality.k64, t.quality64),
+                  (TaskQuality.k128, t.quality128),
+                  (TaskQuality.k192, t.quality192),
+                  (TaskQuality.hires, t.qualityHires),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      key: ValueKey('extract_quality_${q.name}'),
+                      label: Text(label),
+                      selected: _quality == q,
+                      onSelected: (_) => setState(() => _quality = q),
+                    ),
+                  ),
+                Text(t.qualityHint,
+                    style: TextStyle(
+                        fontSize: 11, color: p.secondaryText)),
+              ],
+            ),
             if (_parseError.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -232,7 +274,7 @@ class ExtractPageState extends State<ExtractPage> {
     );
   }
 
-  Widget _metaCard(dynamic p, ResolvedMeta m, int i) {
+  Widget _metaCard(IaPalette p, ResolvedMeta m, int i) {
     return Card(
       key: ValueKey('extract_meta_$i'),
       margin: const EdgeInsets.only(bottom: 8),
@@ -269,15 +311,24 @@ class ExtractPageState extends State<ExtractPage> {
     );
   }
 
-  Widget _taskRow(dynamic p, ExtractTask task) {
+  Widget _taskRow(IaPalette p, ExtractTask task) {
     final t = sOf(context);
     final statusText = switch (task.status) {
       ExtractTaskStatus.resolved => t.statusResolved,
       ExtractTaskStatus.gating => t.statusGating,
       ExtractTaskStatus.gated => t.statusGated,
-      _ => task.status.name,
+      ExtractTaskStatus.downloading => t.statusDownloading,
+      ExtractTaskStatus.paused => t.statusPaused,
+      ExtractTaskStatus.transcoding => t.statusTranscoding,
+      ExtractTaskStatus.registered => t.statusRegistered,
+      ExtractTaskStatus.failed => t.statusFailed,
+      ExtractTaskStatus.dup => t.statusDup,
     };
     final lastMsg = _messages[task.id] ?? '';
+    final progress = _progress[task.id];
+    final showProgress = progress != null ||
+        task.status == ExtractTaskStatus.downloading ||
+        task.status == ExtractTaskStatus.transcoding;
     return Padding(
       key: ValueKey('extract_task_${task.id}'),
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -300,13 +351,88 @@ class ExtractPageState extends State<ExtractPage> {
                 statusText,
                 style: TextStyle(
                   fontSize: 12,
-                  color: task.status == ExtractTaskStatus.gated
+                  color: task.status == ExtractTaskStatus.failed ||
+                          task.status == ExtractTaskStatus.dup
                       ? p.error
-                      : p.secondaryText,
+                      : task.status == ExtractTaskStatus.registered
+                          ? p.accent
+                          : p.secondaryText,
                 ),
+              ),
+              // 任务操作（REQ-EXT-05/06）：暂停/取消/重试/跳过 dup——服务面全有
+              if (task.status == ExtractTaskStatus.downloading)
+                IconButton(
+                  key: ValueKey('task_pause_${task.id}'),
+                  tooltip: t.taskPause,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      unawaited(widget.hub.extract.pauseCurrent()),
+                  icon: Icon(IaIcon.pause, size: 18, color: p.mainText),
+                ),
+              if (task.status == ExtractTaskStatus.paused ||
+                  task.status == ExtractTaskStatus.failed)
+                IconButton(
+                  key: ValueKey('task_retry_${task.id}'),
+                  tooltip: t.taskRetry,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => unawaited(widget.hub.extract
+                      .reEnqueue(task.id)
+                      .then((task) {
+                    if (mounted) {
+                      setState(() => _tasks[task.id] = task);
+                    }
+                  })),
+                  icon: Icon(IaIcon.refresh, size: 18, color: p.mainText),
+                ),
+              if (task.status == ExtractTaskStatus.dup)
+                IconButton(
+                  key: ValueKey('task_skip_dup_${task.id}'),
+                  tooltip: t.taskSkipDup,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () =>
+                      unawaited(widget.hub.extract.skipDup(task.id)),
+                  icon: Icon(IaIcon.check, size: 18, color: p.mainText),
+                ),
+              IconButton(
+                key: ValueKey('task_cancel_${task.id}'),
+                tooltip: t.cancel,
+                visualDensity: VisualDensity.compact,
+                onPressed: () => unawaited(widget.hub.extract
+                    .cancelTask(task.id)
+                    .then((_) {
+                  if (mounted) {
+                    setState(() {
+                      _tasks.remove(task.id);
+                      _progress.remove(task.id);
+                      _messages.remove(task.id);
+                    });
+                  }
+                })),
+                icon: Icon(IaIcon.close, size: 18, color: p.secondaryText),
               ),
             ],
           ),
+          if (showProgress) ...[
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                key: ValueKey('task_progress_${task.id}'),
+                value: progress == null ? null : progress / 100,
+                minHeight: 4,
+              ),
+            ),
+            if (progress != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                '${progress.toStringAsFixed(0)}%',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: p.secondaryText,
+                    fontFeatures: kIaNumericFeatures),
+              ),
+            ],
+          ],
           if (lastMsg.isNotEmpty)
             Text(
               lastMsg,
@@ -324,7 +450,7 @@ class ExtractPageState extends State<ExtractPage> {
 final class _ComplianceCard extends StatelessWidget {
   const _ComplianceCard({required this.p, required this.onAck});
 
-  final dynamic p;
+  final IaPalette p;
   final VoidCallback onAck;
 
   @override

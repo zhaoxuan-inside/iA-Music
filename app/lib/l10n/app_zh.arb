@@ -356,5 +356,22 @@
   "trackRemoved": "已从曲库移除",
   "renamed": "已重命名",
   "playlistDeleted": "歌单已删除",
-  "historyCleared": "播放历史已清空"
+  "historyCleared": "播放历史已清空",
+
+  "qualityLabel": "音质",
+  "quality64": "64k",
+  "quality128": "128k",
+  "quality192": "192k",
+  "qualityHires": "Hi-Res",
+  "qualityHint": "登录 B 站后可选高码率",
+  "statusDownloading": "下载中",
+  "statusPaused": "已暂停",
+  "statusTranscoding": "转码中",
+  "statusRegistered": "已入库",
+  "statusFailed": "失败",
+  "statusDup": "重复",
+  "taskPause": "暂停",
+  "taskRetry": "重试",
+  "taskSkipDup": "跳过",
+  "extractNotification": "提取任务进行中"
 }

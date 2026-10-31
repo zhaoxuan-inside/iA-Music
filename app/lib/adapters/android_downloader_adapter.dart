@@ -155,7 +155,7 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
     if (e.code == 'engine') {
       return FormUnsupportedException(msg.engineErrorAndroid(e.message ?? e.code));
     }
-    return NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
+    return NetworkLostException(msg.linkParseDead);
   }
 
   @override
@@ -181,6 +181,8 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
         'outputDir': plan.outputDir.replaceAll('\\', '/'),
         'quality': plan.quality.name,
         'cookies': cookies,
+        // WS3/REQ-EXT-04：前台服务通知标题（Dart 侧本地化；Kotlin 有兜底）
+        'notifTitle': msg.extractNotification,
       });
       // 终态（staged/paused/failed）经事件面处理；此处只应答 launch。
     } on PlatformException {

@@ -90,7 +90,11 @@ class MainActivity : FlutterActivity() {
                         val outputDir = call.argument<String>("outputDir")!!
                         val quality = call.argument<String>("quality") ?: "k192"
                         val cookies = call.argument<String?>("cookies")
+                        val notifTitle = call.argument<String>("notifTitle")
+                            ?: ExtractionService.DEFAULT_TITLE
                         result.success(true) // 终态全经 events（staged/paused/failed）
+                        // WS3/REQ-EXT-04：前台服务=下载期保持后台存活（离开页面不中断）
+                        ExtractionService.start(this@MainActivity, notifTitle)
                         pool.execute {
                             try {
                                 ensureEngine()
@@ -105,17 +109,20 @@ class MainActivity : FlutterActivity() {
                                 }
                             } finally {
                                 deleteTempCookies()
+                                ExtractionService.stop(this@MainActivity)
                             }
                         }
                     }
                     "pause" -> {
                         canceled.set(true)
                         FFmpegKit.cancel() // 单活动任务语义：全局会话取消=当前任务
+                        ExtractionService.stop(this@MainActivity)
                         result.success(true)
                     }
                     "cancel" -> {
                         canceled.set(true)
                         FFmpegKit.cancel()
+                        ExtractionService.stop(this@MainActivity)
                         result.success(true)
                     }
                     else -> result.notImplemented()
@@ -133,8 +140,24 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun emit(ev: Map<String, Any>) {
+        // WS3：进度 ≥5% 步进 → 前台服务通知同步（节流防 intent 风暴）
+        if (ev["type"] == "progress") {
+            val pct = (ev["percent"] as? Number)?.toInt() ?: 0
+            if (pct - lastFgPct >= 5) {
+                lastFgPct = pct
+                try {
+                    ExtractionService.update(
+                        this, ExtractionService.DEFAULT_TITLE, pct
+                    )
+                } catch (_: Exception) {
+                    // 通知不可用（后台启动限制等）——下载主线不受阻
+                }
+            }
+        }
         main.post { sink?.success(ev) }
     }
+
+    @Volatile private var lastFgPct = -100
 
     // ---------- 验证环境网络底数（RV-B 模拟器窗口）----------
     // * 模拟器 NAT 继承不到宿主 TUN/DNS（net.dns1/2 空，实测 getprop）→

@@ -295,5 +295,22 @@
   "trackRemoved": "Removed from library",
   "renamed": "Renamed",
   "playlistDeleted": "Playlist deleted",
-  "historyCleared": "Play history cleared"
+  "historyCleared": "Play history cleared",
+
+  "qualityLabel": "Quality",
+  "quality64": "64k",
+  "quality128": "128k",
+  "quality192": "192k",
+  "qualityHires": "Hi-Res",
+  "qualityHint": "Log in to Bilibili for higher bitrates",
+  "statusDownloading": "Downloading",
+  "statusPaused": "Paused",
+  "statusTranscoding": "Transcoding",
+  "statusRegistered": "Imported",
+  "statusFailed": "Failed",
+  "statusDup": "Duplicate",
+  "taskPause": "Pause",
+  "taskRetry": "Retry",
+  "taskSkipDup": "Skip",
+  "extractNotification": "Extraction in progress"
 }

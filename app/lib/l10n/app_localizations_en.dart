@@ -967,4 +967,52 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get historyCleared => 'Play history cleared';
+
+  @override
+  String get qualityLabel => 'Quality';
+
+  @override
+  String get quality64 => '64k';
+
+  @override
+  String get quality128 => '128k';
+
+  @override
+  String get quality192 => '192k';
+
+  @override
+  String get qualityHires => 'Hi-Res';
+
+  @override
+  String get qualityHint => 'Log in to Bilibili for higher bitrates';
+
+  @override
+  String get statusDownloading => 'Downloading';
+
+  @override
+  String get statusPaused => 'Paused';
+
+  @override
+  String get statusTranscoding => 'Transcoding';
+
+  @override
+  String get statusRegistered => 'Imported';
+
+  @override
+  String get statusFailed => 'Failed';
+
+  @override
+  String get statusDup => 'Duplicate';
+
+  @override
+  String get taskPause => 'Pause';
+
+  @override
+  String get taskRetry => 'Retry';
+
+  @override
+  String get taskSkipDup => 'Skip';
+
+  @override
+  String get extractNotification => 'Extraction in progress';
 }

@@ -1657,6 +1657,102 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'播放历史已清空'**
   String get historyCleared;
+
+  /// No description provided for @qualityLabel.
+  ///
+  /// In zh, this message translates to:
+  /// **'音质'**
+  String get qualityLabel;
+
+  /// No description provided for @quality64.
+  ///
+  /// In zh, this message translates to:
+  /// **'64k'**
+  String get quality64;
+
+  /// No description provided for @quality128.
+  ///
+  /// In zh, this message translates to:
+  /// **'128k'**
+  String get quality128;
+
+  /// No description provided for @quality192.
+  ///
+  /// In zh, this message translates to:
+  /// **'192k'**
+  String get quality192;
+
+  /// No description provided for @qualityHires.
+  ///
+  /// In zh, this message translates to:
+  /// **'Hi-Res'**
+  String get qualityHires;
+
+  /// No description provided for @qualityHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'登录 B 站后可选高码率'**
+  String get qualityHint;
+
+  /// No description provided for @statusDownloading.
+  ///
+  /// In zh, this message translates to:
+  /// **'下载中'**
+  String get statusDownloading;
+
+  /// No description provided for @statusPaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停'**
+  String get statusPaused;
+
+  /// No description provided for @statusTranscoding.
+  ///
+  /// In zh, this message translates to:
+  /// **'转码中'**
+  String get statusTranscoding;
+
+  /// No description provided for @statusRegistered.
+  ///
+  /// In zh, this message translates to:
+  /// **'已入库'**
+  String get statusRegistered;
+
+  /// No description provided for @statusFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'失败'**
+  String get statusFailed;
+
+  /// No description provided for @statusDup.
+  ///
+  /// In zh, this message translates to:
+  /// **'重复'**
+  String get statusDup;
+
+  /// No description provided for @taskPause.
+  ///
+  /// In zh, this message translates to:
+  /// **'暂停'**
+  String get taskPause;
+
+  /// No description provided for @taskRetry.
+  ///
+  /// In zh, this message translates to:
+  /// **'重试'**
+  String get taskRetry;
+
+  /// No description provided for @taskSkipDup.
+  ///
+  /// In zh, this message translates to:
+  /// **'跳过'**
+  String get taskSkipDup;
+
+  /// No description provided for @extractNotification.
+  ///
+  /// In zh, this message translates to:
+  /// **'提取任务进行中'**
+  String get extractNotification;
 }
 
 class _AppLocalizationsDelegate

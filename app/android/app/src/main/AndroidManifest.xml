@@ -7,6 +7,9 @@
          （foregroundServiceType=mediaPlayback）经插件 manifest 合并；WAKE_LOCK
          补后台播放期间 CPU 唤醒；POST_NOTIFICATIONS 运行时请求在 main.dart。 -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <!-- WS3/REQ-EXT-04 提取前台服务（dataSync）：API 34+ 需显式声明类型权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
         android:label="ia_music"
         android:name="${applicationName}"
@@ -33,6 +36,11 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- WS3/REQ-EXT-04：提取前台服务（通知进度；MainActivity 驱动启停） -->
+        <service
+            android:name=".ExtractionService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
