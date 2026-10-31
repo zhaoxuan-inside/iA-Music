@@ -12,9 +12,12 @@ import 'package:ia_music/adapters/bilibili_auth_adapter.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/app_localizations.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
 import 'package:ia_music/ui/settings/directory_browser_page.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
+import 'package:ia_music/ui/shell/locale_controller.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -23,11 +26,15 @@ final class SettingsPage extends StatefulWidget {
     super.key,
     required this.hub,
     required this.appearance,
+    required this.locale,
     this.onChanged,
   });
 
   final LibraryHub hub;
   final AppearanceController appearance;
+
+  /// 语言三选（DEC-005 D5-2）。
+  final LocaleController locale;
   final VoidCallback? onChanged;
 
   @override
@@ -84,18 +91,19 @@ class SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _logout() async {
+    final t = sOf(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('退出登录 B 站？'),
-        content: const Text('退出后提取将回到匿名音质（64k）。'),
+        title: Text(t.logoutConfirmTitle),
+        content: Text(t.logoutConfirmBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消')),
+              child: Text(t.cancel)),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('退出登录')),
+              child: Text(t.logoutAction)),
         ],
       ),
     );
@@ -118,8 +126,8 @@ class SettingsPageState extends State<SettingsPage> {
     final status = await Permission.audio.request();
     if (!status.isGranted) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('未获得音乐读取权限——请在系统设置中授权后重试')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(sOf(context).audioPermissionDenied)));
       }
       return;
     }
@@ -127,10 +135,11 @@ class SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _addRootPath(String dir) async {
+    final t = sOf(context);
     if (!Directory(dir).existsSync()) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('目录不存在：$dir')));
+            .showSnackBar(SnackBar(content: Text(t.dirMissing(dir))));
       }
       return;
     }
@@ -139,7 +148,7 @@ class SettingsPageState extends State<SettingsPage> {
       widget.onChanged?.call();
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('已添加仓库并完成扫描：$dir')));
+            .showSnackBar(SnackBar(content: Text(t.repoAdded(dir))));
       }
     } on StateError catch (e) {
       if (mounted) {
@@ -154,7 +163,7 @@ class SettingsPageState extends State<SettingsPage> {
     widget.onChanged?.call();
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('已触发重新扫描')));
+          .showSnackBar(SnackBar(content: Text(sOf(context).rescanTriggered)));
     }
   }
 
@@ -163,11 +172,12 @@ class SettingsPageState extends State<SettingsPage> {
     final n = await widget.hub.enrichRoot(rootId);
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('已排队识别修正：$n 首')));
+          .showSnackBar(SnackBar(content: Text(sOf(context).enrichQueued(n))));
     }
   }
 
   Future<void> _pickTheme() async {
+    final t = sOf(context);
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -175,19 +185,20 @@ class SettingsPageState extends State<SettingsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('外观',
+                child: Text(t.appearanceTitle,
                     style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
-            for (final (mode, label, icon) in const [
-              (ThemeMode.dark, '深色', Icons.dark_mode_rounded),
-              (ThemeMode.light, '浅色', Icons.light_mode_rounded),
-              (ThemeMode.system, '跟随系统', Icons.brightness_auto_rounded),
+            for (final (mode, label, icon) in [
+              (ThemeMode.dark, t.themeDark, Icons.dark_mode_rounded),
+              (ThemeMode.light, t.themeLight, Icons.light_mode_rounded),
+              (ThemeMode.system, t.themeFollowSystem,
+                  Icons.brightness_auto_rounded),
             ])
               ListTile(
                 key: ValueKey('theme_${mode.name}'),
@@ -208,23 +219,75 @@ class SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String get _themeLabel => switch (widget.appearance.value) {
-        ThemeMode.dark => '深色',
-        ThemeMode.light => '浅色',
-        ThemeMode.system => '跟随系统',
+  /// 语言三选（DEC-005 D5-2）；语言名用自称（中文/English 不互译）。
+  Future<void> _pickLanguage() async {
+    final t = sOf(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(t.settingsLanguage,
+                    style:
+                        const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            for (final (lang, label, icon) in [
+              (AppLanguage.zh, t.languageNameZh, Icons.language_rounded),
+              (AppLanguage.en, t.languageNameEn, Icons.language_rounded),
+              (AppLanguage.system, t.languageFollowSystem,
+                  Icons.brightness_auto_rounded),
+            ])
+              ListTile(
+                key: ValueKey('lang_${lang.name}'),
+                leading: Icon(icon),
+                title: Text(label),
+                trailing: lang == widget.locale.value
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await widget.locale.set(lang);
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _themeLabel(AppLocalizations t) => switch (widget.appearance.value) {
+        ThemeMode.dark => t.themeDark,
+        ThemeMode.light => t.themeLight,
+        ThemeMode.system => t.themeFollowSystem,
+      };
+
+  /// 语言条目副标题：当前选中项自称（中文/English）或「跟随系统」译名。
+  String _languageSubtitle(AppLocalizations t) => switch (widget.locale.value) {
+        AppLanguage.zh => t.languageNameZh,
+        AppLanguage.en => t.languageNameEn,
+        AppLanguage.system => t.languageFollowSystem,
       };
 
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('settings_page'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          const Text(
-            'SETTINGS',
-            style: TextStyle(
+          Text(
+            t.settingsTitle,
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.05,
@@ -240,16 +303,24 @@ class SettingsPageState extends State<SettingsPage> {
                       ? IaIcon.autoMode
                       : IaIcon.darkMode,
             ),
-            title: const Text('外观'),
-            subtitle: Text(_themeLabel),
+            title: Text(t.appearanceTitle),
+            subtitle: Text(_themeLabel(t)),
             trailing: Icon(IaIcon.arrowForward),
             onTap: () => unawaited(_pickTheme()),
+          ),
+          ListTile(
+            key: const ValueKey('language_entry'),
+            leading: Icon(Icons.language_rounded),
+            title: Text(t.settingsLanguage),
+            subtitle: Text(_languageSubtitle(t)),
+            trailing: Icon(IaIcon.arrowForward),
+            onTap: () => unawaited(_pickLanguage()),
           ),
           SwitchListTile(
             key: const ValueKey('cover_online_entry'),
             secondary: Icon(IaIcon.album),
-            title: const Text('在线补齐封面'),
-            subtitle: const Text('本地无封面时联网检索（MusicBrainz → iTunes）'),
+            title: Text(t.coverOnlineTitle),
+            subtitle: Text(t.coverOnlineSubtitle),
             value: _coverOnline,
             onChanged: (v) => unawaited(_toggleCoverOnline(v)),
           ),
@@ -262,24 +333,24 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text(_account.isLogin
                 ? (_account.uname?.isNotEmpty == true
                     ? _account.uname!
-                    : 'B 站用户')
-                : '登录 B 站'),
+                    : t.biliUserFallback)
+                : t.loginBili),
             subtitle: Text(_account.isLogin
-                ? 'Lv.${_account.level} · 已登录（高音质提取可用）'
-                : '扫码或 Cookie 登录，解锁高音质提取'),
+                ? t.accountLoggedIn(_account.level)
+                : t.accountAnonymousSubtitle),
             trailing: _account.isLogin
                 ? TextButton(
                     key: const ValueKey('mine_logout'),
                     onPressed: () => unawaited(_logout()),
                     child:
-                        const Text('登出', style: TextStyle(fontSize: 13)),
+                        Text(t.logoutButton, style: const TextStyle(fontSize: 13)),
                   )
                 : Icon(IaIcon.arrowForward),
             onTap: _account.isLogin ? null : () => unawaited(_openLogin()),
           ),
           const SizedBox(height: 12),
           Text(
-            '音乐仓库',
+            t.repoSection,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -288,7 +359,7 @@ class SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            '提取的曲目保存在 仓库/提取/ 下；删除仓库不删文件。',
+            t.repoHint,
             style: TextStyle(fontSize: 12, color: p.secondaryText),
           ),
           const SizedBox(height: 8),
@@ -311,7 +382,7 @@ class SettingsPageState extends State<SettingsPage> {
                         children: [
                           IconButton(
                             key: ValueKey('repo_enrich_$i'),
-                            tooltip: '识别修正（歌名/歌词/封面）',
+                            tooltip: t.enrichTooltip,
                             onPressed: () =>
                                 unawaited(_enrichRoot(roots[i].id)),
                             icon: Icon(IaIcon.autoFix,
@@ -319,7 +390,7 @@ class SettingsPageState extends State<SettingsPage> {
                           ),
                           IconButton(
                             key: ValueKey('repo_rescan_$i'),
-                            tooltip: '重新扫描',
+                            tooltip: t.rescanTooltip,
                             onPressed: () => unawaited(_rescan(roots[i].id)),
                             icon: Icon(IaIcon.refresh,
                                 size: 18, color: p.secondaryText),
@@ -332,7 +403,7 @@ class SettingsPageState extends State<SettingsPage> {
                       key: const ValueKey('repo_empty'),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
-                        '暂无仓库——添加一个本地音乐目录开始',
+                        t.repoEmpty,
                         style:
                             TextStyle(fontSize: 12, color: p.secondaryText),
                       ),
@@ -348,11 +419,11 @@ class SettingsPageState extends State<SettingsPage> {
               key: const ValueKey('repo_add'),
               onPressed: () => unawaited(_addRoot()),
               icon: Icon(IaIcon.add),
-              label: const Text('添加仓库目录'),
+              label: Text(t.repoAddLabel),
             ),
           const SizedBox(height: 24),
           Text(
-            '关于',
+            t.aboutSection,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -361,9 +432,7 @@ class SettingsPageState extends State<SettingsPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'iA Music · 本地优先音乐播放器\n'
-            'B 站发现 → 提取 → 歌词/封面补全 → 曲库\n'
-            'UI 参照 Harmonoid（仅视觉语言，PolyForm 许可不复制代码）',
+            t.aboutBody,
             style: TextStyle(
                 fontSize: 12, color: p.secondaryText, height: 1.7),
           ),
@@ -398,6 +467,7 @@ class _AndroidRepoPickerState extends State<_AndroidRepoPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final t = sOf(context);
     return Column(
       key: const ValueKey('repo_add_android'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,7 +484,7 @@ class _AndroidRepoPickerState extends State<_AndroidRepoPicker> {
               ),
             ),
             icon: Icon(IaIcon.folder),
-            label: const Text('浏览选择目录'),
+            label: Text(t.repoBrowseLabel),
           ),
         ),
         const SizedBox(height: 10),
@@ -426,7 +496,7 @@ class _AndroidRepoPickerState extends State<_AndroidRepoPicker> {
                 controller: _controller,
                 style: const TextStyle(fontSize: 13),
                 decoration: InputDecoration(
-                  hintText: '或输入音乐目录绝对路径',
+                  hintText: t.repoPathHint,
                   isDense: true,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -441,7 +511,7 @@ class _AndroidRepoPickerState extends State<_AndroidRepoPicker> {
                 if (path.isNotEmpty) widget.onAdd(path);
               },
               icon: Icon(IaIcon.add, size: 18),
-              label: const Text('添加'),
+              label: Text(t.addLabel),
             ),
           ],
         ),

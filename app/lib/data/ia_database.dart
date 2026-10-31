@@ -14,6 +14,7 @@ import 'package:drift/native.dart';
 import 'package:pinyin/pinyin.dart';
 import 'package:sqlite3/sqlite3.dart';
 
+import '../l10n/s.dart';
 import 'tables.dart';
 
 part 'ia_database.g.dart';
@@ -68,8 +69,8 @@ class SchemaGateException implements Exception {
   String toString() => 'SchemaGateException: $message${detail == null ? '' : ' [$detail]'}';
 }
 
-const String kRecoveryHint =
-    '数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。';
+/// 只读回退门横幅文案（跟随当前 UI 语言；D5-2）。
+String kRecoveryHint() => msg.dbRecoveryHint;
 
 /// 打开结果：db + 是否处于回退门（只读）。
 class IaDbGate {
@@ -79,7 +80,7 @@ class IaDbGate {
   final bool isReadOnlyGate;
 
   /// 组装回退门文案（壳层直接展示）。
-  String get gateCopy => kRecoveryHint;
+  String get gateCopy => kRecoveryHint();
 }
 
 /// 打开数据库；正常路径失败→只读兜底重开（§1.4 回退门）。

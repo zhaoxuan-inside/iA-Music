@@ -11,6 +11,7 @@
 library;
 
 import 'package:ia_music/adapters/bilibili_client.dart';
+import 'package:ia_music/l10n/s.dart';
 
 /// 扫码会话（QR 内容=url；qrcodeKey=轮询凭据）。
 final class BiliQrSession {
@@ -59,13 +60,13 @@ final class BilibiliAuthAdapter {
     final j = await _client.getJson(Uri.parse(
         'https://passport.bilibili.com/x/passport-login/web/qrcode/generate'));
     if (j['code'] != 0) {
-      throw FormatException('登录二维码获取失败（${j['code']}）');
+      throw FormatException(msg.qrCreateFailed('${j['code']}'));
     }
     final d = (j['data'] as Map?)?.cast<String, dynamic>() ?? const {};
     final url = '${d['url'] ?? ''}';
     final key = '${d['qrcode_key'] ?? ''}';
     if (url.isEmpty || key.isEmpty) {
-      throw const FormatException('登录二维码数据不完整');
+      throw FormatException(msg.qrDataIncomplete);
     }
     return BiliQrSession(qrContent: url, qrcodeKey: key);
   }
@@ -77,7 +78,7 @@ final class BilibiliAuthAdapter {
     final j = await _client.getJson(Uri.parse(
         'https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=$qrcodeKey'));
     if (j['code'] != 0) {
-      throw FormatException('登录状态查询失败（${j['code']}）');
+      throw FormatException(msg.pollFailed('${j['code']}'));
     }
     final d = (j['data'] as Map?)?.cast<String, dynamic>() ?? const {};
     switch ('${d['code'] ?? 86101}') {

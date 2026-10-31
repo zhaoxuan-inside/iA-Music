@@ -8,6 +8,7 @@ import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/main.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
+import 'package:ia_music/ui/shell/locale_controller.dart';
 
 void main() {
   testWidgets('入口冒烟：资料库中心壳 + TRACKS 首页（移动端 4 Tab）',
@@ -25,12 +26,13 @@ void main() {
     await tester.pumpWidget(IaMusicApp(
         hub: hub,
         readOnlyGate: false,
-        appearance: AppearanceController(hub.data, ThemeMode.dark)));
+        appearance: AppearanceController(hub.data, ThemeMode.dark),
+        locale: LocaleController(hub.data, AppLanguage.zh)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // 资料库中心：TRACKS 即首页（D12-3）。
-    expect(find.text('TRACKS'), findsWidgets, reason: '首页=TRACKS 大写标题（桌面另有侧栏同名项）');
+    // 资料库中心：单曲即首页（D12-3；默认中文=zh，导航文案走 C63 本地化）。
+    expect(find.text('单曲'), findsWidgets, reason: '首页=单曲大标题（桌面另有侧栏同名项）');
     // 移动 4 Tab（曲库/搜索/歌单/设置）。
     expect(find.byKey(const ValueKey('nav_library')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav_search')), findsOneWidget);
@@ -58,7 +60,8 @@ void main() {
     await tester.pumpWidget(IaMusicApp(
         hub: hub,
         readOnlyGate: false,
-        appearance: AppearanceController(hub.data, ThemeMode.dark)));
+        appearance: AppearanceController(hub.data, ThemeMode.dark),
+        locale: LocaleController(hub.data, AppLanguage.zh)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
@@ -69,7 +72,7 @@ void main() {
     expect(find.byKey(const ValueKey('nav_playlists')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav_search')), findsOneWidget);
     expect(find.byKey(const ValueKey('nav_settings')), findsOneWidget);
-    expect(find.text('TRACKS'), findsWidgets);
+    expect(find.text('单曲'), findsWidgets);
     // 移动 Tab 栏不在桌面形态。
     expect(find.byKey(const ValueKey('main_tabs')), findsNothing);
 
@@ -77,6 +80,6 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('nav_albums')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
-    expect(find.text('ALBUMS'), findsWidgets, reason: '切到专辑面');
+    expect(find.text('专辑'), findsWidgets, reason: '切到专辑面');
   });
 }

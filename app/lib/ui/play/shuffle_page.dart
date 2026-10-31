@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/playlists/playlist_service.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
@@ -65,6 +66,7 @@ class _ShufflePageState extends State<ShufflePage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('shuffle_page'),
       backgroundColor: p.canvas,
@@ -76,7 +78,7 @@ class _ShufflePageState extends State<ShufflePage> {
             final s = snap.data;
             final cur = s?.currentTrack;
             if (s == null || cur == null) {
-              return const Center(child: Text('随机会话未开始'));
+              return Center(child: Text(t.shuffleNotStarted));
             }
             if (s.currentTrack?.id != null) unawaited(_refreshFav());
             final duration = cur.durationMs > 0 ? cur.durationMs : 1;
@@ -137,7 +139,7 @@ class _ShufflePageState extends State<ShufflePage> {
                   child: Column(
                     children: [
                       Text(
-                        '随机',
+                        t.shuffleShort,
                         key: const ValueKey('shuffle_label'),
                         style: TextStyle(
                           fontSize: 12,
@@ -159,7 +161,7 @@ class _ShufflePageState extends State<ShufflePage> {
                         ),
                       ),
                       Text(
-                        cur.artistDisplay.isEmpty ? '未知歌手' : cur.artistDisplay,
+                        cur.artistDisplay.isEmpty ? t.unknownArtist : cur.artistDisplay,
                         style:
                             TextStyle(fontSize: 13, color: p.secondaryText),
                       ),
@@ -178,7 +180,7 @@ class _ShufflePageState extends State<ShufflePage> {
                         children: [
                           IconButton(
                             key: const ValueKey('shuffle_dislike'),
-                            tooltip: '移出随机池（少播）',
+                            tooltip: t.dislikeTooltip,
                             onPressed: () => unawaited(_dislike()),
                             icon: Icon(IaIcon.delete,
                                 size: 24, color: p.secondaryText),
@@ -205,7 +207,7 @@ class _ShufflePageState extends State<ShufflePage> {
                           const SizedBox(width: 22),
                           IconButton(
                             key: const ValueKey('shuffle_heart'),
-                            tooltip: _fav ? '取消红心' : '红心',
+                            tooltip: _fav ? t.unheartTooltip : t.heartTooltip,
                             onPressed: () => unawaited(_toggleHeart()),
                             icon: Icon(
                               IaIcon.heart,
@@ -218,7 +220,7 @@ class _ShufflePageState extends State<ShufflePage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        '上滑切歌 · 单轮内不重复',
+                        t.swipeUpHint,
                         style: TextStyle(fontSize: 11, color: p.secondaryText),
                       ),
                     ],

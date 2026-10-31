@@ -13,6 +13,7 @@ import 'dart:convert';
 
 import 'package:contracts/contracts.dart';
 import 'package:ia_music/adapters/bilibili_client.dart';
+import 'package:ia_music/l10n/s.dart';
 
 final class BilibiliSearchAdapter implements SearchPort {
   BilibiliSearchAdapter({BilibiliClient? client})
@@ -34,11 +35,10 @@ final class BilibiliSearchAdapter implements SearchPort {
   }) async {
     final kw = keyword.trim();
     if (kw.isEmpty) {
-      throw const FormatException('搜索词为空');
+      throw FormatException(msg.searchQueryEmpty);
     }
     if (platform == SearchPlatform.douyin) {
-      throw const AuthRequiredSearchException(
-          '抖音搜索需平台签名登录态，当前版本支持粘贴分享链接提取');
+      throw AuthRequiredSearchException(msg.douyinUnsupported);
     }
     final j = await _client.getJsonSigned(
       Uri.parse('https://api.bilibili.com/x/web-interface/wbi/search/type'),
@@ -52,10 +52,11 @@ final class BilibiliSearchAdapter implements SearchPort {
     );
     final code = j['code'];
     if (code == -412 || code == -352) {
-      throw const AuthRequiredSearchException('平台风控拦截，请稍后再试或登录 B 站账号');
+      throw AuthRequiredSearchException(msg.riskControlIntercepted);
     }
     if (code != 0) {
-      throw FormatException('B 站搜索失败（${j['code']}）：${j['message'] ?? '未知原因'}');
+      throw FormatException(msg.searchApiFailed(
+          '${j['code']}', '${j['message'] ?? msg.unknownReason}'));
     }
     return mapBiliSearchJson(j).take(limit).toList(growable: false);
   }

@@ -16,6 +16,7 @@ import 'dart:io';
 import 'package:contracts/contracts.dart';
 import 'package:crypto/crypto.dart';
 import 'package:ia_music/adapters/secure_store_adapter.dart';
+import 'package:ia_music/l10n/s.dart';
 
 /// wbi 参数重排表（社区公开常量，实测通行；失效症状=搜索 -412）。
 const List<int> kMixinKeyEncTab = [
@@ -186,7 +187,7 @@ final class BilibiliClient {
     final body = await res.transform(utf8.decoder).join();
     final j = jsonDecode(body);
     if (j is! Map<String, dynamic>) {
-      throw const FormatException('响应不是 JSON 对象');
+      throw FormatException(msg.responseNotJson);
     }
     // 响应新 Cookie 合池（buvid 轮换等）。
     final setCookies = res.headers[HttpHeaders.setCookieHeader];

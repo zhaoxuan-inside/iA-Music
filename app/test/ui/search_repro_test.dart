@@ -11,8 +11,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/app_localizations.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
 import 'package:ia_music/ui/shell/app_shell.dart';
+import 'package:ia_music/ui/shell/locale_controller.dart';
 
 void main() {
   late IaDatabase db;
@@ -53,9 +55,13 @@ void main() {
 
   Future<void> pumpShell(WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(
+      locale: const Locale('zh'),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: AppShell(
         hub: hub,
         appearance: AppearanceController(hub.data, ThemeMode.dark),
+        locale: LocaleController(hub.data, AppLanguage.zh),
       ),
     ));
     await tester.pump();

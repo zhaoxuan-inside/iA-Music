@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/library/tracks_page.dart' show LibrarySegmentBar;
 import 'package:ia_music/ui/shared/cover_art.dart';
@@ -80,6 +81,7 @@ class ArtistsPageState extends State<ArtistsPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     final wide = MediaQuery.sizeOf(context).width >= 1024;
     return Scaffold(
       key: const ValueKey('artists_page'),
@@ -99,8 +101,8 @@ class ArtistsPageState extends State<ArtistsPage> {
                       const SizedBox(height: 8),
                     ],
                     Text(
-                      'ARTISTS',
-                      style: TextStyle(
+                      t.navArtists,
+                      style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.05,
@@ -108,7 +110,7 @@ class ArtistsPageState extends State<ArtistsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_rows.length} 位艺术家',
+                      t.artistCount(_rows.length),
                       style: TextStyle(fontSize: 12, color: p.secondaryText),
                     ),
                     const SizedBox(height: 12),
@@ -117,10 +119,10 @@ class ArtistsPageState extends State<ArtistsPage> {
               ),
             ),
             if (_loaded && _rows.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(
-                  key: ValueKey('artists_empty'),
-                  child: Text('暂无艺术家'),
+                  key: const ValueKey('artists_empty'),
+                  child: Text(t.artistsEmpty),
                 ),
               )
             else
@@ -165,7 +167,7 @@ class ArtistsPageState extends State<ArtistsPage> {
                               ),
                             ),
                             Text(
-                              '${e.count} 首',
+                              t.trackCount(e.count),
                               style: TextStyle(
                                 fontSize: 10,
                                 color: p.secondaryText,
@@ -235,6 +237,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('artist_detail'),
       appBar: AppBar(title: Text(widget.artist.name)),
@@ -271,7 +274,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
           const SizedBox(height: 4),
           Center(
             child: Text(
-              '艺术家 · ${_tracks.length} 首',
+              t.artistTrackCount(_tracks.length),
               style: TextStyle(fontSize: 13, color: p.secondaryText),
             ),
           ),
@@ -281,7 +284,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
               key: const ValueKey('artist_play_all'),
               onPressed: () => unawaited(_play()),
               icon: Icon(IaIcon.play),
-              label: const Text('播放全部'),
+              label: Text(t.playAll),
             ),
           ),
           const SizedBox(height: 20),
@@ -295,7 +298,7 @@ class _ArtistDetailPageState extends State<ArtistDetailPage> {
                   children: [
                     Expanded(
                       child: Text(
-                        _tracks[i].title ?? '未命名',
+                        _tracks[i].title ?? t.untitled,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 14),

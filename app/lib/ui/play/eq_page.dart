@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
@@ -15,9 +16,10 @@ final class EqPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('eq_page'),
-      appBar: AppBar(title: const Text('音效')),
+      appBar: AppBar(title: Text(t.eqTitle)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -26,11 +28,12 @@ final class EqPage extends StatelessWidget {
             children: [
               Icon(IaIcon.equalizer, size: 48, color: p.secondaryText),
               const SizedBox(height: 16),
-              const Text('当前播放引擎不支持均衡器',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              Text(t.eqUnsupportedTitle,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text(
-                'mpv_audio_kit 以单 Player 实例发布媒体会话，\n未暴露均衡器波段接口；本页明示不支持，不伪造滑杆。',
+                t.eqUnsupportedBody,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 13, color: p.secondaryText, height: 1.6),

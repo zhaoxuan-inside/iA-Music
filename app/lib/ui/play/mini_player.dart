@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
@@ -18,7 +19,8 @@ import 'package:ia_music/ui/theme/ia_theme.dart';
 /// 可见面（同曲同播放态=同帧；过滤位置 tick）。
 (bool, TrackLite?) _face(PlaybackSnapshot s) => (s.playing, s.currentTrack);
 
-Widget _title(TextStyle main, TextStyle sub, TrackLite cur) => Column(
+Widget _title(TextStyle main, TextStyle sub, TrackLite cur, String shuffling) =>
+    Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -30,7 +32,7 @@ Widget _title(TextStyle main, TextStyle sub, TrackLite cur) => Column(
           style: main,
         ),
         Text(
-          cur.artistDisplay.isEmpty ? '随机播放中' : cur.artistDisplay,
+          cur.artistDisplay.isEmpty ? shuffling : cur.artistDisplay,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: sub,
@@ -48,9 +50,10 @@ class _PlayToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return IconButton(
       key: const ValueKey('mini_play'),
-      tooltip: playing ? '暂停' : '播放',
+      tooltip: playing ? t.pauseTooltip : t.playTooltip,
       onPressed: () => unawaited(playing ? service.pause() : service.play()),
       icon: Icon(
         playing ? IaIcon.pause : IaIcon.play,
@@ -82,6 +85,7 @@ final class SidebarMiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return StreamBuilder<(bool, TrackLite?)>(
       initialData: _face(service.snapshot),
       stream: service.status.map(_face).distinct(),
@@ -116,10 +120,11 @@ final class SidebarMiniPlayer extends StatelessWidget {
                         ),
                         TextStyle(fontSize: 11, color: p.secondaryText),
                         cur,
+                        t.shufflingSubtitle,
                       ),
                     ),
                     IconButton(
-                      tooltip: '上一首',
+                      tooltip: t.previousTooltip,
                       onPressed: () => unawaited(service.previous()),
                       icon: Icon(IaIcon.previous,
                           size: 20, color: p.secondaryText),
@@ -128,7 +133,7 @@ final class SidebarMiniPlayer extends StatelessWidget {
                         service: service, playing: snap.data!.$1, size: 24),
                     IconButton(
                       key: const ValueKey('mini_next'),
-                      tooltip: '下一首',
+                      tooltip: t.nextTooltip,
                       onPressed:
                           onNext == null ? null : () => unawaited(onNext!()),
                       icon:
@@ -166,6 +171,7 @@ final class CapsuleMiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return StreamBuilder<(bool, TrackLite?)>(
       initialData: _face(service.snapshot),
       stream: service.status.map(_face).distinct(),
@@ -215,12 +221,13 @@ final class CapsuleMiniPlayer extends StatelessWidget {
                         ),
                         TextStyle(fontSize: 11, color: p.secondaryText),
                         cur,
+                        t.shufflingSubtitle,
                       ),
                     ),
                     _PlayToggle(service: service, playing: snap.data!.$1),
                     IconButton(
                       key: const ValueKey('mini_next'),
-                      tooltip: '下一首',
+                      tooltip: t.nextTooltip,
                       onPressed:
                           onNext == null ? null : () => unawaited(onNext!()),
                       icon:

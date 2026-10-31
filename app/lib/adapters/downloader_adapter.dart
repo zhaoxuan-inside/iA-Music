@@ -21,6 +21,7 @@ import 'dart:io';
 
 import 'package:contracts/contracts.dart';
 import 'package:ia_music/adapters/secure_store_adapter.dart';
+import 'package:ia_music/l10n/s.dart';
 
 /// yt-dlp 进程启动方式（EXP-001：用户级模块安装，免 PATH）。
 const String kYtDlpLauncherExe = 'py';
@@ -62,7 +63,7 @@ final class DownloaderAdapter implements DownloaderPort {
   Future<ResolvedMeta> resolve(String sharedUrl, {String? cookiesRefKey}) async {
     final url = extractFirstUrl(sharedUrl);
     if (url == null) {
-      throw const FormatException('未在分享文本中找到链接');
+      throw FormatException(msg.noLinkInShareText);
     }
     final cookieFile = await _maybeCookieFile(cookiesRefKey);
     final String procOut;
@@ -83,8 +84,7 @@ final class DownloaderAdapter implements DownloaderPort {
     } on ProcessException {
       // 拉不起 yt-dlp 进程=环境形态不支持（Android 无桌面工具链），
       // 与「链接失效/需登录」是两类问题——人话错误必须分开（诚实红线）。
-      throw const FormUnsupportedException(
-          '提取功能当前为桌面端形态（Windows），Android 端将在后续版本支持');
+      throw FormUnsupportedException(msg.desktopOnlyExtract);
     } finally {
       await _cleanupCookieFile(cookieFile);
     }
@@ -92,13 +92,12 @@ final class DownloaderAdapter implements DownloaderPort {
     if (exitCode != 0) {
       final klass = classify(procOut, procErr);
       if (klass == DownloadFailureClass.auth) {
-        throw const AuthExpiredException('链接解析失败：该内容需要登录，或链接已失效。可登录 B 站账号后再试');
+        throw AuthExpiredException(msg.linkNeedLogin);
       }
       if (klass == DownloadFailureClass.unsupported) {
-        throw const FormUnsupportedException(
-            '该链接格式暂不支持提取（付费/地区/平台形态受限，或提取工具链需要更新）');
+        throw FormUnsupportedException(msg.linkFormatUnsupported);
       }
-      throw NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
+      throw NetworkLostException(msg.linkParseDead);
     }
 
     final j =
@@ -110,7 +109,7 @@ final class DownloaderAdapter implements DownloaderPort {
   Future<List<ResolvedMeta>> resolveAll(String sharedUrl, {String? cookiesRefKey}) async {
     final url = extractFirstUrl(sharedUrl);
     if (url == null) {
-      throw const FormatException('未在分享文本中找到链接');
+      throw FormatException(msg.noLinkInShareText);
     }
     final cookieFile = await _maybeCookieFile(cookiesRefKey);
     final String procOut;
@@ -129,8 +128,7 @@ final class DownloaderAdapter implements DownloaderPort {
       procErr = r.stderr as String;
       exitCode = r.exitCode;
     } on ProcessException {
-      throw const FormUnsupportedException(
-          '提取功能当前为桌面端形态（Windows），Android 端将在后续版本支持');
+      throw FormUnsupportedException(msg.desktopOnlyExtract);
     } finally {
       await _cleanupCookieFile(cookieFile);
     }
@@ -138,13 +136,12 @@ final class DownloaderAdapter implements DownloaderPort {
     if (exitCode != 0) {
       final klass = classify(procOut, procErr);
       if (klass == DownloadFailureClass.auth) {
-        throw const AuthExpiredException('链接解析失败：该内容需要登录，或链接已失效。可登录 B 站账号后再试');
+        throw AuthExpiredException(msg.linkNeedLogin);
       }
       if (klass == DownloadFailureClass.unsupported) {
-        throw const FormUnsupportedException(
-            '该链接格式暂不支持提取（付费/地区/平台形态受限，或提取工具链需要更新）');
+        throw FormUnsupportedException(msg.linkFormatUnsupported);
       }
-      throw NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
+      throw NetworkLostException(msg.linkParseDead);
     }
 
     final j = jsonDecode(procOut) as Map<String, dynamic>;

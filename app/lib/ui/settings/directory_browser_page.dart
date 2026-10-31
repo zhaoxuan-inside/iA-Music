@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:ia_music/scan/scan_service.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -65,7 +66,7 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
       if (!await dir.exists()) {
         setState(() {
           _loading = false;
-          _error = '目录不存在：$_path';
+          _error = sOf(context).dirMissing(_path);
         });
         return;
       }
@@ -93,7 +94,8 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = '无法读取该目录（${e.osError?.message ?? '权限不足'}）';
+        _error = sOf(context)
+            .dirReadFailed(e.osError?.message ?? sOf(context).permissionDenied);
       });
     }
   }
@@ -123,7 +125,8 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
-    final name = _path == kAndroidStorageRoot ? '内部存储' : _path.split('/').last;
+    final t = sOf(context);
+    final name = _path == kAndroidStorageRoot ? t.internalStorage : _path.split('/').last;
     return Scaffold(
       key: const ValueKey('dir_browser'),
       appBar: AppBar(
@@ -147,7 +150,7 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
         actions: [
           IconButton(
             key: const ValueKey('dir_browser_up'),
-            tooltip: '上一级',
+            tooltip: t.levelUpTooltip,
             onPressed: _path == kAndroidStorageRoot ? null : _up,
             icon: Icon(IaIcon.back),
           ),
@@ -163,7 +166,7 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '${_dirs.length} 个子目录 · $_audioCount 个音频文件',
+                    t.dirBrowserStat(_dirs.length, _audioCount),
                     key: const ValueKey('dir_browser_stat'),
                     style: TextStyle(fontSize: 12, color: p.secondaryText),
                   ),
@@ -183,15 +186,15 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
                         onRetry: () => unawaited(_ensurePermissionThenLoad()),
                         onSettings: () => unawaited(_openSystemSettings()),
                       )
-                    : _dirs.isEmpty
-                        ? Center(
-                            key: const ValueKey('dir_browser_no_subdirs'),
-                            child: Text(
-                              '没有子目录了——可以直接选择当前目录',
-                              style: TextStyle(
-                                  fontSize: 13, color: p.secondaryText),
-                            ),
-                          )
+                        : _dirs.isEmpty
+                            ? Center(
+                                key: const ValueKey('dir_browser_no_subdirs'),
+                                child: Text(
+                                  t.noSubdirs,
+                                  style: TextStyle(
+                                      fontSize: 13, color: p.secondaryText),
+                                ),
+                              )
                         : ListView.builder(
                             key: const ValueKey('dir_browser_list'),
                             itemCount: _dirs.length,
@@ -224,7 +227,7 @@ class _DirectoryBrowserPageState extends State<DirectoryBrowserPage> {
                   key: const ValueKey('dir_browser_confirm'),
                   onPressed: _confirm,
                   icon: Icon(IaIcon.check),
-                  label: Text('选择此目录（$name）'),
+                  label: Text(t.pickThisDir(name)),
                 ),
               ),
             ),
@@ -251,6 +254,7 @@ final class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Center(
       key: const ValueKey('dir_browser_error'),
       child: Padding(
@@ -269,20 +273,20 @@ final class _ErrorView extends StatelessWidget {
                 key: const ValueKey('dir_browser_grant'),
                 onPressed: onRetry,
                 icon: Icon(IaIcon.shield),
-                label: const Text('授予音乐读取权限'),
+                label: Text(t.grantAudioPermission),
               ),
               const SizedBox(height: 8),
               TextButton(
                 key: const ValueKey('dir_browser_open_settings'),
                 onPressed: onSettings,
-                child: const Text('去系统设置开启'),
+                child: Text(t.openSystemSettings),
               ),
             ] else ...[
               const SizedBox(height: 16),
               FilledButton.tonalIcon(
                 onPressed: onRetry,
                 icon: Icon(IaIcon.refresh),
-                label: const Text('重试'),
+                label: Text(t.retryAction),
               ),
             ],
           ],

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/playlists/playlist_service.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
@@ -52,24 +53,25 @@ class PlaylistsPageState extends State<PlaylistsPage> {
   }
 
   Future<void> _create() async {
+    final t = sOf(context);
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) {
         final c = TextEditingController();
         return AlertDialog(
-          title: const Text('新建歌单'),
+          title: Text(t.playlistCreateTitle),
           content: TextField(
             key: const ValueKey('playlist_name_input'),
             controller: c,
             autofocus: true,
-            decoration: const InputDecoration(hintText: '歌单名称'),
+            decoration: InputDecoration(hintText: t.playlistNameHint),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+                onPressed: () => Navigator.pop(ctx), child: Text(t.cancel)),
             FilledButton(
                 onPressed: () => Navigator.pop(ctx, c.text.trim()),
-                child: const Text('创建')),
+                child: Text(t.createAction)),
           ],
         );
       },
@@ -99,6 +101,7 @@ class PlaylistsPageState extends State<PlaylistsPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('playlists_page'),
       body: ListView(
@@ -106,10 +109,10 @@ class PlaylistsPageState extends State<PlaylistsPage> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'PLAYLISTS',
-                  style: TextStyle(
+                  t.navPlaylists,
+                  style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.05,
@@ -118,7 +121,7 @@ class PlaylistsPageState extends State<PlaylistsPage> {
               ),
               IconButton(
                 key: const ValueKey('playlist_create'),
-                tooltip: '新建歌单',
+                tooltip: t.playlistCreateTitle,
                 onPressed: () => unawaited(_create()),
                 icon: Icon(IaIcon.add, color: p.secondaryText),
               ),
@@ -131,7 +134,7 @@ class PlaylistsPageState extends State<PlaylistsPage> {
               padding: const EdgeInsets.only(top: 48),
               child: Center(
                 child: Text(
-                  '还没有歌单。红心的歌会进「我喜欢的音乐」。',
+                  t.playlistsEmpty,
                   style: TextStyle(fontSize: 13, color: p.secondaryText),
                 ),
               ),
@@ -149,7 +152,7 @@ class PlaylistsPageState extends State<PlaylistsPage> {
                       : p.accent,
                 ),
                 title: Text(d.playlist.name),
-                subtitle: Text('${d.trackCount} 首'),
+                subtitle: Text(t.trackCount(d.trackCount)),
                 trailing: Icon(IaIcon.arrowForward),
                 onTap: () => unawaited(_open(d)),
               ),
@@ -212,6 +215,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: ValueKey('playlist_detail_${widget.playlistId}'),
       appBar: AppBar(title: Text(widget.title)),
@@ -224,7 +228,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                 key: const ValueKey('playlist_play_all'),
                 onPressed: () => unawaited(_play()),
                 icon: Icon(IaIcon.play),
-                label: Text('播放全部（${_rows.length} 首）'),
+                label: Text(t.playlistPlayAll(_rows.length)),
               ),
             ),
           const SizedBox(height: 12),
@@ -233,7 +237,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
               padding: const EdgeInsets.only(top: 32),
               child: Center(
                 child: Text(
-                  '歌单是空的',
+                  t.playlistEmpty,
                   style: TextStyle(fontSize: 13, color: p.secondaryText),
                 ),
               ),
@@ -259,7 +263,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _rows[i].title ?? '未命名',
+                              _rows[i].title ?? t.untitled,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -284,7 +288,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
                         ),
                       ),
                       IconButton(
-                        tooltip: '从歌单移除',
+                        tooltip: t.playlistRemoveTooltip,
                         onPressed: () => unawaited(_remove(_rows[i].id)),
                         icon: Icon(IaIcon.close,
                             size: 18, color: p.secondaryText),

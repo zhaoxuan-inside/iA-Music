@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/adapters/mpv_engine_adapter.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/library/albums_page.dart';
 import 'package:ia_music/ui/library/artists_page.dart';
@@ -26,6 +27,7 @@ import 'package:ia_music/ui/playlists/playlists_page.dart';
 import 'package:ia_music/ui/search/search_page.dart';
 import 'package:ia_music/ui/settings/settings_page.dart';
 import 'package:ia_music/ui/shell/appearance.dart';
+import 'package:ia_music/ui/shell/locale_controller.dart';
 import 'package:ia_music/ui/theme/accent_controller.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
@@ -38,11 +40,15 @@ final class AppShell extends StatefulWidget {
     super.key,
     required this.hub,
     required this.appearance,
+    required this.locale,
     this.accent,
   });
 
   final LibraryHub hub;
   final AppearanceController appearance;
+
+  /// 语言三选（DEC-005 D5-2）。
+  final LocaleController locale;
   final AccentController? accent;
 
   @override
@@ -174,6 +180,7 @@ class AppShellState extends State<AppShell> {
         SettingsPage(
           hub: widget.hub,
           appearance: widget.appearance,
+          locale: widget.locale,
           onChanged: _bump,
         ),
       ],
@@ -276,6 +283,7 @@ final class _Sidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     final scheme = Theme.of(context).colorScheme;
     Widget item(
       ShellSection s,
@@ -369,17 +377,17 @@ final class _Sidebar extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            item(ShellSection.search, IaIcon.search, 'SEARCH', 'nav_search'),
-            header('LIBRARY'),
-            item(ShellSection.tracks, IaIcon.tracks, 'TRACKS', 'nav_tracks'),
-            item(ShellSection.albums, IaIcon.albums, 'ALBUMS', 'nav_albums',
+            item(ShellSection.search, IaIcon.search, t.navSearch, 'nav_search'),
+            header(t.navLibrary),
+            item(ShellSection.tracks, IaIcon.tracks, t.navTracks, 'nav_tracks'),
+            item(ShellSection.albums, IaIcon.albums, t.navAlbums, 'nav_albums',
                 indent: true),
-            item(ShellSection.artists, IaIcon.artists, 'ARTISTS', 'nav_artists',
-                indent: true),
-            header('MORE'),
-            item(ShellSection.playlists, IaIcon.playlist, 'PLAYLISTS',
+            item(ShellSection.artists, IaIcon.artists, t.navArtists,
+                'nav_artists', indent: true),
+            header(t.navMore),
+            item(ShellSection.playlists, IaIcon.playlist, t.navPlaylists,
                 'nav_playlists'),
-            item(ShellSection.settings, IaIcon.settings, 'SETTINGS',
+            item(ShellSection.settings, IaIcon.settings, t.navSettings,
                 'nav_settings'),
             const Spacer(),
             miniPlayer,
@@ -400,6 +408,7 @@ final class _MobileTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     final scheme = Theme.of(context).colorScheme;
     Widget item(
       ShellSection s,
@@ -466,11 +475,13 @@ final class _MobileTabs extends StatelessWidget {
       child: Row(
         children: [
           // 曲库 Tab 覆盖 tracks/albums/artists 三个子面（高亮合一）。
-          item(ShellSection.tracks, IaIcon.library, '曲库', 'nav_library',
-              highlight: ShellSection.tracks),
-          item(ShellSection.search, IaIcon.search, '搜索', 'nav_search'),
-          item(ShellSection.playlists, IaIcon.playlist, '歌单', 'nav_playlists'),
-          item(ShellSection.settings, IaIcon.settings, '设置', 'nav_settings'),
+          item(ShellSection.tracks, IaIcon.library, t.navLibrary,
+              'nav_library', highlight: ShellSection.tracks),
+          item(ShellSection.search, IaIcon.search, t.navSearch, 'nav_search'),
+          item(ShellSection.playlists, IaIcon.playlist, t.navPlaylists,
+              'nav_playlists'),
+          item(ShellSection.settings, IaIcon.settings, t.navSettings,
+              'nav_settings'),
         ],
       ),
     );

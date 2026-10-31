@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/play/playback_notice.dart';
 import 'package:ia_music/ui/shared/cover_art.dart';
@@ -36,14 +37,15 @@ class LibrarySegmentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     final scheme = Theme.of(context).colorScheme;
     return Row(
       key: const ValueKey('library_segments'),
       children: [
-        for (final (i, label) in const [
-          (0, 'TRACKS'),
-          (1, 'ALBUMS'),
-          (2, 'ARTISTS'),
+        for (final (i, label) in [
+          (0, t.navTracks),
+          (1, t.navAlbums),
+          (2, t.navArtists),
         ])
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -205,6 +207,7 @@ class TracksPageState extends State<TracksPage> {
 
   Widget _header(BuildContext context, bool wide) {
     final p = context.ia;
+    final t = sOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -214,10 +217,10 @@ class TracksPageState extends State<TracksPage> {
         ],
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'TRACKS',
-                style: TextStyle(
+                t.navTracks,
+                style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.05,
@@ -226,13 +229,13 @@ class TracksPageState extends State<TracksPage> {
             ),
             IconButton(
               key: const ValueKey('tracks_shuffle'),
-              tooltip: '随机播放（随机池=全库−少播）',
+              tooltip: t.shuffleTooltip,
               onPressed: widget.onShuffleRequested,
               icon: Icon(IaIcon.shuffle, color: p.secondaryText),
             ),
             IconButton(
               key: const ValueKey('tracks_view_toggle'),
-              tooltip: _grid ? '列表视图' : '网格视图',
+              tooltip: _grid ? t.viewListTooltip : t.viewGridTooltip,
               onPressed: () => setState(() => _grid = !_grid),
               icon: Icon(
                 _grid ? IaIcon.viewList : IaIcon.gridView,
@@ -243,7 +246,7 @@ class TracksPageState extends State<TracksPage> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${_rows.length} 首',
+          t.trackCount(_rows.length),
           style: TextStyle(fontSize: 12, color: p.secondaryText),
         ),
         const SizedBox(height: 12),
@@ -251,11 +254,11 @@ class TracksPageState extends State<TracksPage> {
           spacing: 6,
           runSpacing: 6,
           children: [
-            for (final entry in const [
-              (LibSort.recent, '最近'),
-              (LibSort.title, '标题'),
-              (LibSort.artist, '歌手'),
-              (LibSort.duration, '时长'),
+            for (final entry in [
+              (LibSort.recent, t.sortRecent),
+              (LibSort.title, t.sortTitle),
+              (LibSort.artist, t.sortArtist),
+              (LibSort.duration, t.sortDuration),
             ])
               ChoiceChip(
                 key: ValueKey('tracks_sort_${entry.$1.name}'),
@@ -280,6 +283,7 @@ class TracksPageState extends State<TracksPage> {
 
   Widget _row(int i) {
     final p = context.ia;
+    final msg = sOf(context);
     final t = _rows[i];
     final missing = t.missingAt != null;
     return InkWell(
@@ -302,7 +306,7 @@ class TracksPageState extends State<TracksPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    t.title ?? '未命名',
+                    t.title ?? msg.untitled,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -317,7 +321,7 @@ class TracksPageState extends State<TracksPage> {
                       Flexible(
                         child: Text(
                           t.artistDisplay?.isEmpty == true
-                              ? '未知歌手'
+                              ? msg.unknownArtist
                               : t.artistDisplay!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -329,7 +333,7 @@ class TracksPageState extends State<TracksPage> {
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: Text(
-                            'B站',
+                            msg.sourceBili,
                             style: TextStyle(
                               fontSize: 10,
                               color: p.secondaryText,
@@ -341,7 +345,7 @@ class TracksPageState extends State<TracksPage> {
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: Text(
-                            '文件缺失',
+                            msg.missingBadge,
                             key: const ValueKey('track_missing_badge'),
                             style: TextStyle(fontSize: 10, color: p.error),
                           ),
@@ -368,6 +372,7 @@ class TracksPageState extends State<TracksPage> {
 
   Widget _gridCard(int i) {
     final p = context.ia;
+    final msg = sOf(context);
     final t = _rows[i];
     return InkWell(
       key: ValueKey('track_grid_${t.id}'),
@@ -386,7 +391,7 @@ class TracksPageState extends State<TracksPage> {
           ),
           const SizedBox(height: 6),
           Text(
-            t.title ?? '未命名',
+            t.title ?? msg.untitled,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
@@ -413,6 +418,7 @@ final class _EmptyLibrary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Padding(
       key: const ValueKey('tracks_empty'),
       padding: const EdgeInsets.only(top: 48),
@@ -422,10 +428,10 @@ final class _EmptyLibrary extends StatelessWidget {
           children: [
             Icon(IaIcon.musicNote, size: 56, color: p.secondaryText),
             const SizedBox(height: 16),
-            const Text('曲库是空的', style: TextStyle(fontSize: 16)),
+            Text(t.emptyLibraryTitle, style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 6),
             Text(
-              '扫描本地音乐目录，或从 B 站搜索提取你的第一首歌。',
+              t.emptyLibraryBody,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: p.secondaryText),
             ),
@@ -434,14 +440,14 @@ final class _EmptyLibrary extends StatelessWidget {
               key: const ValueKey('tracks_empty_scan'),
               onPressed: onScan,
               icon: Icon(IaIcon.folder),
-              label: const Text('去设置添加仓库'),
+              label: Text(t.emptyGoSettings),
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               key: const ValueKey('tracks_empty_search'),
               onPressed: onSearch,
               icon: Icon(IaIcon.link),
-              label: const Text('去 B 站搜索提取'),
+              label: Text(t.emptyGoSearch),
             ),
           ],
         ),

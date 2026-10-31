@@ -16,6 +16,7 @@ import 'package:contracts/contracts.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/extract/extract_page.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
@@ -124,11 +125,11 @@ class SearchPageState extends State<SearchPage> {
       }
     } on SocketException catch (_) {
       if (mounted) {
-        setState(() => _biliError = '网络连不上 B 站——请检查设备的网络连接后重试');
+        setState(() => _biliError = sOf(context).biliNetworkError);
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _biliError = '搜索失败：$e');
+        setState(() => _biliError = sOf(context).searchFailed('$e'));
       }
     } finally {
       if (mounted) setState(() => _biliLoading = false);
@@ -146,7 +147,7 @@ class SearchPageState extends State<SearchPage> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('已加入提取队列：${r.title}')),
+          SnackBar(content: Text(sOf(context).extractQueued(r.title))),
         );
       }
     } on StateError {
@@ -178,14 +179,15 @@ class SearchPageState extends State<SearchPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('search_page'),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          const Text(
-            'SEARCH',
-            style: TextStyle(
+          Text(
+            t.navSearch,
+            style: const TextStyle(
               fontSize: 26,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.05,
@@ -201,7 +203,9 @@ class SearchPageState extends State<SearchPage> {
                   onSubmitted: (_) => unawaited(_searchBili()),
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
-                    hintText: _biliMode ? '搜索 B 站 / 粘贴链接或 BV 号' : '搜索歌曲 / 歌手 / 专辑',
+                    hintText: _biliMode
+                        ? t.searchHintBili
+                        : t.searchHintLocal,
                     prefixIcon: Icon(IaIcon.search,
                         size: 20, color: p.secondaryText),
                   ),
@@ -211,7 +215,7 @@ class SearchPageState extends State<SearchPage> {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   key: const ValueKey('search_go'),
-                  tooltip: '搜索',
+                  tooltip: t.navSearch,
                   onPressed: () => unawaited(_searchBili()),
                   icon: Icon(IaIcon.arrowForward),
                 ),
@@ -221,9 +225,9 @@ class SearchPageState extends State<SearchPage> {
           const SizedBox(height: 12),
           SegmentedButton<bool>(
             key: const ValueKey('search_mode'),
-            segments: const [
-              ButtonSegment(value: false, label: Text('本地曲库')),
-              ButtonSegment(value: true, label: Text('B 站')),
+            segments: [
+              ButtonSegment(value: false, label: Text(t.segmentLocal)),
+              ButtonSegment(value: true, label: Text(t.segmentBili)),
             ],
             selected: {_biliMode},
             onSelectionChanged: (s) {
@@ -243,6 +247,7 @@ class SearchPageState extends State<SearchPage> {
   }
 
   List<Widget> _localBody(dynamic p) {
+    final t = sOf(context);
     if (_controller.text.isEmpty) {
       return [
         Center(
@@ -250,7 +255,7 @@ class SearchPageState extends State<SearchPage> {
           child: Padding(
             padding: const EdgeInsets.only(top: 48),
             child: Text(
-              '试试搜索歌手或歌名；支持拼音首字母',
+              t.searchLocalHint,
               style: TextStyle(fontSize: 13, color: p.secondaryText),
             ),
           ),
@@ -263,7 +268,7 @@ class SearchPageState extends State<SearchPage> {
           child: Padding(
             padding: const EdgeInsets.only(top: 48),
             child: Text(
-              '没有找到与「${_controller.text}」相关的音乐',
+              t.searchNoResults(_controller.text),
               style: TextStyle(fontSize: 13, color: p.secondaryText),
             ),
           ),
@@ -292,7 +297,7 @@ class SearchPageState extends State<SearchPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _localRows[i].title ?? '未命名',
+                        _localRows[i].title ?? sOf(context).untitled,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -324,6 +329,7 @@ class SearchPageState extends State<SearchPage> {
   }
 
   List<Widget> _biliBody(dynamic p) {
+    final t = sOf(context);
     if (_biliError.isNotEmpty) {
       return [
         Padding(
@@ -340,14 +346,14 @@ class SearchPageState extends State<SearchPage> {
                   key: const ValueKey('search_bili_login'),
                   onPressed: () => unawaited(_openLogin()),
                   icon: Icon(IaIcon.scanQr),
-                  label: const Text('扫码登录 B 站'),
+                  label: Text(t.scanLoginBili),
                 )
               else
                 FilledButton.tonalIcon(
                   key: const ValueKey('search_bili_retry'),
                   onPressed: () => unawaited(_searchBili()),
                   icon: Icon(IaIcon.refresh),
-                  label: const Text('重试'),
+                  label: Text(t.retryAction),
                 ),
             ],
           ),
@@ -369,7 +375,7 @@ class SearchPageState extends State<SearchPage> {
           padding: const EdgeInsets.only(top: 48),
           child: Center(
             child: Text(
-              '没有找到相关内容，换个关键词试试',
+              t.biliNoResults,
               style: TextStyle(fontSize: 13, color: p.secondaryText),
             ),
           ),
@@ -384,7 +390,7 @@ class SearchPageState extends State<SearchPage> {
           key: const ValueKey('search_extract_entry'),
           onPressed: () => unawaited(_openExtract()),
           icon: Icon(IaIcon.extract),
-          label: const Text('打开提取队列'),
+          label: Text(t.openExtractQueue),
         ),
       ),
     ];
@@ -431,7 +437,8 @@ class SearchPageState extends State<SearchPage> {
                       fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  '${r.uploader} · ${iaMmss(r.durationMs)} · 播放 ${iaPlayCount(r.playCount)}',
+                  sOf(context).biliRowMeta(
+                      r.uploader, iaMmss(r.durationMs), iaPlayCount(r.playCount)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 12, color: p.secondaryText),
@@ -442,7 +449,7 @@ class SearchPageState extends State<SearchPage> {
           const SizedBox(width: 8),
           IconButton.filledTonal(
             key: ValueKey('search_bili_extract_$i'),
-            tooltip: '提取音频入库（含歌词补全链路）',
+            tooltip: sOf(context).extractTooltip,
             onPressed: () => unawaited(_extractResult(r)),
             icon: Icon(IaIcon.download, size: 20),
           ),

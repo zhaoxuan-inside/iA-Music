@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/play/mini_player.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
@@ -139,10 +140,11 @@ class _LyricsPageState extends State<LyricsPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('lyrics_page'),
       appBar: AppBar(
-        title: const Text('歌词'),
+        title: Text(t.lyricsTitle),
         actions: [
           if (_sourceType != null)
             Padding(
@@ -152,8 +154,8 @@ class _LyricsPageState extends State<LyricsPage> {
                 child: Text(
                   switch (_sourceType) {
                     'lrc' => 'LRCLIB',
-                    'subtitle' => 'B站字幕',
-                    'asr' => '语音识别',
+                    'subtitle' => t.sourceBiliSubtitle,
+                    'asr' => t.sourceAsr,
                     _ => _sourceType!,
                   },
                   style: TextStyle(
@@ -176,8 +178,9 @@ class _LyricsPageState extends State<LyricsPage> {
                 final s = snap.data;
                 final cur = s?.currentTrack;
                 if (!_loaded || cur == null) {
-                  return const Center(
-                      key: ValueKey('lyrics_loading'), child: Text('加载中…'));
+                  return Center(
+                      key: const ValueKey('lyrics_loading'),
+                      child: Text(t.loading));
                 }
                 if (_lines.isEmpty) {
                   return Center(
@@ -189,11 +192,11 @@ class _LyricsPageState extends State<LyricsPage> {
                         children: [
                           Icon(IaIcon.lyrics, size: 48, color: p.secondaryText),
                           const SizedBox(height: 16),
-                          const Text('本曲暂无歌词',
-                              style: TextStyle(fontSize: 16)),
+                          Text(t.lyricsEmptyTitle,
+                              style: const TextStyle(fontSize: 16)),
                           const SizedBox(height: 8),
                           Text(
-                            '歌词在提取入库时自动生成：\n在线歌词库 → B 站字幕 → 本地语音识别，逐级兜底；\n反查命中后回填标准歌词与封面。',
+                            t.lyricsEmptyBody,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 fontSize: 13,

@@ -31,6 +31,7 @@ import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/extract/audio_split.dart';
 import 'package:ia_music/lyrics/lyrics_service.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// staging 根（T9A）：Windows=`<系统临时>/ia_extract`（与既有契约/测试面一致）；
@@ -317,7 +318,7 @@ class ExtractQueue {
             withVideo: withVideo,
             nowMs: nowMs);
       }
-      return first ?? (throw const FormatException('未在链接中找到内容'));
+      return first ?? (throw FormatException(msg.noContentInLink));
     }
     final url = extractFirstUrl(rawUrl) ?? rawUrl;
     final (task, isNew) = await _extract.createOrGet(
@@ -426,7 +427,9 @@ class ExtractQueue {
       } catch (e) {
         // 侧队列永不崩：字幕失败=无文本（不回滚音频注册）；但必须给用户
         // 诚实反馈（此前完全静默=「文字提取能力缺失」的体感来源之一）。
-        _emit(job.task.id, ExtractTaskStatus.registered, '字幕文本提取失败：${e is Exception ? e.toString() : '未知异常'}');
+        _emit(job.task.id, ExtractTaskStatus.registered,
+            msg.subtitleExtractFailed(
+                e is Exception ? e.toString() : msg.unknownError));
       }
     }
     _subsRunning = false;
@@ -450,13 +453,13 @@ class ExtractQueue {
       if (lrc == null || lrc.trim().isEmpty) {
         // 无字幕（诚实静默产物面，但事件面给人话：AI 字幕需登录是常态原因）
         _emit(job.task.id, ExtractTaskStatus.registered,
-            '该视频没有可用的字幕文本（AI 字幕需登录 B 站）');
+            msg.noSubtitleAvailable);
         return;
       }
       final roots = await _lib.rootsSnapshot();
       if (roots.isEmpty) {
         _emit(job.task.id, ExtractTaskStatus.registered,
-            '字幕文本未保存：尚未配置音乐仓库');
+            msg.subtitleNotSavedNoRepo);
         return;
       }
       final segs = _taskSegments[job.task.id];
@@ -471,7 +474,7 @@ class ExtractQueue {
               job.task.id);
         }
         _emit(job.task.id, ExtractTaskStatus.registered,
-            '字幕文本已按 ${segs.length} 段拆分保存');
+            msg.subtitleSplitSaved(segs.length));
         return;
       }
       // 整轨任务：音频同目录 .lrc（歌词域文件约定，REQ-LYR-03）。
@@ -497,7 +500,7 @@ class ExtractQueue {
         );
       }
       _emit(job.task.id, ExtractTaskStatus.registered,
-          '字幕文本已保存：$relBase.lrc');
+          msg.subtitleSaved('$relBase.lrc'));
     } finally {
       try {
         await staging.delete(recursive: true);
@@ -589,7 +592,7 @@ class ExtractQueue {
     }
     await _extract.updateTask(task.id,
         status: ExtractTaskStatus.failed, errorCode: ExtractErrorCode.disk);
-    _emit(task.id, ExtractTaskStatus.failed, '提取执行失败，任务已终止');
+    _emit(task.id, ExtractTaskStatus.failed, msg.extractTerminated);
     _currentTaskId = null;
   }
 
@@ -603,7 +606,7 @@ class ExtractQueue {
     if (roots.isEmpty) {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed, errorCode: ExtractErrorCode.noRepo);
-      _emit(task.id, ExtractTaskStatus.failed, '尚未配置音乐仓库，请先在「我的」添加仓库');
+      _emit(task.id, ExtractTaskStatus.failed, msg.noRepoConfigured);
       return;
     }
     final repo = roots.first;
@@ -669,7 +672,7 @@ class ExtractQueue {
       } else {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.paused, progressPct: _lastPct.toDouble());
-        _emit(task.id, ExtractTaskStatus.paused, '下载中断，已暂停，联网后自动继续');
+        _emit(task.id, ExtractTaskStatus.paused, msg.downloadPaused);
       }
       if (terminal == _Terminal.failed) {
         // FAILED(network) 入清单，手动重试无遗留半成品（§4.3 分片清理）
@@ -688,7 +691,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed,
           errorCode: ExtractErrorCode.transcode);
-      _emit(task.id, ExtractTaskStatus.failed, '产物转码失败');
+      _emit(task.id, ExtractTaskStatus.failed, msg.transcodeFailed);
       _currentTaskId = null;
       return;
     }
@@ -701,7 +704,7 @@ class ExtractQueue {
       } on FileSystemException {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.failed, errorCode: ExtractErrorCode.disk);
-        _emit(task.id, ExtractTaskStatus.failed, '视频目录不可写，任务终止');
+        _emit(task.id, ExtractTaskStatus.failed, msg.videoDirNotWritable);
         _currentTaskId = null;
         return;
       }
@@ -709,11 +712,11 @@ class ExtractQueue {
       if (moved == null) {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.failed, errorCode: ExtractErrorCode.disk);
-        _emit(task.id, ExtractTaskStatus.failed, '视频迁移失败：目标目录不可写');
+        _emit(task.id, ExtractTaskStatus.failed, msg.videoMoveFailed);
       } else {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.registered, outputRelPath: moved);
-        _emit(task.id, ExtractTaskStatus.registered, '视频已保存到 仓库/提取/视频（不入曲库）');
+        _emit(task.id, ExtractTaskStatus.registered, msg.videoSavedNote);
       }
       try {
         await stagingDir.delete(recursive: true);
@@ -729,7 +732,7 @@ class ExtractQueue {
     if (task.title == null || (task.title?.isEmpty ?? true)) {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.downloading, progressPct: 0.0);
-      _emit(task.id, ExtractTaskStatus.downloading, '解析链接…');
+      _emit(task.id, ExtractTaskStatus.downloading, msg.parsingLink);
       final useCookies = await _resolveLoginCookies();
       final List<ResolvedMeta> metas;
       try {
@@ -739,7 +742,7 @@ class ExtractQueue {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.failed,
             errorCode: ExtractErrorCode.network);
-        _emit(task.id, ExtractTaskStatus.failed, '链接解析失败：链接可能已失效，或该内容需要登录');
+        _emit(task.id, ExtractTaskStatus.failed, msg.linkParseDead);
         _currentTaskId = null;
         return;
       }
@@ -747,7 +750,7 @@ class ExtractQueue {
         await _extract.updateTask(task.id,
             status: ExtractTaskStatus.failed,
             errorCode: ExtractErrorCode.network);
-        _emit(task.id, ExtractTaskStatus.failed, '链接解析失败：未找到内容');
+        _emit(task.id, ExtractTaskStatus.failed, msg.linkParseNoContent);
         _currentTaskId = null;
         return;
       }
@@ -799,7 +802,7 @@ class ExtractQueue {
     List<SplitSegment> splitPlan = const [];
     if (!wantVideo && Platform.isWindows) {
       await _extract.updateTask(task.id, status: ExtractTaskStatus.transcoding);
-      _emit(task.id, ExtractTaskStatus.transcoding, '分析音频内容…');
+      _emit(task.id, ExtractTaskStatus.transcoding, msg.analyzingAudio);
       splitPlan = await detectSplit(
         audioPath: finalPath!,
         durationMs: task.durationMs ?? 0,
@@ -823,7 +826,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed,
           errorCode: ExtractErrorCode.disk);
-      _emit(task.id, ExtractTaskStatus.failed, '产物迁移失败：目标目录不可写');
+      _emit(task.id, ExtractTaskStatus.failed, msg.audioMoveFailed);
       _currentTaskId = null;
       return;
     }
@@ -855,7 +858,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed,
           errorCode: ExtractErrorCode.transcode);
-      _emit(task.id, ExtractTaskStatus.failed, '注册失败：产物已隔离，不影响曲库');
+      _emit(task.id, ExtractTaskStatus.failed, msg.registerFailedIsolated);
     } finally {
       try {
         await stagingDir.delete(recursive: true); // 待清理终态即清理（§4.3）
@@ -917,7 +920,7 @@ class ExtractQueue {
       baseName: 'seg_${task.sourceId}',
     );
     if (segFiles.length != n) {
-      _emit(task.id, ExtractTaskStatus.transcoding, '拆分失败，按完整音轨入库');
+      _emit(task.id, ExtractTaskStatus.transcoding, msg.splitFailedWhole);
       await _registerWholeAfterSplitAbort(task, stagedPath, targetDir, repo);
       return;
     }
@@ -956,7 +959,8 @@ class ExtractQueue {
           endMs: seg.endMs,
         ));
         _events.add(ExtractRegistered(task.id, trackId, segTitle));
-        _emit(task.id, ExtractTaskStatus.transcoding, '已拆分 ${i + 1}/$n 首：$segTitle');
+        _emit(task.id, ExtractTaskStatus.transcoding,
+            msg.splitProgress(i + 1, n, segTitle));
         unawaited(_extract.updateTask(
             task.id, progressPct: (i + 1) / n * 100));
         _events.add(ExtractProgress(task.id, (i + 1) / n * 100));
@@ -983,8 +987,7 @@ class ExtractQueue {
           status: ExtractTaskStatus.registered, outputRelPath: firstRelPath);
       _taskSegments[task.id] = registered;
       _taskCoverUrl.remove(task.id);
-      _emit(task.id, ExtractTaskStatus.registered,
-          '合集已拆分为 $n 首，歌名/封面/歌词已按段补全');
+      _emit(task.id, ExtractTaskStatus.registered, msg.splitDone(n));
 
       // ④ 每段歌词（LRCLIB 按段曲名匹配）+ 字幕文本按段偏移。
       if (_lyricsWanted.remove(task.id) == true) {
@@ -1012,7 +1015,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed,
           errorCode: ExtractErrorCode.transcode);
-      _emit(task.id, ExtractTaskStatus.failed, '拆分注册失败：产物已隔离');
+      _emit(task.id, ExtractTaskStatus.failed, msg.splitRegisterFailed);
     } finally {
       try {
         await Directory(File(stagedPath).parent.path).delete(recursive: true);
@@ -1030,7 +1033,7 @@ class ExtractQueue {
     if (movedPath == null) {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed, errorCode: ExtractErrorCode.disk);
-      _emit(task.id, ExtractTaskStatus.failed, '产物迁移失败：目标目录不可写');
+      _emit(task.id, ExtractTaskStatus.failed, msg.audioMoveFailed);
       _currentTaskId = null;
       return;
     }
@@ -1040,7 +1043,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.registered, outputRelPath: movedPath);
       _events.add(ExtractRegistered(task.id, trackId, task.title ?? ''));
-      _emit(task.id, ExtractTaskStatus.registered, '未检测到歌曲分界，按完整音轨入库');
+      _emit(task.id, ExtractTaskStatus.registered, msg.noSongBoundary);
       if (_textWanted.remove(task.id) == true) {
         _scheduleSubs(task, movedPath);
       }
@@ -1054,7 +1057,7 @@ class ExtractQueue {
       await _extract.updateTask(task.id,
           status: ExtractTaskStatus.failed,
           errorCode: ExtractErrorCode.transcode);
-      _emit(task.id, ExtractTaskStatus.failed, '注册失败：产物已隔离，不影响曲库');
+      _emit(task.id, ExtractTaskStatus.failed, msg.registerFailedIsolated);
     } finally {
       try {
         await Directory(File(stagedPath).parent.path).delete(recursive: true);
@@ -1128,13 +1131,13 @@ class ExtractQueue {
   String _human(DownloadFailureClass k) {
     switch (k) {
       case DownloadFailureClass.auth:
-        return 'B 站登录状态过期，请重新扫码';
+        return msg.failureAuth;
       case DownloadFailureClass.disk:
-        return '存储空间不足，请清理后重试';
+        return msg.failureDisk;
       case DownloadFailureClass.unsupported:
-        return '该内容暂不支持提取（付费/地区/格式受限，或工具链需更新）';
+        return msg.failureUnsupported;
       case DownloadFailureClass.network:
-        return '网络连接中断，任务已暂停，本地数据不受影响';
+        return msg.failureNetwork;
     }
   }
 

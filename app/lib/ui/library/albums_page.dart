@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/library/tracks_page.dart' show LibrarySegmentBar;
 import 'package:ia_music/ui/shared/cover_art.dart';
@@ -81,6 +82,7 @@ class AlbumsPageState extends State<AlbumsPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     final wide = MediaQuery.sizeOf(context).width >= 1024;
     return Scaffold(
       key: const ValueKey('albums_page'),
@@ -101,8 +103,8 @@ class AlbumsPageState extends State<AlbumsPage> {
                       const SizedBox(height: 8),
                     ],
                     Text(
-                      'ALBUMS',
-                      style: TextStyle(
+                      t.navAlbums,
+                      style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.05,
@@ -110,7 +112,7 @@ class AlbumsPageState extends State<AlbumsPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_rows.length} 张专辑',
+                      t.albumCount(_rows.length),
                       style:
                           TextStyle(fontSize: 12, color: p.secondaryText),
                     ),
@@ -120,10 +122,10 @@ class AlbumsPageState extends State<AlbumsPage> {
               ),
             ),
             if (_loaded && _rows.isEmpty)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(
-                  key: ValueKey('albums_empty'),
-                  child: Text('暂无专辑（曲目补全后自动归档）'),
+                  key: const ValueKey('albums_empty'),
+                  child: Text(t.albumsEmpty),
                 ),
               )
             else
@@ -165,7 +167,7 @@ class AlbumsPageState extends State<AlbumsPage> {
                               ),
                             ),
                             Text(
-                              '${e.count} 首',
+                              t.trackCount(e.count),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: p.secondaryText,
@@ -237,6 +239,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('album_detail'),
       appBar: AppBar(title: Text(widget.album.name)),
@@ -273,7 +276,8 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '专辑 · ${_tracks.isEmpty ? widget.count : _tracks.length} 首',
+                  t.albumTrackCount(
+                      _tracks.isEmpty ? widget.count : _tracks.length),
                   style: TextStyle(fontSize: 13, color: p.secondaryText),
                 ),
                 const SizedBox(height: 16),
@@ -283,7 +287,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
                       key: const ValueKey('album_play_all'),
                       onPressed: () => unawaited(_play()),
                       icon: Icon(IaIcon.play),
-                      label: const Text('播放全部'),
+                      label: Text(t.playAll),
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
@@ -293,7 +297,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
                               (_tracks.length > 1 ? _tracks.length : 1) ~/
                               2)), // 专辑内随机起点（随机池语义在曲库页）
                       icon: Icon(IaIcon.shuffle),
-                      label: const Text('随机'),
+                      label: Text(t.shuffleShort),
                     ),
                   ],
                 ),
@@ -340,7 +344,7 @@ class _AlbumDetailPageState extends State<AlbumDetailPage> {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                t.title ?? '未命名',
+                t.title ?? sOf(context).untitled,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 14),

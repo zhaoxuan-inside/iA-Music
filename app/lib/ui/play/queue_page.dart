@@ -7,6 +7,7 @@ import 'package:contracts/contracts.dart';
 
 import 'package:flutter/material.dart';
 
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
@@ -20,9 +21,10 @@ final class QueuePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('queue_page'),
-      appBar: AppBar(title: const Text('播放队列')),
+      appBar: AppBar(title: Text(t.queueTitle)),
       body: StreamBuilder<PlaybackSnapshot>(
         initialData: service.snapshot,
         stream: service.status,
@@ -31,7 +33,7 @@ final class QueuePage extends StatelessWidget {
           final queue = s?.queue ?? const <TrackLite>[];
           final curIndex = s?.currentIndex ?? -1;
           if (queue.isEmpty) {
-            return const Center(child: Text('队列为空'));
+            return Center(child: Text(t.queueEmpty));
           }
           return ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),

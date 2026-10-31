@@ -12,6 +12,7 @@ import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/extract/extract_queue.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/shared/ia_format.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
@@ -99,7 +100,7 @@ class ExtractPageState extends State<ExtractPage> {
       final metas = await widget.hub.extract.parseLinkText(text);
       if (mounted) setState(() => _parsed = metas);
     } catch (e) {
-      if (mounted) setState(() => _parseError = '解析失败：$e');
+      if (mounted) setState(() => _parseError = sOf(context).parseFailed('$e'));
     } finally {
       if (mounted) setState(() => _parsing = false);
     }
@@ -117,7 +118,9 @@ class ExtractPageState extends State<ExtractPage> {
     if (mounted) {
       setState(() => _tasks[task.id] = task);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(isNew ? '已入队：${meta.title}' : '任务已存在，继续沿用'),
+        content: Text(isNew
+            ? sOf(context).taskEnqueued(meta.title)
+            : sOf(context).taskExists),
       ));
     }
   }
@@ -125,9 +128,10 @@ class ExtractPageState extends State<ExtractPage> {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Scaffold(
       key: const ValueKey('extract_page'),
-      appBar: AppBar(title: const Text('提取')),
+      appBar: AppBar(title: Text(t.navExtract)),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -135,8 +139,8 @@ class ExtractPageState extends State<ExtractPage> {
             _ComplianceCard(p: p, onAck: () => unawaited(_ack())),
           ] else ...[
             Text(
-              'EXTRACT',
-              style: TextStyle(
+              t.extractTitle,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.05,
@@ -144,7 +148,7 @@ class ExtractPageState extends State<ExtractPage> {
             ),
             const SizedBox(height: 4),
             Text(
-              '粘贴 B 站链接 / 分享文本，或输入关键词解析合集；提取后自动补全歌名、歌手、封面与歌词。',
+              t.extractIntro,
               style: TextStyle(fontSize: 12, color: p.secondaryText),
             ),
             const SizedBox(height: 12),
@@ -158,7 +162,7 @@ class ExtractPageState extends State<ExtractPage> {
                     maxLines: 3,
                     onSubmitted: (_) => unawaited(_parse()),
                     decoration: InputDecoration(
-                      hintText: 'https://www.bilibili.com/video/… 或分享文本',
+                      hintText: t.extractInputHint,
                       prefixIcon:
                           Icon(IaIcon.link, size: 20, color: p.secondaryText),
                     ),
@@ -167,7 +171,7 @@ class ExtractPageState extends State<ExtractPage> {
                 const SizedBox(width: 8),
                 IconButton.filledTonal(
                   key: const ValueKey('extract_parse'),
-                  tooltip: '解析',
+                  tooltip: t.parseAction,
                   onPressed: _parsing ? null : () => unawaited(_parse()),
                   icon: Icon(IaIcon.extract),
                 ),
@@ -178,14 +182,14 @@ class ExtractPageState extends State<ExtractPage> {
               children: [
                 FilterChip(
                   key: const ValueKey('extract_opt_lyrics'),
-                  label: const Text('在线歌词'),
+                  label: Text(t.optOnlineLyrics),
                   selected: _withLyrics,
                   onSelected: (v) => setState(() => _withLyrics = v),
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
                   key: const ValueKey('extract_opt_text'),
-                  label: const Text('B 站字幕'),
+                  label: Text(t.optBiliSubtitle),
                   selected: _withText,
                   onSelected: (v) => setState(() => _withText = v),
                 ),
@@ -204,7 +208,7 @@ class ExtractPageState extends State<ExtractPage> {
             ],
             const SizedBox(height: 24),
             Text(
-              '任务队列',
+              t.taskQueueTitle,
               key: const ValueKey('extract_queue_title'),
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
@@ -214,14 +218,14 @@ class ExtractPageState extends State<ExtractPage> {
                 key: const ValueKey('extract_queue_empty'),
                 padding: const EdgeInsets.only(top: 16),
                 child: Text(
-                  '队列为空。粘贴一条 B 站链接开始。',
+                  t.taskQueueEmpty,
                   style: TextStyle(fontSize: 13, color: p.secondaryText),
                 ),
               )
             else
-              for (final t in _tasks.values.toList()
+              for (final task in _tasks.values.toList()
                 ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)))
-                _taskRow(p, t),
+                _taskRow(p, task),
           ],
         ],
       ),
@@ -241,7 +245,7 @@ class ExtractPageState extends State<ExtractPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    m.title.isEmpty ? '(未命名)' : m.title,
+                    m.title.isEmpty ? sOf(context).untitled : m.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style:
@@ -257,7 +261,7 @@ class ExtractPageState extends State<ExtractPage> {
             FilledButton.tonal(
               key: ValueKey('extract_enqueue_$i'),
               onPressed: () => unawaited(_enqueue(m)),
-              child: const Text('提取'),
+              child: Text(sOf(context).extractAction),
             ),
           ],
         ),
@@ -265,16 +269,17 @@ class ExtractPageState extends State<ExtractPage> {
     );
   }
 
-  Widget _taskRow(dynamic p, ExtractTask t) {
-    final statusText = switch (t.status) {
-      ExtractTaskStatus.resolved => '已解析',
-      ExtractTaskStatus.gating => '门禁中',
-      ExtractTaskStatus.gated => '已拦截',
-      _ => t.status.name,
+  Widget _taskRow(dynamic p, ExtractTask task) {
+    final t = sOf(context);
+    final statusText = switch (task.status) {
+      ExtractTaskStatus.resolved => t.statusResolved,
+      ExtractTaskStatus.gating => t.statusGating,
+      ExtractTaskStatus.gated => t.statusGated,
+      _ => task.status.name,
     };
-    final msg = _messages[t.id] ?? '';
+    final lastMsg = _messages[task.id] ?? '';
     return Padding(
-      key: ValueKey('extract_task_${t.id}'),
+      key: ValueKey('extract_task_${task.id}'),
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,7 +288,7 @@ class ExtractPageState extends State<ExtractPage> {
             children: [
               Expanded(
                 child: Text(
-                  t.title ?? t.url,
+                  task.title ?? task.url,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style:
@@ -295,17 +300,17 @@ class ExtractPageState extends State<ExtractPage> {
                 statusText,
                 style: TextStyle(
                   fontSize: 12,
-                  color: t.status == ExtractTaskStatus.gated
+                  color: task.status == ExtractTaskStatus.gated
                       ? p.error
                       : p.secondaryText,
                 ),
               ),
             ],
           ),
-          if (msg.isNotEmpty)
+          if (lastMsg.isNotEmpty)
             Text(
-              msg,
-              key: ValueKey('extract_task_msg_${t.id}'),
+              lastMsg,
+              key: ValueKey('extract_task_msg_${task.id}'),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(fontSize: 11, color: p.secondaryText),
@@ -324,6 +329,7 @@ final class _ComplianceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = sOf(context);
     return Card(
       key: const ValueKey('extract_compliance'),
       child: Padding(
@@ -335,16 +341,14 @@ final class _ComplianceCard extends StatelessWidget {
               children: [
                 Icon(IaIcon.shield, size: 22, color: p.accent),
                 const SizedBox(width: 10),
-                const Text('提取前请确认',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                Text(t.complianceTitle,
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              '• 提取仅限个人收听用途，请尊重创作者权益\n'
-              '• 提取内容不入任何公开分发渠道\n'
-              '• 你需要对提交的链接内容负责',
+              t.complianceBody,
               style: TextStyle(
                   fontSize: 13, color: p.secondaryText, height: 1.8),
             ),
@@ -353,7 +357,7 @@ final class _ComplianceCard extends StatelessWidget {
               key: const ValueKey('extract_ack'),
               onPressed: onAck,
               icon: Icon(IaIcon.check),
-              label: const Text('我已阅读并确认'),
+              label: Text(t.complianceAck),
             ),
           ],
         ),

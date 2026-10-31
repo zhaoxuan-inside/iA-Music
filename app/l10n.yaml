@@ -1,0 +1,5 @@
+# C63 i18n 配置（DEC-005 D5-2：中文默认/English/跟随系统；应用名与内容资产不译）。
+arb-dir: lib/l10n
+template-arb-file: app_zh.arb
+output-localization-file: app_localizations.dart
+preferred-supported-locales: zh

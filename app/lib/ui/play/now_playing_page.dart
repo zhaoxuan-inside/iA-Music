@@ -9,6 +9,8 @@ import 'package:contracts/contracts.dart';
 
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/app_localizations.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
 import 'package:ia_music/playlists/playlist_service.dart';
 import 'package:ia_music/ui/play/eq_page.dart';
@@ -44,12 +46,13 @@ class NowPlayingPageState extends State<NowPlayingPage> {
   int? _favForTrack;
   bool _favInflight = false;
 
-  static const _modeLabels = {
-    PlaybackMode.loops: '列表循环',
-    PlaybackMode.single: '单曲循环',
-    PlaybackMode.sequence: '顺序播放',
-    PlaybackMode.random: '随机播放',
-  };
+  /// 播放模式标签（AppBar 标题即模式名，单处映射）。
+  String _modeLabel(AppLocalizations t, PlaybackMode mode) => switch (mode) {
+        PlaybackMode.loops => t.modeLoops,
+        PlaybackMode.single => t.modeSingle,
+        PlaybackMode.sequence => t.modeSequence,
+        PlaybackMode.random => t.modeRandom,
+      };
 
   Future<void> refreshFav() async {
     if (_favInflight) return;
@@ -145,6 +148,7 @@ class NowPlayingPageState extends State<NowPlayingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final t = sOf(context);
     return StreamBuilder<PlaybackSnapshot>(
       initialData: widget.service.snapshot,
       stream: widget.service.status,
@@ -154,8 +158,8 @@ class NowPlayingPageState extends State<NowPlayingPage> {
         if (s == null || cur == null) {
           return Scaffold(
             key: const ValueKey('now_playing'),
-            appBar: AppBar(title: const Text('播放')),
-            body: const Center(child: Text('暂无播放内容')),
+            appBar: AppBar(title: Text(t.playTitle)),
+            body: Center(child: Text(t.nothingPlaying)),
           );
         }
         if (_favForTrack != cur.id) unawaited(refreshFav());
@@ -165,26 +169,26 @@ class NowPlayingPageState extends State<NowPlayingPage> {
           key: const ValueKey('now_playing'),
           appBar: AppBar(
             title: Text(
-              _modeLabels[s.mode]!,
+              _modeLabel(t, s.mode),
               key: const ValueKey('play_mode'),
             ),
             actions: [
               if (s.mode == PlaybackMode.random)
                 IconButton(
                   key: const ValueKey('play_wheel_entry'),
-                  tooltip: '随机轮盘',
+                  tooltip: t.wheelTooltip,
                   onPressed: () => unawaited(openWheel()),
                   icon: Icon(IaIcon.shuffle),
                 ),
               IconButton(
                 key: const ValueKey('play_eq_entry'),
-                tooltip: '音效',
+                tooltip: t.eqTitle,
                 onPressed: () => unawaited(openEq()),
                 icon: Icon(IaIcon.tune),
               ),
               IconButton(
                 key: const ValueKey('play_queue_entry'),
-                tooltip: '播放队列',
+                tooltip: t.queueTitle,
                 onPressed: () => unawaited(openQueue()),
                 icon: Icon(IaIcon.playlist),
               ),
@@ -297,6 +301,7 @@ final class _Details extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Column(
       key: const ValueKey('play_details'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,7 +319,7 @@ final class _Details extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          cur.artistDisplay.isEmpty ? '未知歌手' : cur.artistDisplay,
+          cur.artistDisplay.isEmpty ? t.unknownArtist : cur.artistDisplay,
           key: const ValueKey('play_artist'),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -386,6 +391,7 @@ final class _Controls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
+    final t = sOf(context);
     return Center(
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -398,7 +404,9 @@ final class _Controls extends StatelessWidget {
               children: [
                 IconButton(
                   key: const ValueKey('play_shuffle_key'),
-                  tooltip: mode == PlaybackMode.random ? '随机中（点按改顺序）' : '随机播放',
+                  tooltip: mode == PlaybackMode.random
+                      ? t.shuffleOnTooltip
+                      : t.modeRandom,
                   onPressed: onShuffle,
                   icon: Icon(
                     IaIcon.shuffle,
@@ -409,7 +417,7 @@ final class _Controls extends StatelessWidget {
                 const SizedBox(width: 14),
                 IconButton(
                   key: const ValueKey('play_prev'),
-                  tooltip: '上一首',
+                  tooltip: t.previousTooltip,
                   iconSize: 30,
                   constraints:
                       const BoxConstraints(minWidth: 52, minHeight: 52),
@@ -437,7 +445,7 @@ final class _Controls extends StatelessWidget {
                 const SizedBox(width: 16),
                 IconButton(
                   key: const ValueKey('play_next'),
-                  tooltip: '下一首',
+                  tooltip: t.nextTooltip,
                   iconSize: 30,
                   constraints:
                       const BoxConstraints(minWidth: 52, minHeight: 52),
@@ -448,9 +456,9 @@ final class _Controls extends StatelessWidget {
                 IconButton(
                   key: const ValueKey('play_repeat_key'),
                   tooltip: switch (mode) {
-                    PlaybackMode.loops => '列表循环',
-                    PlaybackMode.single => '单曲循环',
-                    _ => '顺序播放',
+                    PlaybackMode.loops => t.modeLoops,
+                    PlaybackMode.single => t.modeSingle,
+                    _ => t.modeSequence,
                   },
                   onPressed: onRepeat,
                   icon: Icon(
@@ -519,19 +527,19 @@ final class _Controls extends StatelessWidget {
               children: [
                 IconButton(
                   key: const ValueKey('play_dislike'),
-                  tooltip: '垃圾桶（减少推荐）',
+                  tooltip: t.dislikeLongTooltip,
                   onPressed: onDislike,
                   icon: Icon(IaIcon.delete, size: 22, color: p.secondaryText),
                 ),
                 IconButton(
                   key: const ValueKey('play_lyrics_entry'),
-                  tooltip: '歌词',
+                  tooltip: t.lyricsTitle,
                   onPressed: onLyrics,
                   icon: Icon(IaIcon.lyrics, size: 24, color: p.secondaryText),
                 ),
                 IconButton(
                   key: const ValueKey('play_heart'),
-                  tooltip: fav ? '取消红心' : '红心（加入「我喜欢的音乐」）',
+                  tooltip: fav ? t.unheartTooltip : t.heartLongTooltip,
                   onPressed: onHeart,
                   icon: Icon(
                     fav ? IaIcon.heart : IaIcon.heart,

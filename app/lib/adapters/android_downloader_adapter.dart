@@ -20,8 +20,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:contracts/contracts.dart';
-
 import 'package:flutter/services.dart';
+import 'package:ia_music/l10n/s.dart';
 
 import 'package:ia_music/adapters/downloader_adapter.dart';
 import 'package:ia_music/adapters/secure_store_adapter.dart';
@@ -96,7 +96,7 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
   Future<ResolvedMeta> resolve(String sharedUrl, {String? cookiesRefKey}) async {
     final url = extractFirstUrl(sharedUrl);
     if (url == null) {
-      throw const FormatException('未在分享文本中找到链接');
+      throw FormatException(msg.noLinkInShareText);
     }
     final String j;
     try {
@@ -104,10 +104,10 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
     } on PlatformException catch (e) {
       throw _mapResolveException(e);
     } on MissingPluginException {
-      throw const FormUnsupportedException('提取引擎未初始化（Android）');
+      throw FormUnsupportedException(msg.engineNotInit);
     }
     if (j.isEmpty) {
-      throw NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
+      throw NetworkLostException(msg.linkParseDead);
     }
     return mapYtDlpJson(jsonDecode(j) as Map<String, dynamic>, url);
   }
@@ -116,7 +116,7 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
   Future<List<ResolvedMeta>> resolveAll(String sharedUrl, {String? cookiesRefKey}) async {
     final url = extractFirstUrl(sharedUrl);
     if (url == null) {
-      throw const FormatException('未在分享文本中找到链接');
+      throw FormatException(msg.noLinkInShareText);
     }
     final String j;
     try {
@@ -124,10 +124,10 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
     } on PlatformException catch (e) {
       throw _mapResolveException(e);
     } on MissingPluginException {
-      throw const FormUnsupportedException('提取引擎未初始化（Android）');
+      throw FormUnsupportedException(msg.engineNotInit);
     }
     if (j.isEmpty) {
-      throw NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
+      throw NetworkLostException(msg.linkParseDead);
     }
     return mapPlaylistJson(jsonDecode(j) as Map<String, dynamic>, url);
   }
@@ -139,8 +139,7 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
         '${e.code} ${e.message ?? ''} ${e.details ?? ''}'.toLowerCase();
     if (t.contains('需要登录') || t.contains('请登录') ||
         (t.contains('login') && t.contains('cookie')) || t.contains('sign in')) {
-      return const AuthExpiredException(
-          '链接解析失败：该内容需要登录，或链接已失效。可登录 B 站账号后再试');
+      return AuthExpiredException(msg.linkNeedLogin);
     }
     if (t.contains('timed out') ||
         t.contains('timeout') ||
@@ -148,13 +147,13 @@ final class AndroidDownloaderAdapter implements DownloaderPort {
         t.contains('transporterror') ||
         t.contains('connection') ||
         t.contains('network')) {
-      return const NetworkLostException('链接解析失败：网络超时，请检查网络后重试（或链接已失效）');
+      return NetworkLostException(msg.linkParseTimeout);
     }
     if (t.contains('unsupported url') || t.contains('not a valid url')) {
-      return const NetworkLostException('链接解析失败：链接格式无法识别，请确认是 B 站视频/合集链接');
+      return NetworkLostException(msg.linkParseUnrecognized);
     }
     if (e.code == 'engine') {
-      return FormUnsupportedException('提取引擎异常（Android）：${e.message ?? e.code}');
+      return FormUnsupportedException(msg.engineErrorAndroid(e.message ?? e.code));
     }
     return NetworkLostException('链接解析失败：链接可能已失效，或该内容需要登录');
   }

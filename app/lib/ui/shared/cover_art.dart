@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:ia_music/adapters/cover_fetch_adapter.dart';
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/library/cover_chain.dart';
+import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
 final class CoverArt extends StatefulWidget {
@@ -92,7 +93,7 @@ class _CoverArtState extends State<CoverArt> {
     final radius = widget.radius ??
         (widget.size >= 120 ? IaRadius.cover : IaRadius.coverSm);
     return Semantics(
-      label: '${widget.title} 封面',
+      label: '${widget.title} ${sOf(context).coverSuffix}',
       image: true,
       child: SizedBox(
         width: widget.size,

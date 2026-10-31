@@ -25,6 +25,7 @@ import 'package:contracts/contracts.dart';
 
 import '../data/daos.dart';
 import '../data/ia_database.dart';
+import '../l10n/s.dart';
 
 /// UI 消费快照（非契约；页面 StreamBuilder 直接吃）。
 class PlaybackSnapshot {
@@ -215,9 +216,9 @@ class PlaybackService {
     _mode = PlaybackMode.random; // 随机卡进入=随机模式（DEC-004 会话语义）
     final lite = await sampleRound(poolSize: poolSize);
     if (lite.isEmpty) {
-      _notify(const PlaybackNotice(
+      _notify(PlaybackNotice(
         PlaybackNoticeKind.emptyPool,
-        '曲库是空的。先导入音乐，才能随机播放',
+        msg.emptyPoolForShuffle,
       ));
       _playing = false;
       _push();
@@ -252,9 +253,9 @@ class PlaybackService {
       }
     }
     if (lite.isEmpty) {
-      _notify(const PlaybackNotice(
+      _notify(PlaybackNotice(
         PlaybackNoticeKind.emptyPool,
-        '曲库是空的。先导入音乐，才能播放',
+        msg.emptyPoolForPlay,
       ));
       return;
     }
@@ -314,7 +315,7 @@ class PlaybackService {
     _histAdd(trackId: cur.id, completed: false); // 未播完=非完成播放（事实口径）
     await data.history.addFewWatch(cur.id, _nowMs());
     // PLAY §3.1 首点 Toast 原话（UI 顶部提示面；S4 视觉页沿用）
-    _notify(const PlaybackNotice(PlaybackNoticeKind.fewWatched, '已减少这首的推荐'));
+    _notify(PlaybackNotice(PlaybackNoticeKind.fewWatched, msg.fewWatchedNotice));
     final target = _current + 1;
     await _moveTo(target);
     await flushHistory();
@@ -513,12 +514,12 @@ class PlaybackService {
         }
         _notify(PlaybackNotice(
           PlaybackNoticeKind.missingSkip,
-          '《${failed.title}》文件缺失，已跳过',
+          msg.missingSkipped(failed.title),
         ));
       } else {
         _notify(PlaybackNotice(
           PlaybackNoticeKind.corruptSkip,
-          '《${failed.title}》无法播放该文件（格式或文件损坏），已跳过',
+          msg.corruptSkipped(failed.title),
         ));
       }
       _histAdd(trackId: failed.id, completed: false); // 该曲不写完成播放历史
@@ -555,9 +556,9 @@ class PlaybackService {
       _recoverTries++;
     } on Object {
       if (_recoverTries >= 1) {
-        _notify(const PlaybackNotice(
+        _notify(PlaybackNotice(
           PlaybackNoticeKind.serviceBroken,
-          '播放服务异常',
+          msg.serviceBrokenNotice,
         ));
         _playing = false;
         _push();
@@ -582,9 +583,9 @@ class PlaybackService {
         positionMs: _positionMs,
       ));
     } on Object {
-      _notify(const PlaybackNotice(
+      _notify(PlaybackNotice(
         PlaybackNoticeKind.serviceBroken,
-        '播放服务异常',
+        msg.serviceBrokenNotice,
       ));
       _playing = false;
       _push();
@@ -600,9 +601,9 @@ class PlaybackService {
     final lite = await sampleRound();
     if (lite.isEmpty) {
       _playing = false;
-      _notify(const PlaybackNotice(
+      _notify(PlaybackNotice(
         PlaybackNoticeKind.emptyPool,
-        '曲库是空的。先导入音乐，才能随机播放',
+        msg.emptyPoolForShuffle,
       ));
       _push();
       return;
@@ -710,9 +711,9 @@ class PlaybackService {
         await engine.restore(snap);
         return true;
       } on Object {
-        _notify(const PlaybackNotice(
+        _notify(PlaybackNotice(
           PlaybackNoticeKind.serviceBroken,
-          '播放服务异常',
+          msg.serviceBrokenNotice,
         ));
         return false;
       }
