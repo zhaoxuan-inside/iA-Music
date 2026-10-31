@@ -7,13 +7,20 @@
 ///   物理文件保留（删除仅解除记录，永不触盘）。
 library;
 
+import 'dart:io';
+
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
+import 'package:ia_music/data/tables.dart';
 
 final class LibraryService {
-  LibraryService({required IaDatabase db}) : _dao = DataAccess(db).library;
+  LibraryService({required IaDatabase db})
+      : _dao = DataAccess(db).library,
+        _db = db;
 
   final LibraryDao _dao;
+  final IaDatabase _db;
+  DataAccess get _access => DataAccess(_db);
 
   /// 编辑标题（DoD3）。即时生效=库行即真相（列表流消费库行）。
   Future<void> editTrackTitle(
@@ -36,6 +43,14 @@ final class LibraryService {
   }
 
   /// 移除（DoD4 前半：记录消失 + 文件保留）。
-  Future<void> removeTrack(int trackId, {required int nowMs}) =>
-      _dao.softDeleteTrack(trackId, nowMs);
+  /// WS6：软删前登记墓碑（REQ-SYNC-05 跨端删除传播；远端文件永不删除）。
+  Future<void> removeTrack(int trackId, {required int nowMs}) async {
+    await _access.sync.recordTombstone(
+      TombstoneKind.track,
+      localId: trackId,
+      deletedByDevice: 'ia-${Platform.operatingSystem}',
+      nowMs: nowMs,
+    );
+    await _dao.softDeleteTrack(trackId, nowMs);
+  }
 }

@@ -8,6 +8,7 @@
 library;
 
 import 'dart:io';
+import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -19,7 +20,15 @@ import 'tables.dart';
 
 part 'ia_database.g.dart';
 
-const int kIaSchemaVersion = 2;
+const int kIaSchemaVersion = 3;
+
+/// 随机 UUID（v4 形态；Random.secure hex 拼 8-4-4-4-12）。
+String newPlaylistUuid() {
+  final r = Random.secure();
+  String hex(int n) =>
+      List.generate(n, (_) => r.nextInt(16).toRadixString(16)).join();
+  return '${hex(8)}-${hex(4)}-4${hex(3)}-${hex(1)}${hex(3)}-${hex(12)}';
+}
 
 /// 校验期望的表集合（17 表 + FTS 锚定表 track_index；tracks_fts 为虚拟表另行查）。
 const List<String> _kExpectedTables = [
@@ -226,6 +235,21 @@ class IaDatabase extends _$IaDatabase {
             await m.addColumn(tracks, tracks.coverKind);
             await m.addColumn(tracks, tracks.coverRelPath);
             await m.addColumn(tracks, tracks.coverCheckedAt);
+          }
+          // v2 → v3（WS6 同步域）：playlists 增跨端身份 uuid（可空列并存）
+          // + 存量行回填随机 UUID（crypto RandomArt 无关——直接 Random.secure hex）。
+          if (from < 3) {
+            await m.addColumn(playlists, playlists.uuid);
+            final rows =
+                await customSelect('SELECT id FROM playlists WHERE uuid IS NULL')
+                    .get();
+            for (final r in rows) {
+              final id = r.read<int>('id');
+              await customStatement(
+                'UPDATE playlists SET uuid=? WHERE id=?',
+                [newPlaylistUuid(), id],
+              );
+            }
           }
         },
         beforeOpen: (details) async {

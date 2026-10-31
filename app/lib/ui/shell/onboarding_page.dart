@@ -16,6 +16,7 @@ import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/l10n/app_localizations.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/settings/directory_browser_page.dart';
+import 'package:ia_music/ui/settings/sync_center_page.dart' as sync_center;
 import 'package:ia_music/ui/theme/ia_icons.dart';
 import 'package:ia_music/ui/theme/ia_theme.dart';
 
@@ -261,8 +262,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ],
           ),
+          // 「从同步恢复」捷径（REQ-ONB-06：新设备已有通道配置时）
+          Center(
+            child: TextButton(
+              key: const ValueKey('onboarding_from_sync'),
+              onPressed: () => unawaited(_openSyncRestore()),
+              child: Text(t.onboardingFromSync),
+            ),
+          ),
         ],
       );
+
+  /// 从同步恢复（REQ-ONB-06）：跳转同步中心配置通道并拉取。
+  Future<void> _openSyncRestore() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => sync_center.SyncCenterPage(hub: widget.hub),
+    ));
+    await _finish(); // 恢复流程后直接进主界面
+  }
 
   Widget _step2(IaPalette p, AppLocalizations t) => Column(
         key: const ValueKey('onboarding_step2'),

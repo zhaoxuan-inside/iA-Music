@@ -1080,6 +1080,130 @@ class AppLocalizationsZh extends AppLocalizations {
   String get fontSizeL => '大';
 
   @override
+  String get syncSection => '同步';
+
+  @override
+  String get syncCenterTitle => '同步中心';
+
+  @override
+  String get syncChannelWebdav => 'WebDAV';
+
+  @override
+  String get syncChannelGithub => 'GitHub';
+
+  @override
+  String get syncChannelOnedrive => 'OneDrive';
+
+  @override
+  String get syncChannelGdrive => 'Google Drive';
+
+  @override
+  String get syncWebdavNote => '最稳定，推荐';
+
+  @override
+  String get syncGithubNote => '仅同步歌单/歌词/元数据，不存音频';
+
+  @override
+  String get syncServerAddress => '服务器地址';
+
+  @override
+  String get syncAccount => '账号';
+
+  @override
+  String get syncPassword => '密码';
+
+  @override
+  String get syncToken => '访问 Token';
+
+  @override
+  String get syncRemoteDir => '远程目录';
+
+  @override
+  String get syncTestConnection => '连接测试';
+
+  @override
+  String get syncTestOk => '连接测试成功';
+
+  @override
+  String get syncSaveChannel => '保存通道';
+
+  @override
+  String get syncDisconnect => '断开通道';
+
+  @override
+  String syncLastSync(String time) {
+    return '上次同步：$time';
+  }
+
+  @override
+  String get syncNever => '从未同步';
+
+  @override
+  String get syncNow => '立即同步';
+
+  @override
+  String get syncRunning => '同步中…';
+
+  @override
+  String get syncIdle => '待机';
+
+  @override
+  String syncStatePaused(String reason) {
+    return '已暂停：$reason';
+  }
+
+  @override
+  String get syncNeedsReauth => '需要重新授权';
+
+  @override
+  String get syncSuspendedDisk => '存储空间不足，已暂停';
+
+  @override
+  String get syncNoChannel => '未配置通道';
+
+  @override
+  String syncConflictCopies(int n) {
+    return '冲突副本（$n）';
+  }
+
+  @override
+  String get syncTombstoneNote => '删除同步仅传播记录，云端音频文件不会被自动删除';
+
+  @override
+  String syncCurrentFile(String name) {
+    return '当前：$name';
+  }
+
+  @override
+  String get syncSaved => '通道已保存';
+
+  @override
+  String get syncDisconnected => '通道已断开';
+
+  @override
+  String syncSummary(int up, int down, int fail) {
+    return '本次：上传 $up · 下载 $down · 失败 $fail';
+  }
+
+  @override
+  String get conflictCopiesTitle => '冲突副本';
+
+  @override
+  String get conflictLoser => '本机旧值';
+
+  @override
+  String get conflictWinner => '同步保留值';
+
+  @override
+  String get conflictDelete => '删除副本';
+
+  @override
+  String get conflictDeleted => '冲突副本已删除';
+
+  @override
+  String get onboardingFromSync => '从同步恢复';
+
+  @override
   String get onboardingTitle => '你的音乐放在哪？';
 
   @override

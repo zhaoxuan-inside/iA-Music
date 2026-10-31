@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:ia_music/adapters/bilibili_auth_adapter.dart';
 import 'package:ia_music/data/ia_database.dart';
+import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/library/cover_chain.dart';
 import 'package:ia_music/l10n/app_localizations.dart';
@@ -17,6 +18,7 @@ import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/ui/login/bili_login_page.dart';
 import 'package:ia_music/ui/settings/directory_browser_page.dart';
 import 'package:ia_music/ui/settings/model_manager_page.dart';
+import 'package:ia_music/ui/settings/sync_center_page.dart' as sync_center;
 import 'package:ia_music/ui/shell/appearance.dart';
 import 'package:ia_music/ui/shell/locale_controller.dart';
 import 'package:ia_music/ui/theme/ia_icons.dart';
@@ -285,6 +287,17 @@ class SettingsPageState extends State<SettingsPage> {
       ),
     );
     if (ok != true) return;
+    // WS6：清空前逐条登记墓碑（REQ-SYNC-05 跨端少播传播）
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final ids = await widget.hub.data.history.fewWatchIds();
+    for (final id in ids) {
+      await widget.hub.data.sync.recordTombstone(
+        TombstoneKind.few_watch,
+        localId: id,
+        deletedByDevice: 'ia-${Platform.operatingSystem}',
+        nowMs: nowMs,
+      );
+    }
     await widget.hub.data.history.clearFewWatch();
     if (mounted) {
       ScaffoldMessenger.of(context)
@@ -572,6 +585,30 @@ class SettingsPageState extends State<SettingsPage> {
             title: Text(t.fewWatchClear),
             subtitle: Text(t.dislikeLongTooltip),
             onTap: () => unawaited(_clearFewWatch()),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            t.syncSection,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: p.mainText,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ListTile(
+            key: const ValueKey('sync_center_entry'),
+            dense: true,
+            leading: Icon(IaIcon.refresh, size: 20, color: p.secondaryText),
+            title: Text(t.syncCenterTitle),
+            subtitle: Text(t.syncTombstoneNote,
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+            trailing: Icon(IaIcon.arrowForward),
+            onTap: () async {
+              await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => sync_center.SyncCenterPage(hub: widget.hub),
+              ));
+            },
           ),
           const SizedBox(height: 24),
           Text(

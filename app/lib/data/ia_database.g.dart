@@ -2436,6 +2436,15 @@ class $PlaylistsTable extends Playlists
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+    'uuid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   late final GeneratedColumnWithTypeConverter<PlaylistKind, String> kind =
       GeneratedColumn<String>(
@@ -2494,6 +2503,7 @@ class $PlaylistsTable extends Playlists
   List<GeneratedColumn> get $columns => [
     id,
     name,
+    uuid,
     kind,
     sortOrder,
     createdAt,
@@ -2522,6 +2532,12 @@ class $PlaylistsTable extends Playlists
       );
     } else if (isInserting) {
       context.missing(_nameMeta);
+    }
+    if (data.containsKey('uuid')) {
+      context.handle(
+        _uuidMeta,
+        uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta),
+      );
     }
     if (data.containsKey('sort_order')) {
       context.handle(
@@ -2568,6 +2584,10 @@ class $PlaylistsTable extends Playlists
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      uuid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}uuid'],
+      ),
       kind: $PlaylistsTable.$converterkind.fromSql(
         attachedDatabase.typeMapping.read(
           DriftSqlType.string,
@@ -2605,6 +2625,10 @@ class $PlaylistsTable extends Playlists
 class Playlist extends DataClass implements Insertable<Playlist> {
   final int id;
   final String name;
+
+  /// 跨端身份（WS6/REQ-SYNC-02：schema v3 迁移回填随机 UUID；
+  /// 本地自增 id 设备无关，同步以 uuid 键控）。
+  final String? uuid;
   final PlaylistKind kind;
   final int sortOrder;
   final int createdAt;
@@ -2613,6 +2637,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
   const Playlist({
     required this.id,
     required this.name,
+    this.uuid,
     required this.kind,
     required this.sortOrder,
     required this.createdAt,
@@ -2624,6 +2649,9 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || uuid != null) {
+      map['uuid'] = Variable<String>(uuid);
+    }
     {
       map['kind'] = Variable<String>(
         $PlaylistsTable.$converterkind.toSql(kind),
@@ -2642,6 +2670,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     return PlaylistsCompanion(
       id: Value(id),
       name: Value(name),
+      uuid: uuid == null && nullToAbsent ? const Value.absent() : Value(uuid),
       kind: Value(kind),
       sortOrder: Value(sortOrder),
       createdAt: Value(createdAt),
@@ -2660,6 +2689,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     return Playlist(
       id: serializer.fromJson<int>(json['id']),
       name: serializer.fromJson<String>(json['name']),
+      uuid: serializer.fromJson<String?>(json['uuid']),
       kind: $PlaylistsTable.$converterkind.fromJson(
         serializer.fromJson<String>(json['kind']),
       ),
@@ -2675,6 +2705,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'name': serializer.toJson<String>(name),
+      'uuid': serializer.toJson<String?>(uuid),
       'kind': serializer.toJson<String>(
         $PlaylistsTable.$converterkind.toJson(kind),
       ),
@@ -2688,6 +2719,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
   Playlist copyWith({
     int? id,
     String? name,
+    Value<String?> uuid = const Value.absent(),
     PlaylistKind? kind,
     int? sortOrder,
     int? createdAt,
@@ -2696,6 +2728,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
   }) => Playlist(
     id: id ?? this.id,
     name: name ?? this.name,
+    uuid: uuid.present ? uuid.value : this.uuid,
     kind: kind ?? this.kind,
     sortOrder: sortOrder ?? this.sortOrder,
     createdAt: createdAt ?? this.createdAt,
@@ -2706,6 +2739,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     return Playlist(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
       kind: data.kind.present ? data.kind.value : this.kind,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -2719,6 +2753,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
     return (StringBuffer('Playlist(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('uuid: $uuid, ')
           ..write('kind: $kind, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('createdAt: $createdAt, ')
@@ -2729,14 +2764,23 @@ class Playlist extends DataClass implements Insertable<Playlist> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, kind, sortOrder, createdAt, updatedAt, deletedAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    uuid,
+    kind,
+    sortOrder,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Playlist &&
           other.id == this.id &&
           other.name == this.name &&
+          other.uuid == this.uuid &&
           other.kind == this.kind &&
           other.sortOrder == this.sortOrder &&
           other.createdAt == this.createdAt &&
@@ -2747,6 +2791,7 @@ class Playlist extends DataClass implements Insertable<Playlist> {
 class PlaylistsCompanion extends UpdateCompanion<Playlist> {
   final Value<int> id;
   final Value<String> name;
+  final Value<String?> uuid;
   final Value<PlaylistKind> kind;
   final Value<int> sortOrder;
   final Value<int> createdAt;
@@ -2755,6 +2800,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
   const PlaylistsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
+    this.uuid = const Value.absent(),
     this.kind = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -2764,6 +2810,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
   PlaylistsCompanion.insert({
     this.id = const Value.absent(),
     required String name,
+    this.uuid = const Value.absent(),
     required PlaylistKind kind,
     this.sortOrder = const Value.absent(),
     required int createdAt,
@@ -2776,6 +2823,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
   static Insertable<Playlist> custom({
     Expression<int>? id,
     Expression<String>? name,
+    Expression<String>? uuid,
     Expression<String>? kind,
     Expression<int>? sortOrder,
     Expression<int>? createdAt,
@@ -2785,6 +2833,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (name != null) 'name': name,
+      if (uuid != null) 'uuid': uuid,
       if (kind != null) 'kind': kind,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (createdAt != null) 'created_at': createdAt,
@@ -2796,6 +2845,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
   PlaylistsCompanion copyWith({
     Value<int>? id,
     Value<String>? name,
+    Value<String?>? uuid,
     Value<PlaylistKind>? kind,
     Value<int>? sortOrder,
     Value<int>? createdAt,
@@ -2805,6 +2855,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
     return PlaylistsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
+      uuid: uuid ?? this.uuid,
       kind: kind ?? this.kind,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
@@ -2821,6 +2872,9 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
+    }
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
     }
     if (kind.present) {
       map['kind'] = Variable<String>(
@@ -2847,6 +2901,7 @@ class PlaylistsCompanion extends UpdateCompanion<Playlist> {
     return (StringBuffer('PlaylistsCompanion(')
           ..write('id: $id, ')
           ..write('name: $name, ')
+          ..write('uuid: $uuid, ')
           ..write('kind: $kind, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('createdAt: $createdAt, ')
@@ -10718,6 +10773,7 @@ typedef $$TracksTableProcessedTableManager =
 typedef $$PlaylistsTableCreateCompanionBuilder = PlaylistsCompanion Function({
   Value<int> id,
   required String name,
+  Value<String?> uuid,
   required PlaylistKind kind,
   Value<int> sortOrder,
   required int createdAt,
@@ -10727,6 +10783,7 @@ typedef $$PlaylistsTableCreateCompanionBuilder = PlaylistsCompanion Function({
 typedef $$PlaylistsTableUpdateCompanionBuilder = PlaylistsCompanion Function({
   Value<int> id,
   Value<String> name,
+  Value<String?> uuid,
   Value<PlaylistKind> kind,
   Value<int> sortOrder,
   Value<int> createdAt,
@@ -10773,6 +10830,11 @@ class $$PlaylistsTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get uuid => $composableBuilder(
+    column: $table.uuid,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10847,6 +10909,11 @@ class $$PlaylistsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get uuid => $composableBuilder(
+    column: $table.uuid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get kind => $composableBuilder(
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
@@ -10887,6 +10954,9 @@ class $$PlaylistsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<PlaylistKind, String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
@@ -10959,6 +11029,7 @@ class $$PlaylistsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String?> uuid = const Value.absent(),
                 Value<PlaylistKind> kind = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<int> createdAt = const Value.absent(),
@@ -10967,6 +11038,7 @@ class $$PlaylistsTableTableManager
               }) => PlaylistsCompanion(
                 id: id,
                 name: name,
+                uuid: uuid,
                 kind: kind,
                 sortOrder: sortOrder,
                 createdAt: createdAt,
@@ -10977,6 +11049,7 @@ class $$PlaylistsTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 required String name,
+                Value<String?> uuid = const Value.absent(),
                 required PlaylistKind kind,
                 Value<int> sortOrder = const Value.absent(),
                 required int createdAt,
@@ -10985,6 +11058,7 @@ class $$PlaylistsTableTableManager
               }) => PlaylistsCompanion.insert(
                 id: id,
                 name: name,
+                uuid: uuid,
                 kind: kind,
                 sortOrder: sortOrder,
                 createdAt: createdAt,

@@ -1135,6 +1135,131 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fontSizeL => 'Large';
 
   @override
+  String get syncSection => 'Sync';
+
+  @override
+  String get syncCenterTitle => 'Sync center';
+
+  @override
+  String get syncChannelWebdav => 'WebDAV';
+
+  @override
+  String get syncChannelGithub => 'GitHub';
+
+  @override
+  String get syncChannelOnedrive => 'OneDrive';
+
+  @override
+  String get syncChannelGdrive => 'Google Drive';
+
+  @override
+  String get syncWebdavNote => 'Most stable, recommended';
+
+  @override
+  String get syncGithubNote => 'Playlists/lyrics/metadata only — no audio';
+
+  @override
+  String get syncServerAddress => 'Server address';
+
+  @override
+  String get syncAccount => 'Account';
+
+  @override
+  String get syncPassword => 'Password';
+
+  @override
+  String get syncToken => 'Access token';
+
+  @override
+  String get syncRemoteDir => 'Remote directory';
+
+  @override
+  String get syncTestConnection => 'Test connection';
+
+  @override
+  String get syncTestOk => 'Connection OK';
+
+  @override
+  String get syncSaveChannel => 'Save channel';
+
+  @override
+  String get syncDisconnect => 'Disconnect';
+
+  @override
+  String syncLastSync(String time) {
+    return 'Last sync: $time';
+  }
+
+  @override
+  String get syncNever => 'Never synced';
+
+  @override
+  String get syncNow => 'Sync now';
+
+  @override
+  String get syncRunning => 'Syncing…';
+
+  @override
+  String get syncIdle => 'Idle';
+
+  @override
+  String syncStatePaused(String reason) {
+    return 'Paused: $reason';
+  }
+
+  @override
+  String get syncNeedsReauth => 'Re-authorization required';
+
+  @override
+  String get syncSuspendedDisk => 'Paused: not enough disk space';
+
+  @override
+  String get syncNoChannel => 'No channel configured';
+
+  @override
+  String syncConflictCopies(int n) {
+    return 'Conflict copies ($n)';
+  }
+
+  @override
+  String get syncTombstoneNote =>
+      'Deletions propagate as records only — cloud audio files are never deleted';
+
+  @override
+  String syncCurrentFile(String name) {
+    return 'Current: $name';
+  }
+
+  @override
+  String get syncSaved => 'Channel saved';
+
+  @override
+  String get syncDisconnected => 'Channel disconnected';
+
+  @override
+  String syncSummary(int up, int down, int fail) {
+    return 'This run: up $up · down $down · failed $fail';
+  }
+
+  @override
+  String get conflictCopiesTitle => 'Conflict copies';
+
+  @override
+  String get conflictLoser => 'Local old value';
+
+  @override
+  String get conflictWinner => 'Synced value kept';
+
+  @override
+  String get conflictDelete => 'Delete copy';
+
+  @override
+  String get conflictDeleted => 'Conflict copy deleted';
+
+  @override
+  String get onboardingFromSync => 'Restore from sync';
+
+  @override
   String get onboardingTitle => 'Where is your music?';
 
   @override

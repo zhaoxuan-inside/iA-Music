@@ -1964,6 +1964,234 @@ abstract class AppLocalizations {
   /// **'大'**
   String get fontSizeL;
 
+  /// No description provided for @syncSection.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步'**
+  String get syncSection;
+
+  /// No description provided for @syncCenterTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步中心'**
+  String get syncCenterTitle;
+
+  /// No description provided for @syncChannelWebdav.
+  ///
+  /// In zh, this message translates to:
+  /// **'WebDAV'**
+  String get syncChannelWebdav;
+
+  /// No description provided for @syncChannelGithub.
+  ///
+  /// In zh, this message translates to:
+  /// **'GitHub'**
+  String get syncChannelGithub;
+
+  /// No description provided for @syncChannelOnedrive.
+  ///
+  /// In zh, this message translates to:
+  /// **'OneDrive'**
+  String get syncChannelOnedrive;
+
+  /// No description provided for @syncChannelGdrive.
+  ///
+  /// In zh, this message translates to:
+  /// **'Google Drive'**
+  String get syncChannelGdrive;
+
+  /// No description provided for @syncWebdavNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'最稳定，推荐'**
+  String get syncWebdavNote;
+
+  /// No description provided for @syncGithubNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'仅同步歌单/歌词/元数据，不存音频'**
+  String get syncGithubNote;
+
+  /// No description provided for @syncServerAddress.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务器地址'**
+  String get syncServerAddress;
+
+  /// No description provided for @syncAccount.
+  ///
+  /// In zh, this message translates to:
+  /// **'账号'**
+  String get syncAccount;
+
+  /// No description provided for @syncPassword.
+  ///
+  /// In zh, this message translates to:
+  /// **'密码'**
+  String get syncPassword;
+
+  /// No description provided for @syncToken.
+  ///
+  /// In zh, this message translates to:
+  /// **'访问 Token'**
+  String get syncToken;
+
+  /// No description provided for @syncRemoteDir.
+  ///
+  /// In zh, this message translates to:
+  /// **'远程目录'**
+  String get syncRemoteDir;
+
+  /// No description provided for @syncTestConnection.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接测试'**
+  String get syncTestConnection;
+
+  /// No description provided for @syncTestOk.
+  ///
+  /// In zh, this message translates to:
+  /// **'连接测试成功'**
+  String get syncTestOk;
+
+  /// No description provided for @syncSaveChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'保存通道'**
+  String get syncSaveChannel;
+
+  /// No description provided for @syncDisconnect.
+  ///
+  /// In zh, this message translates to:
+  /// **'断开通道'**
+  String get syncDisconnect;
+
+  /// No description provided for @syncLastSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'上次同步：{time}'**
+  String syncLastSync(String time);
+
+  /// No description provided for @syncNever.
+  ///
+  /// In zh, this message translates to:
+  /// **'从未同步'**
+  String get syncNever;
+
+  /// No description provided for @syncNow.
+  ///
+  /// In zh, this message translates to:
+  /// **'立即同步'**
+  String get syncNow;
+
+  /// No description provided for @syncRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步中…'**
+  String get syncRunning;
+
+  /// No description provided for @syncIdle.
+  ///
+  /// In zh, this message translates to:
+  /// **'待机'**
+  String get syncIdle;
+
+  /// No description provided for @syncStatePaused.
+  ///
+  /// In zh, this message translates to:
+  /// **'已暂停：{reason}'**
+  String syncStatePaused(String reason);
+
+  /// No description provided for @syncNeedsReauth.
+  ///
+  /// In zh, this message translates to:
+  /// **'需要重新授权'**
+  String get syncNeedsReauth;
+
+  /// No description provided for @syncSuspendedDisk.
+  ///
+  /// In zh, this message translates to:
+  /// **'存储空间不足，已暂停'**
+  String get syncSuspendedDisk;
+
+  /// No description provided for @syncNoChannel.
+  ///
+  /// In zh, this message translates to:
+  /// **'未配置通道'**
+  String get syncNoChannel;
+
+  /// No description provided for @syncConflictCopies.
+  ///
+  /// In zh, this message translates to:
+  /// **'冲突副本（{n}）'**
+  String syncConflictCopies(int n);
+
+  /// No description provided for @syncTombstoneNote.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除同步仅传播记录，云端音频文件不会被自动删除'**
+  String get syncTombstoneNote;
+
+  /// No description provided for @syncCurrentFile.
+  ///
+  /// In zh, this message translates to:
+  /// **'当前：{name}'**
+  String syncCurrentFile(String name);
+
+  /// No description provided for @syncSaved.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道已保存'**
+  String get syncSaved;
+
+  /// No description provided for @syncDisconnected.
+  ///
+  /// In zh, this message translates to:
+  /// **'通道已断开'**
+  String get syncDisconnected;
+
+  /// No description provided for @syncSummary.
+  ///
+  /// In zh, this message translates to:
+  /// **'本次：上传 {up} · 下载 {down} · 失败 {fail}'**
+  String syncSummary(int up, int down, int fail);
+
+  /// No description provided for @conflictCopiesTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'冲突副本'**
+  String get conflictCopiesTitle;
+
+  /// No description provided for @conflictLoser.
+  ///
+  /// In zh, this message translates to:
+  /// **'本机旧值'**
+  String get conflictLoser;
+
+  /// No description provided for @conflictWinner.
+  ///
+  /// In zh, this message translates to:
+  /// **'同步保留值'**
+  String get conflictWinner;
+
+  /// No description provided for @conflictDelete.
+  ///
+  /// In zh, this message translates to:
+  /// **'删除副本'**
+  String get conflictDelete;
+
+  /// No description provided for @conflictDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'冲突副本已删除'**
+  String get conflictDeleted;
+
+  /// No description provided for @onboardingFromSync.
+  ///
+  /// In zh, this message translates to:
+  /// **'从同步恢复'**
+  String get onboardingFromSync;
+
   /// No description provided for @onboardingTitle.
   ///
   /// In zh, this message translates to:

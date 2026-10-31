@@ -11,16 +11,24 @@
 /// * 墓碑语义=SyncEngine（S6）补写；本域只做业务面动作（沿 S2/S3 纪律）。
 library;
 
+import 'dart:io';
+
 import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
+import 'package:ia_music/data/tables.dart';
 
 /// 我的页/歌单列表行摘要（真行+计数；无替身数据）。
 typedef PlaylistDigest = ({Playlist playlist, int trackCount});
 
 class PlaylistService {
-  PlaylistService(this.data);
+  PlaylistService(this.data) : _db = data.db;
 
   final DataAccess data;
+  final IaDatabase _db;
+
+  DataAccess get _access => DataAccess(_db);
+
+  String get _deviceId => 'ia-${Platform.operatingSystem}';
 
   /// 全列（排除软删；含曲目计数；红心行在首个=system_favorite 置顶面）。
   Future<List<PlaylistDigest>> listAll() async => [
@@ -92,8 +100,16 @@ class PlaylistService {
   Future<List<Track>> rows(int playlistId) async =>
       [for (final (_, t) in await data.playlists.browse(playlistId)) t];
 
-  Future<void> delete(int playlistId, {required int nowMs}) =>
-      data.playlists.softDeletePlaylist(playlistId, nowMs);
+  /// 歌单删除（REQ-PL-02；WS6：软删前墓碑——跨端删除传播）。
+  Future<void> delete(int playlistId, {required int nowMs}) async {
+    await _access.sync.recordTombstone(
+      TombstoneKind.playlist,
+      localId: playlistId,
+      deletedByDevice: _deviceId,
+      nowMs: nowMs,
+    );
+    await data.playlists.softDeletePlaylist(playlistId, nowMs);
+  }
 
   // ── 我的页计数卡（REQ-NAV-05 三卡；S4 从属面） ──
 

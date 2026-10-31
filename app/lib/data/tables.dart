@@ -194,6 +194,10 @@ class Tracks extends Table {
 class Playlists extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
+
+  /// 跨端身份（WS6/REQ-SYNC-02：schema v3 迁移回填随机 UUID；
+  /// 本地自增 id 设备无关，同步以 uuid 键控）。
+  TextColumn get uuid => text().nullable()();
   TextColumn get kind => textEnum<PlaylistKind>()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   IntColumn get createdAt => integer()();

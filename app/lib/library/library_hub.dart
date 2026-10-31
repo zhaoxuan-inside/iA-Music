@@ -31,6 +31,7 @@ import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_service.dart';
 import 'package:ia_music/scan/root_watcher.dart';
+import 'package:ia_music/sync/sync_service.dart' as sync_service;
 import 'package:ia_music/scan/scan_service.dart';
 
 final class LibraryHub {
@@ -84,6 +85,9 @@ final class LibraryHub {
       BilibiliSearchAdapter(client: biliClient);
   late final BilibiliAuthAdapter authAdapter =
       BilibiliAuthAdapter(client: biliClient);
+
+  // ── 同步域（WS6/FEAT-SYNC-01：attach 由 main 装配；30s 防抖喂点内置） ──
+  late final sync_service.SyncService sync = sync_service.SyncService(db: _db);
 
   /// 歌词反查命中改轨后：bump revision（列表刷新歌名）+ 封面按新身份重取
   /// （CoverChain 未命中不缓存 → 下次 decide 即按新歌名/歌手在线取封面）。
@@ -288,6 +292,7 @@ final class LibraryHub {
   }
 
   Future<void> dispose() async {
+    await sync.dispose();
     await extract.dispose();
     _coverFetch.close();
     _lrclib.close();

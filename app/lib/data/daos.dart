@@ -877,6 +877,7 @@ class PlaylistDao {
             PlaylistsCompanion.insert(
               kind: PlaylistKind.system_favorite,
               name: '我喜欢的音乐', // PRD REQ-PL-01 系统歌单规范名（S4 归正）
+              uuid: Value(newPlaylistUuid()), // 跨端身份（WS6/SYNC-02）
               createdAt: nowMs,
               updatedAt: nowMs,
             ),
@@ -904,6 +905,7 @@ class PlaylistDao {
           PlaylistsCompanion.insert(
             kind: PlaylistKind.user,
             name: name,
+            uuid: Value(newPlaylistUuid()), // 跨端身份（WS6/SYNC-02）
             createdAt: nowMs,
             updatedAt: nowMs,
           ),
@@ -1023,8 +1025,44 @@ class SyncDao {
 
   final IaDatabase _db;
 
+  /// 冲突副本登记（WS6/REQ-SYNC-04：last-writer-wins 败者保全）。
+  Future<int> recordConflict({
+    required String originKind,
+    required int originLocalId,
+    required String winnerValueJson,
+    required String loserPayloadJson,
+    required int nowMs,
+  }) =>
+      _db.into(_db.conflictCopies).insert(
+            ConflictCopiesCompanion.insert(
+              originKind: originKind,
+              originLocalId: originLocalId,
+              winnerValueJson: winnerValueJson,
+              loserPayloadJson: loserPayloadJson,
+              lostAt: nowMs,
+            ),
+          );
+
+  /// 冲突副本列表（同步中心入口面；排除软删）。
+  Future<List<ConflictCopy>> listConflicts() =>
+      (_db.select(_db.conflictCopies)
+            ..where((c) => c.deletedAt.isNull())
+            ..orderBy([(c) => OrderingTerm.desc(c.lostAt)]))
+          .get();
+
+  /// 冲突副本删除（REQ-SYNC-04：软删本行——ISS-503）。
+  Future<void> softDeleteConflict(int conflictId, int nowMs) =>
+      (_db.update(_db.conflictCopies)..where((c) => c.id.equals(conflictId)))
+          .write(ConflictCopiesCompanion(deletedAt: Value(nowMs)));
+
   Future<SyncChannelData?> currentChannel() =>
       (_db.select(_db.syncChannel)..where((c) => c.isActive.equals(true)))
+          .getSingleOrNull();
+
+  /// 上次同步状态（同步中心状态面板读面；REQ-SYNC-07）。
+  Future<LastSyncStateData?> lastSyncFor(int channelId) =>
+      (_db.select(_db.lastSyncState)
+            ..where((s) => s.channelId.equals(channelId)))
           .getSingleOrNull();
 
   /// 通道保存/激活（C44 单通道）：全关 → 单开；凭据本体**永不入 DB**（C50）。

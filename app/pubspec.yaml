@@ -56,6 +56,8 @@ dependencies:
   qr_flutter: ^4.1.0
   material_symbols_icons: ^4.2960.0
   file_selector: ^1.1.0
+  # WS6 同步域（ADR-0001 R2：MVP 激活通道=WebDAV；分块断点在 adapter 自研叠加）
+  webdav_client_plus: ^3.0.0
   permission_handler: ^11.3.1
   ffi: ^2.2.0
 
