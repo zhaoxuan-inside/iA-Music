@@ -3,3 +3,7 @@ output/app_mobile/
 
 # ZCode 工作区本地配置
 .zcode/
+
+# Flutter pub 缓存副本与开发期截图（不应入库）
+app/HardStone.Flutterpub-cache/
+app/output/
