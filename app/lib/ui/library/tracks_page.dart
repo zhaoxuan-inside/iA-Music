@@ -16,6 +16,7 @@ import 'package:ia_music/data/daos.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
 import 'package:ia_music/library/library_hub.dart';
+import 'package:ia_music/library/track_origin.dart';
 import 'package:ia_music/lyrics/lyrics_service.dart';
 import 'package:ia_music/l10n/s.dart';
 import 'package:ia_music/playback/playback_service.dart';
@@ -393,6 +394,7 @@ class TracksPageState extends State<TracksPage> {
     final p = context.ia;
     final msg = sOf(context);
     final t = _rows[i];
+    final originLabel = t.originLabel(msg); // U1 来源统一抽象（唯一来源面）
     final missing = t.missingAt != null;
     final checked = _selected.contains(t.id);
     void toggle() => setState(() {
@@ -437,7 +439,10 @@ class TracksPageState extends State<TracksPage> {
               size: 48,
             ),
             const SizedBox(width: 12),
+            const SizedBox(width: 12),
+            // U2：标题列与专辑列 5:2 比例（比例化节奏，替代全宽 Expanded）。
             Expanded(
+              flex: 5,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -465,11 +470,11 @@ class TracksPageState extends State<TracksPage> {
                               TextStyle(fontSize: 12, color: p.secondaryText),
                         ),
                       ),
-                      if (t.sourceType == 'bilibili')
+                      if (originLabel != null)
                         Padding(
                           padding: const EdgeInsets.only(left: 6),
                           child: Text(
-                            msg.sourceBili,
+                            originLabel,
                             style: TextStyle(
                               fontSize: 10,
                               color: p.secondaryText,
@@ -491,11 +496,12 @@ class TracksPageState extends State<TracksPage> {
                 ],
               ),
             ),
-            // V2 视觉审查：桌面（≥720）加专辑列（DESIGN.md TRACKS 行四列口径）。
+            // U2 展示重构：专辑列比例化（flex 2）贴住标题列——
+            // 此前固定 220px 贴最右，与标题间出现大空洞；现在 标题:专辑=5:2。
             if (MediaQuery.sizeOf(context).width >= 720) ...[
               const SizedBox(width: 16),
-              SizedBox(
-                width: 220,
+              Expanded(
+                flex: 2,
                 child: Text(
                   t.albumDisplay ?? '',
                   maxLines: 1,
@@ -504,13 +510,17 @@ class TracksPageState extends State<TracksPage> {
                 ),
               ),
             ],
-            const SizedBox(width: 8),
-            Text(
-              iaMmss(t.durationMs ?? 0),
-              style: TextStyle(
-                fontSize: 12,
-                color: p.secondaryText,
-                fontFeatures: kIaNumericFeatures,
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 52,
+              child: Text(
+                iaMmss(t.durationMs ?? 0),
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: p.secondaryText,
+                  fontFeatures: kIaNumericFeatures,
+                ),
               ),
             ),
           ],

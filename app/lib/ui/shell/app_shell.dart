@@ -310,7 +310,6 @@ final class _Sidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ia;
     final t = sOf(context);
-    final scheme = Theme.of(context).colorScheme;
     Widget item(
       ShellSection s,
       IconData icon,
@@ -327,7 +326,8 @@ final class _Sidebar extends StatelessWidget {
           bottom: 2,
         ),
         child: Material(
-          color: selected ? scheme.secondaryContainer : Colors.transparent,
+          // U3 选中态：品牌绿 13% 淡染替代灰调 secondaryContainer（用户裁定违和）。
+          color: selected ? p.accent.withValues(alpha: 0.13) : Colors.transparent,
           borderRadius: BorderRadius.circular(IaRadius.card),
           child: InkWell(
             key: ValueKey(keyName),
@@ -341,7 +341,7 @@ final class _Sidebar extends StatelessWidget {
                     icon,
                     size: 21,
                     fill: selected ? 1.0 : 0.0,
-                    color: selected ? p.mainText : p.secondaryText,
+                    color: selected ? p.accent : p.secondaryText,
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -350,7 +350,7 @@ final class _Sidebar extends StatelessWidget {
                       fontSize: 14,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       letterSpacing: 0.02,
-                      color: selected ? p.mainText : p.secondaryText,
+                      color: selected ? p.accent : p.secondaryText,
                     ),
                   ),
                 ],
@@ -441,7 +441,6 @@ final class _MobileTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.ia;
     final t = sOf(context);
-    final scheme = Theme.of(context).colorScheme;
     Widget item(
       ShellSection s,
       IconData icon,
@@ -466,14 +465,14 @@ final class _MobileTabs extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 3),
                     decoration: BoxDecoration(
-                      color: selected ? scheme.secondaryContainer : null,
+                      color: selected ? p.accent.withValues(alpha: 0.13) : null,
                       borderRadius: BorderRadius.circular(IaRadius.pill),
                     ),
                     child: Icon(
                       icon,
                       size: 22,
                       fill: selected ? 1.0 : 0.0,
-                      color: selected ? p.mainText : p.secondaryText,
+                      color: selected ? p.accent : p.secondaryText,
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -482,7 +481,7 @@ final class _MobileTabs extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                      color: selected ? p.mainText : p.secondaryText,
+                      color: selected ? p.accent : p.secondaryText,
                     ),
                   ),
                 ],
