@@ -326,8 +326,12 @@ final class _Sidebar extends StatelessWidget {
           bottom: 2,
         ),
         child: Material(
-          // U3 选中态：品牌绿 13% 淡染替代灰调 secondaryContainer（用户裁定违和）。
-          color: selected ? p.accent.withValues(alpha: 0.13) : Colors.transparent,
+          // U3v2 选中态：中性白 5% 抬升（设计宪章"色阶分层"口径）+ 左缘
+          // 3px 品牌绿条 + 绿色图标/文字——语义靠绿色标识，不再靠色块
+          // （13% 绿染在深底上仍被读作"深灰盒"，用户复核驳回）。
+          color: selected
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(IaRadius.card),
           child: InkWell(
             key: ValueKey(keyName),
@@ -337,6 +341,16 @@ final class _Sidebar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               child: Row(
                 children: [
+                  // 左缘选中指示条（3px 圆角绿条；未选中透明占位对齐）。
+                  Container(
+                    width: 3,
+                    height: 18,
+                    margin: const EdgeInsets.only(right: 11),
+                    decoration: BoxDecoration(
+                      color: selected ? p.accent : Colors.transparent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   Icon(
                     icon,
                     size: 21,
@@ -344,13 +358,18 @@ final class _Sidebar extends StatelessWidget {
                     color: selected ? p.accent : p.secondaryText,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      letterSpacing: 0.02,
-                      color: selected ? p.accent : p.secondaryText,
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        letterSpacing: 0.02,
+                        color: selected ? p.accent : p.secondaryText,
+                      ),
                     ),
                   ),
                 ],
@@ -465,7 +484,7 @@ final class _MobileTabs extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 3),
                     decoration: BoxDecoration(
-                      color: selected ? p.accent.withValues(alpha: 0.13) : null,
+                      color: selected ? Colors.white.withValues(alpha: 0.05) : null,
                       borderRadius: BorderRadius.circular(IaRadius.pill),
                     ),
                     child: Icon(
