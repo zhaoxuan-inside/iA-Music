@@ -121,6 +121,7 @@ class _IaMusicAppState extends State<IaMusicApp> {
           darkTheme: buildIaTheme(Brightness.dark, seed: seed),
           themeMode: mode,
           locale: widget.locale.resolvedLocale,
+          debugShowCheckedModeBanner: false,
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(

@@ -561,11 +561,15 @@ class SettingsPageState extends State<SettingsPage> {
           if (Platform.isAndroid)
             _AndroidRepoPicker(onAdd: (path) => unawaited(_addRootAndroid(path)))
           else
-            FilledButton.tonalIcon(
-              key: const ValueKey('repo_add'),
-              onPressed: () => unawaited(_addRoot()),
-              icon: Icon(IaIcon.add),
-              label: Text(t.repoAddLabel),
+            // 视觉审查修复：按钮收敛为自适应宽度（此前 ListView 内被拉伸到全宽）。
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('repo_add'),
+                onPressed: () => unawaited(_addRoot()),
+                icon: Icon(IaIcon.add),
+                label: Text(t.repoAddLabel),
+              ),
             ),
           const SizedBox(height: 24),
           Text(
