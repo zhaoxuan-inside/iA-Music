@@ -164,7 +164,11 @@ class PlaylistsPageState extends State<PlaylistsPage> {
     final t = sOf(context);
     return Scaffold(
       key: const ValueKey('playlists_page'),
-      body: ListView(
+      // 视觉打磨：内容列限宽居中（与设置页同口径）。
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 880),
+          child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
           Row(
@@ -278,6 +282,8 @@ class PlaylistsPageState extends State<PlaylistsPage> {
                 onTap: () => unawaited(_open(d)),
               ),
         ],
+          ),
+        ),
       ),
     );
   }

@@ -145,7 +145,11 @@ class ExtractPageState extends State<ExtractPage> {
     return Scaffold(
       key: const ValueKey('extract_page'),
       appBar: AppBar(title: Text(t.navExtract)),
-      body: ListView(
+      // 视觉打磨：内容列限宽居中（与设置页同口径）。
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           if (!_compliant) ...[
@@ -270,6 +274,8 @@ class ExtractPageState extends State<ExtractPage> {
                 _taskRow(p, task),
           ],
         ],
+          ),
+        ),
       ),
     );
   }
