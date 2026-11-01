@@ -191,7 +191,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         key: const ValueKey('onboarding_step1'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Spacer(flex: 2),
+          const Spacer(flex: 1),
           Text(t.onboardingTitle,
               style: const TextStyle(
                   fontSize: 28, fontWeight: FontWeight.w800)),
@@ -199,21 +199,29 @@ class _OnboardingPageState extends State<OnboardingPage> {
           Text(t.onboardingSubtitle,
               style:
                   TextStyle(fontSize: 14, color: p.secondaryText, height: 1.6)),
-          const SizedBox(height: 32),
+          const SizedBox(height: 36),
           if (_suggestedDir != null && !_scanDone)
-            FilledButton.icon(
-              key: const ValueKey('onboarding_use_suggested'),
-              onPressed: _scanning ? null : () => unawaited(_useSuggested()),
-              icon: Icon(IaIcon.folder),
-              label: Text(t.onboardingUseSuggested),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.icon(
+                key: const ValueKey('onboarding_use_suggested'),
+                onPressed: _scanning ? null : () => unawaited(_useSuggested()),
+                icon: Icon(IaIcon.folder),
+                label: Text(t.onboardingUseSuggested),
+              ),
             ),
           const SizedBox(height: 12),
           if (!_scanDone)
-            FilledButton.tonalIcon(
-              key: const ValueKey('onboarding_pick_folder'),
-              onPressed: _scanning ? null : () => unawaited(_pickFolder()),
-              icon: Icon(IaIcon.add),
-              label: Text(t.onboardingPickFolder),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: FilledButton.tonalIcon(
+                key: const ValueKey('onboarding_pick_folder'),
+                onPressed: _scanning ? null : () => unawaited(_pickFolder()),
+                icon: Icon(IaIcon.add),
+                label: Text(t.onboardingPickFolder),
+              ),
             ),
           if (_scanning) ...[
             const SizedBox(height: 24),

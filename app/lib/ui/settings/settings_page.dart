@@ -420,7 +420,11 @@ class SettingsPageState extends State<SettingsPage> {
     final t = sOf(context);
     return Scaffold(
       key: const ValueKey('settings_page'),
-      body: ListView(
+      // V3 视觉审查：内容列限宽居中（此前超宽窗口下行/按钮拉伸到 1500px+）。
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
           Text(
@@ -661,6 +665,8 @@ class SettingsPageState extends State<SettingsPage> {
                 fontSize: 12, color: p.secondaryText, height: 1.7),
           ),
         ],
+      ),
+        ),
       ),
     );
   }

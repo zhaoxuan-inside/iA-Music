@@ -491,6 +491,19 @@ class TracksPageState extends State<TracksPage> {
                 ],
               ),
             ),
+            // V2 视觉审查：桌面（≥720）加专辑列（DESIGN.md TRACKS 行四列口径）。
+            if (MediaQuery.sizeOf(context).width >= 720) ...[
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 220,
+                child: Text(
+                  t.albumDisplay ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: p.secondaryText),
+                ),
+              ),
+            ],
             const SizedBox(width: 8),
             Text(
               iaMmss(t.durationMs ?? 0),

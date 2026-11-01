@@ -13,6 +13,10 @@ import 'package:ia_music/ui/shell/locale_controller.dart';
 void main() {
   testWidgets('入口冒烟：资料库中心壳 + TRACKS 首页（移动端 4 Tab）',
       (WidgetTester tester) async {
+    // V1 断点修复后：桌面形态阈值=720，移动 Tab 需真移动宽度。
+    tester.view.physicalSize = const Size(600, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
     final gate = await tester.runAsync(() => openIaDatabaseMemory());
     final db = gate!.db;
     final hub = LibraryHub(db);

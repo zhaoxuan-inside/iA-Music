@@ -204,7 +204,11 @@ class AppShellState extends State<AppShell> {
     );
 
     return LayoutBuilder(builder: (context, cons) {
-      final desktop = cons.maxWidth >= 1024;
+      // V1 视觉审查修复：桌面形态阈值 1024→720。此前的 1024 让半屏桌面窗口
+      // （如 800/960px）整个切到移动底部 Tab——「桌面出现手机 UI」的根因。
+      // 720 以下才降级移动形态；侧栏在窄桌面自适应缩窄（240→200）。
+      final desktop = cons.maxWidth >= 720;
+      final sidebarWidth = cons.maxWidth >= 1024 ? 240.0 : 200.0;
       if (desktop) {
         return Scaffold(
           key: const ValueKey('app_shell'),
@@ -213,6 +217,7 @@ class AppShellState extends State<AppShell> {
             children: [
               _Sidebar(
                 section: _section,
+                width: sidebarWidth,
                 onSelect: (s) => setState(() => _section = s),
                 miniPlayer: svc == null
                     ? const SizedBox.shrink()
@@ -291,11 +296,15 @@ final class _Sidebar extends StatelessWidget {
     required this.section,
     required this.onSelect,
     required this.miniPlayer,
+    this.width = 240,
   });
 
   final ShellSection section;
   final ValueChanged<ShellSection> onSelect;
   final Widget miniPlayer;
+
+  /// 窄桌面自适应缩窄（V1：720-1023px 窗口用 200px）。
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +375,7 @@ final class _Sidebar extends StatelessWidget {
         );
 
     return SizedBox(
-      width: 240,
+      width: width,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 16, 8, 12),
         child: Column(
@@ -386,9 +395,15 @@ final class _Sidebar extends StatelessWidget {
                     child: Icon(IaIcon.play, size: 18, color: p.onAccent),
                   ),
                   const SizedBox(width: 10),
-                  const Text(
-                    'iA Music',
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                  // V1：窄侧栏（200px）品牌名可截断，避免 Row 溢出。
+                  const Expanded(
+                    child: Text(
+                      'iA Music',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    ),
                   ),
                 ],
               ),
