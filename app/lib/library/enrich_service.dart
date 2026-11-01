@@ -14,6 +14,7 @@
 ///   每根手动「识别修正」；串行队列 + 条间限速（礼貌出网）。
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:contracts/contracts.dart';
@@ -37,6 +38,27 @@ final class EnrichOutcome {
   final bool asrDelegated;
 
   bool get touched => identityWritten || lyricsWritten || coverWritten;
+}
+
+/// 识别修正进度快照（用户可见面：设置页进度条/文本）。
+final class EnrichProgress {
+  const EnrichProgress({
+    required this.pending,
+    required this.done,
+    required this.failed,
+    required this.total,
+    required this.currentTitle,
+    required this.idle,
+  });
+
+  final int pending;
+  final int done;
+  final int failed;
+  final int total;
+  final String? currentTitle;
+  final bool idle;
+
+  bool get active => !idle;
 }
 
 final class EnrichService {
@@ -68,6 +90,33 @@ final class EnrichService {
   /// 条间限速（串行队列已保证同时至多一曲；再垫间隔防高频出网）。
   static const kTrackGapMs = 1000;
 
+  // ── 进度事件流（用户可见面：识别修正排队/在跑/完成/失败） ──
+
+  final StreamController<EnrichProgress> _progress =
+      StreamController<EnrichProgress>.broadcast();
+
+  /// 识别修正进度（UI 订阅面；broadcast——无监听时不缓冲）。
+  Stream<EnrichProgress> get progress => _progress.stream;
+
+  int _done = 0;
+  int _failed = 0;
+  int _total = 0;
+  String? _currentTitle;
+
+  void _emit({required bool idle}) {
+    if (_progress.isClosed) {
+      return;
+    }
+    _progress.add(EnrichProgress(
+      pending: _queue.length,
+      done: _done,
+      failed: _failed,
+      total: _total,
+      currentTitle: _currentTitle,
+      idle: idle,
+    ));
+  }
+
   final List<int> _queue = [];
   bool _running = false;
   bool _disposed = false;
@@ -89,7 +138,14 @@ final class EnrichService {
 
   void enqueueAll(Iterable<int> trackIds) {
     for (final id in trackIds) {
+      final before = _queue.length;
       enqueue(id);
+      if (_queue.length > before) {
+        _total++; // 新入队（去重后真增量）才计入总量
+      }
+    }
+    if (_total > 0) {
+      _emit(idle: false);
     }
   }
 
@@ -98,23 +154,40 @@ final class EnrichService {
     while (_queue.isNotEmpty && !_disposed) {
       final trackId = _queue.removeAt(0);
       _current = trackId;
+      // 进度：开跑新一曲（标题可读则带出，UI 显示「正在修正《X》」）
+      final row = await _lib.rowById(trackId);
+      _currentTitle = row?.title;
+      _emit(idle: false);
       if (!first) {
         await Future<void>.delayed(const Duration(milliseconds: kTrackGapMs));
       }
       first = false;
       try {
-        await runForTrack(trackId);
+        final outcome = await runForTrack(trackId);
+        if (outcome.touched) {
+          _done++; // 命中修正（身份/歌词/封面任一）
+        } else {
+          _failed++; // 未命中（三级兜底皆无果；展示为「未命中」）
+        }
       } catch (_) {
         // 工作循环永不崩（LyricsService 同款）：单条失败不打断后续。
+        _failed++;
       }
       _current = null;
+      _currentTitle = null;
+      _emit(idle: _queue.isEmpty);
     }
     _running = false;
+    _done = 0;
+    _failed = 0;
+    _total = 0;
+    _emit(idle: true);
   }
 
   void dispose() {
     _disposed = true;
     _queue.clear();
+    _progress.close();
   }
 
   /// 单曲三级兜底（命中即止的层级推进：tier2 仅当 tier1 无同步歌词；

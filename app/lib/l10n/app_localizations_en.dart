@@ -1313,4 +1313,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String versionLabel(String v) {
     return 'Version $v';
   }
+
+  @override
+  String enrichProgressCounts(int done, int failed, int pending) {
+    return 'Enrichment: $done fixed · $failed unmatched · $pending pending';
+  }
+
+  @override
+  String enrichProgressCurrent(
+    int done,
+    int total,
+    String title,
+    int failed,
+    int pending,
+  ) {
+    return 'Enriching $done/$total: \"$title\" ($failed unmatched · $pending pending)';
+  }
 }

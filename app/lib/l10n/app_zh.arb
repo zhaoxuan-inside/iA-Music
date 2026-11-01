@@ -480,5 +480,10 @@
   "settingsEffects": "音效",
   "complianceReview": "合规声明（回看）",
   "versionLabel": "版本 {v}",
-  "@versionLabel": { "placeholders": { "v": { "type": "String" } } }
+  "@versionLabel": { "placeholders": { "v": { "type": "String" } } },
+
+  "enrichProgressCounts": "识别修正：已修正 {done} · 未命中 {failed} · 待处理 {pending}",
+  "@enrichProgressCounts": { "placeholders": { "done": { "type": "int" }, "failed": { "type": "int" }, "pending": { "type": "int" } } },
+  "enrichProgressCurrent": "识别修正中 {done}/{total}：《{title}》（未命中 {failed} · 待处理 {pending}）",
+  "@enrichProgressCurrent": { "placeholders": { "done": { "type": "int" }, "total": { "type": "int" }, "title": { "type": "String" }, "failed": { "type": "int" }, "pending": { "type": "int" } } }
 }

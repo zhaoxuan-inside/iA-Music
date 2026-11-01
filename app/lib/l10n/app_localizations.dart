@@ -2287,6 +2287,24 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'版本 {v}'**
   String versionLabel(String v);
+
+  /// No description provided for @enrichProgressCounts.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别修正：已修正 {done} · 未命中 {failed} · 待处理 {pending}'**
+  String enrichProgressCounts(int done, int failed, int pending);
+
+  /// No description provided for @enrichProgressCurrent.
+  ///
+  /// In zh, this message translates to:
+  /// **'识别修正中 {done}/{total}：《{title}》（未命中 {failed} · 待处理 {pending}）'**
+  String enrichProgressCurrent(
+    int done,
+    int total,
+    String title,
+    int failed,
+    int pending,
+  );
 }
 
 class _AppLocalizationsDelegate

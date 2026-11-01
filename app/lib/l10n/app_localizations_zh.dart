@@ -1256,4 +1256,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String versionLabel(String v) {
     return '版本 $v';
   }
+
+  @override
+  String enrichProgressCounts(int done, int failed, int pending) {
+    return '识别修正：已修正 $done · 未命中 $failed · 待处理 $pending';
+  }
+
+  @override
+  String enrichProgressCurrent(
+    int done,
+    int total,
+    String title,
+    int failed,
+    int pending,
+  ) {
+    return '识别修正中 $done/$total：《$title》（未命中 $failed · 待处理 $pending）';
+  }
 }

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:ia_music/adapters/bilibili_auth_adapter.dart';
 import 'package:ia_music/data/ia_database.dart';
 import 'package:ia_music/data/tables.dart';
+import 'package:ia_music/library/enrich_service.dart';
 import 'package:ia_music/library/library_hub.dart';
 import 'package:ia_music/library/cover_chain.dart';
 import 'package:ia_music/l10n/app_localizations.dart';
@@ -575,6 +576,47 @@ class SettingsPageState extends State<SettingsPage> {
                 label: Text(t.repoAddLabel),
               ),
             ),
+          // 识别修正实时进度（用户可见面：排队/在跑/命中/未命中）。
+          StreamBuilder<EnrichProgress>(
+            key: const ValueKey('enrich_progress'),
+            stream: widget.hub.enrich.progress,
+            builder: (context, snap) {
+              final pr = snap.data;
+              if (pr == null || !pr.active) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: pr.total > 0
+                            ? (pr.done + pr.failed) / pr.total
+                            : null,
+                        minHeight: 4,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      pr.currentTitle == null
+                          ? t.enrichProgressCounts(
+                              pr.done, pr.failed, pr.pending)
+                          : t.enrichProgressCurrent(pr.done,
+                              pr.done + pr.failed + pr.pending, pr.currentTitle!,
+                              pr.failed, pr.pending),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: p.accent,
+                          fontFeatures: kIaNumericFeatures),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 24),
           Text(
             t.playbackSection,

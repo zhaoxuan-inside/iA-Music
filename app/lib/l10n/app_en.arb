@@ -419,5 +419,10 @@
   "settingsEffects": "Audio effects",
   "complianceReview": "Compliance notice (review)",
   "versionLabel": "Version {v}",
-  "@versionLabel": { "placeholders": { "v": { "type": "String" } } }
+  "@versionLabel": { "placeholders": { "v": { "type": "String" } } },
+
+  "enrichProgressCounts": "Enrichment: {done} fixed · {failed} unmatched · {pending} pending",
+  "@enrichProgressCounts": { "placeholders": { "done": { "type": "int" }, "failed": { "type": "int" }, "pending": { "type": "int" } } },
+  "enrichProgressCurrent": "Enriching {done}/{total}: \"{title}\" ({failed} unmatched · {pending} pending)",
+  "@enrichProgressCurrent": { "placeholders": { "done": { "type": "int" }, "total": { "type": "int" }, "title": { "type": "String" }, "failed": { "type": "int" }, "pending": { "type": "int" } } }
 }
