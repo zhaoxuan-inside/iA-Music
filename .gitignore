@@ -1,9 +1,43 @@
-# 构建产物（历史大文件曾致 GitHub GH001 推送被拒）
-output/app_mobile/
-
-# ZCode 工作区本地配置
+# Local workspace and generated output
 .zcode/
+output/
+build/
+coverage/
+HardStone.Flutterpub-cache/
 
-# Flutter pub 缓存副本与开发期截图（不应入库）
-app/HardStone.Flutterpub-cache/
-app/output/
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+*.symbols
+*.map.json
+.widget_preview/
+
+# Native and platform build output
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Temporary files
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history/
+.svn/
+.swiftpm/
+migrate_working_dir/
