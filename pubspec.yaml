@@ -83,6 +83,10 @@ dev_dependencies:
 # 方案：各平台从仓库内置的 SQLite 源码构建，避免发行包绑定开发者机器的绝对路径。
 hooks:
   user_defines:
+    # mpv_audio_kit 的 arm64-v8a 运行库随仓库提供，避免构建时访问 GitHub
+    # release 资产；其 SHA-256 由插件 hook 仍会校验（libmpv-r17）。
+    mpv_audio_kit:
+      libmpv: packaging/mpv
     sqlite3:
       source:
         windows: source
