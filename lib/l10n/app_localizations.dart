@@ -10,10 +10,10 @@ import 'app_localizations_zh.dart';
 
 // ignore_for_file: type=lint
 
-/// Callers can lookup localized strings with an instance of AppLocalizations
-/// returned by `AppLocalizations.of(context)`.
+/// Callers can lookup localized strings with an instance of S
+/// returned by `S.of(context)`.
 ///
-/// Applications need to include `AppLocalizations.delegate()` in their app's
+/// Applications need to include `S.delegate()` in their app's
 /// `localizationDelegates` list, and the locales they support in the app's
 /// `supportedLocales` list. For example:
 ///
@@ -21,8 +21,8 @@ import 'app_localizations_zh.dart';
 /// import 'l10n/app_localizations.dart';
 ///
 /// return MaterialApp(
-///   localizationsDelegates: AppLocalizations.localizationsDelegates,
-///   supportedLocales: AppLocalizations.supportedLocales,
+///   localizationsDelegates: S.localizationsDelegates,
+///   supportedLocales: S.supportedLocales,
 ///   home: MyApplicationHome(),
 /// );
 /// ```
@@ -59,20 +59,19 @@ import 'app_localizations_zh.dart';
 /// Select and expand the newly-created Localizations item then, for each
 /// locale your application supports, add a new item and select the locale
 /// you wish to add from the pop-up menu in the Value field. This list should
-/// be consistent with the languages listed in the AppLocalizations.supportedLocales
+/// be consistent with the languages listed in the S.supportedLocales
 /// property.
-abstract class AppLocalizations {
-  AppLocalizations(String locale)
+abstract class S {
+  S(String locale)
     : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
-  static AppLocalizations? of(BuildContext context) {
-    return Localizations.of<AppLocalizations>(context, AppLocalizations);
+  static S of(BuildContext context) {
+    return Localizations.of<S>(context, S)!;
   }
 
-  static const LocalizationsDelegate<AppLocalizations> delegate =
-      _AppLocalizationsDelegate();
+  static const LocalizationsDelegate<S> delegate = _SDelegate();
 
   /// A list of this localizations delegate along with the default localizations
   /// delegates.
@@ -94,15 +93,15 @@ abstract class AppLocalizations {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
-    Locale('zh'),
     Locale('en'),
+    Locale('zh'),
   ];
 
-  /// No description provided for @navSearch.
+  /// No description provided for @appTitle.
   ///
   /// In zh, this message translates to:
-  /// **'搜索'**
-  String get navSearch;
+  /// **'iA 音乐'**
+  String get appTitle;
 
   /// No description provided for @navLibrary.
   ///
@@ -110,29 +109,11 @@ abstract class AppLocalizations {
   /// **'曲库'**
   String get navLibrary;
 
-  /// No description provided for @navTracks.
+  /// No description provided for @navSearch.
   ///
   /// In zh, this message translates to:
-  /// **'单曲'**
-  String get navTracks;
-
-  /// No description provided for @navAlbums.
-  ///
-  /// In zh, this message translates to:
-  /// **'专辑'**
-  String get navAlbums;
-
-  /// No description provided for @navArtists.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌手'**
-  String get navArtists;
-
-  /// No description provided for @navMore.
-  ///
-  /// In zh, this message translates to:
-  /// **'更多'**
-  String get navMore;
+  /// **'搜索'**
+  String get navSearch;
 
   /// No description provided for @navPlaylists.
   ///
@@ -146,335 +127,47 @@ abstract class AppLocalizations {
   /// **'设置'**
   String get navSettings;
 
-  /// No description provided for @settingsTitle.
+  /// No description provided for @tabTracks.
   ///
   /// In zh, this message translates to:
-  /// **'设置'**
-  String get settingsTitle;
+  /// **'曲目'**
+  String get tabTracks;
 
-  /// 设置页语言条目标题
+  /// No description provided for @tabAlbums.
   ///
   /// In zh, this message translates to:
-  /// **'语言'**
-  String get settingsLanguage;
+  /// **'专辑'**
+  String get tabAlbums;
 
-  /// 语言选项：中文（自称，不译）
+  /// No description provided for @tabArtists.
   ///
   /// In zh, this message translates to:
-  /// **'中文'**
-  String get languageNameZh;
-
-  /// 语言选项：English（自称，不译）
-  ///
-  /// In zh, this message translates to:
-  /// **'English'**
-  String get languageNameEn;
-
-  /// 语言三选：跟随系统
-  ///
-  /// In zh, this message translates to:
-  /// **'跟随系统'**
-  String get languageFollowSystem;
-
-  /// No description provided for @appearanceTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'外观'**
-  String get appearanceTitle;
-
-  /// No description provided for @themeDark.
-  ///
-  /// In zh, this message translates to:
-  /// **'深色'**
-  String get themeDark;
-
-  /// No description provided for @themeLight.
-  ///
-  /// In zh, this message translates to:
-  /// **'浅色'**
-  String get themeLight;
-
-  /// No description provided for @themeFollowSystem.
-  ///
-  /// In zh, this message translates to:
-  /// **'跟随系统'**
-  String get themeFollowSystem;
-
-  /// No description provided for @coverOnlineTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'在线补齐封面'**
-  String get coverOnlineTitle;
-
-  /// No description provided for @coverOnlineSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地无封面时联网检索（MusicBrainz → iTunes）'**
-  String get coverOnlineSubtitle;
-
-  /// No description provided for @logoutConfirmTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出登录 B 站？'**
-  String get logoutConfirmTitle;
-
-  /// No description provided for @logoutConfirmBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出后提取将回到匿名音质（64k）。'**
-  String get logoutConfirmBody;
-
-  /// No description provided for @cancel.
-  ///
-  /// In zh, this message translates to:
-  /// **'取消'**
-  String get cancel;
-
-  /// No description provided for @logoutAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'退出登录'**
-  String get logoutAction;
-
-  /// No description provided for @logoutButton.
-  ///
-  /// In zh, this message translates to:
-  /// **'登出'**
-  String get logoutButton;
-
-  /// No description provided for @biliUserFallback.
-  ///
-  /// In zh, this message translates to:
-  /// **'B 站用户'**
-  String get biliUserFallback;
-
-  /// No description provided for @loginBili.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录 B 站'**
-  String get loginBili;
-
-  /// No description provided for @accountLoggedIn.
-  ///
-  /// In zh, this message translates to:
-  /// **'Lv.{level} · 已登录（高音质提取可用）'**
-  String accountLoggedIn(int level);
-
-  /// No description provided for @accountAnonymousSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫码或 Cookie 登录，解锁高音质提取'**
-  String get accountAnonymousSubtitle;
-
-  /// No description provided for @audioPermissionDenied.
-  ///
-  /// In zh, this message translates to:
-  /// **'未获得音乐读取权限——请在系统设置中授权后重试'**
-  String get audioPermissionDenied;
-
-  /// No description provided for @dirMissing.
-  ///
-  /// In zh, this message translates to:
-  /// **'目录不存在：{path}'**
-  String dirMissing(String path);
-
-  /// No description provided for @repoAdded.
-  ///
-  /// In zh, this message translates to:
-  /// **'已添加仓库并完成扫描：{path}'**
-  String repoAdded(String path);
-
-  /// No description provided for @rescanTriggered.
-  ///
-  /// In zh, this message translates to:
-  /// **'已触发重新扫描'**
-  String get rescanTriggered;
-
-  /// 识别修正入队反馈（D5-5：输出语言跟随 UI 语言）
-  ///
-  /// In zh, this message translates to:
-  /// **'{count, plural, other{已排队识别修正：{count} 首}}'**
-  String enrichQueued(int count);
-
-  /// No description provided for @repoSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'音乐仓库'**
-  String get repoSection;
-
-  /// No description provided for @repoHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取的曲目保存在 仓库/提取/ 下；删除仓库不删文件。'**
-  String get repoHint;
-
-  /// No description provided for @enrichTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'识别修正（歌名/歌词/封面）'**
-  String get enrichTooltip;
-
-  /// No description provided for @rescanTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'重新扫描'**
-  String get rescanTooltip;
-
-  /// No description provided for @repoEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无仓库——添加一个本地音乐目录开始'**
-  String get repoEmpty;
-
-  /// No description provided for @repoAddLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'添加仓库目录'**
-  String get repoAddLabel;
-
-  /// No description provided for @repoBrowseLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'浏览选择目录'**
-  String get repoBrowseLabel;
-
-  /// No description provided for @repoPathHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'或输入音乐目录绝对路径'**
-  String get repoPathHint;
-
-  /// No description provided for @addLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'添加'**
-  String get addLabel;
-
-  /// No description provided for @aboutSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'关于'**
-  String get aboutSection;
-
-  /// No description provided for @aboutBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'iA Music · 本地优先音乐播放器\nB 站发现 → 提取 → 歌词/封面补全 → 曲库\nUI 参照 Harmonoid（仅视觉语言，PolyForm 许可不复制代码）'**
-  String get aboutBody;
-
-  /// No description provided for @shuffleTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'随机播放（随机池=全库−少播）'**
-  String get shuffleTooltip;
-
-  /// No description provided for @viewListTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'列表视图'**
-  String get viewListTooltip;
-
-  /// No description provided for @viewGridTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'网格视图'**
-  String get viewGridTooltip;
-
-  /// No description provided for @trackCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count, plural, other{{count} 首}}'**
-  String trackCount(int count);
-
-  /// No description provided for @sortRecent.
-  ///
-  /// In zh, this message translates to:
-  /// **'最近'**
-  String get sortRecent;
+  /// **'艺术家'**
+  String get tabArtists;
 
   /// No description provided for @sortTitle.
   ///
   /// In zh, this message translates to:
-  /// **'标题'**
+  /// **'按标题'**
   String get sortTitle;
 
   /// No description provided for @sortArtist.
   ///
   /// In zh, this message translates to:
-  /// **'歌手'**
+  /// **'按歌手'**
   String get sortArtist;
 
-  /// No description provided for @sortDuration.
+  /// No description provided for @sortAlbum.
   ///
   /// In zh, this message translates to:
-  /// **'时长'**
-  String get sortDuration;
+  /// **'按专辑'**
+  String get sortAlbum;
 
-  /// No description provided for @untitled.
+  /// No description provided for @sortRecent.
   ///
   /// In zh, this message translates to:
-  /// **'未命名'**
-  String get untitled;
-
-  /// No description provided for @unknownArtist.
-  ///
-  /// In zh, this message translates to:
-  /// **'未知歌手'**
-  String get unknownArtist;
-
-  /// No description provided for @sourceBili.
-  ///
-  /// In zh, this message translates to:
-  /// **'B站'**
-  String get sourceBili;
-
-  /// No description provided for @missingBadge.
-  ///
-  /// In zh, this message translates to:
-  /// **'文件缺失'**
-  String get missingBadge;
-
-  /// No description provided for @emptyLibraryTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'曲库是空的'**
-  String get emptyLibraryTitle;
-
-  /// No description provided for @emptyLibraryBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫描本地音乐目录，或从 B 站搜索提取你的第一首歌。'**
-  String get emptyLibraryBody;
-
-  /// No description provided for @emptyGoSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'去设置添加仓库'**
-  String get emptyGoSettings;
-
-  /// No description provided for @emptyGoSearch.
-  ///
-  /// In zh, this message translates to:
-  /// **'去 B 站搜索提取'**
-  String get emptyGoSearch;
-
-  /// No description provided for @albumCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'{count, plural, other{{count} 张专辑}}'**
-  String albumCount(int count);
-
-  /// No description provided for @albumsEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无专辑（曲目补全后自动归档）'**
-  String get albumsEmpty;
-
-  /// No description provided for @albumTrackCount.
-  ///
-  /// In zh, this message translates to:
-  /// **'专辑 · {count, plural, other{{count} 首}}'**
-  String albumTrackCount(int count);
+  /// **'最近添加'**
+  String get sortRecent;
 
   /// No description provided for @playAll.
   ///
@@ -482,35 +175,89 @@ abstract class AppLocalizations {
   /// **'播放全部'**
   String get playAll;
 
-  /// No description provided for @shuffleShort.
+  /// No description provided for @shuffleAll.
   ///
   /// In zh, this message translates to:
-  /// **'随机'**
-  String get shuffleShort;
+  /// **'随机播放'**
+  String get shuffleAll;
 
-  /// No description provided for @artistCount.
+  /// No description provided for @emptyLibraryTitle.
   ///
   /// In zh, this message translates to:
-  /// **'{count, plural, other{{count} 位艺术家}}'**
-  String artistCount(int count);
+  /// **'曲库还是空的'**
+  String get emptyLibraryTitle;
 
-  /// No description provided for @artistsEmpty.
+  /// No description provided for @emptyLibraryHint.
   ///
   /// In zh, this message translates to:
-  /// **'暂无艺术家'**
-  String get artistsEmpty;
+  /// **'添加一个音乐文件夹，开始扫描入库。'**
+  String get emptyLibraryHint;
 
-  /// No description provided for @artistTrackCount.
+  /// No description provided for @emptySearchTitle.
   ///
   /// In zh, this message translates to:
-  /// **'艺术家 · {count, plural, other{{count} 首}}'**
-  String artistTrackCount(int count);
+  /// **'没有找到“{query}”'**
+  String emptySearchTitle(String query);
 
-  /// No description provided for @playlistCreateTitle.
+  /// No description provided for @emptySearchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'试试换个关键词，或检查拼音/全名。'**
+  String get emptySearchHint;
+
+  /// No description provided for @emptyPlaylists.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有歌单'**
+  String get emptyPlaylists;
+
+  /// No description provided for @emptyHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'还没有播放记录'**
+  String get emptyHistory;
+
+  /// No description provided for @emptyQueue.
+  ///
+  /// In zh, this message translates to:
+  /// **'播放队列为空'**
+  String get emptyQueue;
+
+  /// No description provided for @searchHint.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索歌曲、歌手、专辑或拼音'**
+  String get searchHint;
+
+  /// No description provided for @searchResults.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜索结果'**
+  String get searchResults;
+
+  /// No description provided for @playlistMine.
+  ///
+  /// In zh, this message translates to:
+  /// **'我的歌单'**
+  String get playlistMine;
+
+  /// No description provided for @playlistFavorites.
+  ///
+  /// In zh, this message translates to:
+  /// **'我喜欢的音乐'**
+  String get playlistFavorites;
+
+  /// No description provided for @playlistHistory.
+  ///
+  /// In zh, this message translates to:
+  /// **'最近播放'**
+  String get playlistHistory;
+
+  /// No description provided for @newPlaylist.
   ///
   /// In zh, this message translates to:
   /// **'新建歌单'**
-  String get playlistCreateTitle;
+  String get newPlaylist;
 
   /// No description provided for @playlistNameHint.
   ///
@@ -518,65 +265,47 @@ abstract class AppLocalizations {
   /// **'歌单名称'**
   String get playlistNameHint;
 
-  /// No description provided for @createAction.
+  /// No description provided for @renamePlaylist.
   ///
   /// In zh, this message translates to:
-  /// **'创建'**
-  String get createAction;
+  /// **'重命名'**
+  String get renamePlaylist;
 
-  /// No description provided for @playlistsEmpty.
+  /// No description provided for @deletePlaylist.
   ///
   /// In zh, this message translates to:
-  /// **'还没有歌单。红心的歌会进「我喜欢的音乐」。'**
-  String get playlistsEmpty;
+  /// **'删除歌单'**
+  String get deletePlaylist;
 
-  /// No description provided for @playlistPlayAll.
+  /// No description provided for @deletePlaylistConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'播放全部（{count, plural, other{{count} 首}}）'**
-  String playlistPlayAll(int count);
+  /// **'确定删除歌单“{name}”？歌曲不会被删除。'**
+  String deletePlaylistConfirm(String name);
 
-  /// No description provided for @playlistEmpty.
+  /// No description provided for @playlistCount.
   ///
   /// In zh, this message translates to:
-  /// **'歌单是空的'**
-  String get playlistEmpty;
+  /// **'{n} 首'**
+  String playlistCount(int n);
 
-  /// No description provided for @playlistRemoveTooltip.
+  /// No description provided for @addToPlaylist.
   ///
   /// In zh, this message translates to:
-  /// **'从歌单移除'**
-  String get playlistRemoveTooltip;
+  /// **'加入歌单'**
+  String get addToPlaylist;
 
-  /// No description provided for @shufflingSubtitle.
+  /// No description provided for @addedToPlaylist.
   ///
   /// In zh, this message translates to:
-  /// **'随机播放中'**
-  String get shufflingSubtitle;
+  /// **'已加入“{name}”'**
+  String addedToPlaylist(String name);
 
-  /// No description provided for @pauseTooltip.
+  /// No description provided for @playNext.
   ///
   /// In zh, this message translates to:
-  /// **'暂停'**
-  String get pauseTooltip;
-
-  /// No description provided for @playTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放'**
-  String get playTooltip;
-
-  /// No description provided for @previousTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'上一首'**
-  String get previousTooltip;
-
-  /// No description provided for @nextTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'下一首'**
-  String get nextTooltip;
+  /// **'下一首播放'**
+  String get playNext;
 
   /// No description provided for @queueTitle.
   ///
@@ -584,59 +313,17 @@ abstract class AppLocalizations {
   /// **'播放队列'**
   String get queueTitle;
 
-  /// No description provided for @queueEmpty.
+  /// No description provided for @clearQueue.
   ///
   /// In zh, this message translates to:
-  /// **'队列为空'**
-  String get queueEmpty;
+  /// **'清空队列'**
+  String get clearQueue;
 
-  /// No description provided for @eqTitle.
+  /// No description provided for @nowPlaying.
   ///
   /// In zh, this message translates to:
-  /// **'音效'**
-  String get eqTitle;
-
-  /// No description provided for @eqUnsupportedTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前播放引擎不支持均衡器'**
-  String get eqUnsupportedTitle;
-
-  /// No description provided for @eqUnsupportedBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'mpv_audio_kit 以单 Player 实例发布媒体会话，\n未暴露均衡器波段接口；本页明示不支持，不伪造滑杆。'**
-  String get eqUnsupportedBody;
-
-  /// No description provided for @shuffleNotStarted.
-  ///
-  /// In zh, this message translates to:
-  /// **'随机会话未开始'**
-  String get shuffleNotStarted;
-
-  /// No description provided for @dislikeTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'移出随机池（少播）'**
-  String get dislikeTooltip;
-
-  /// No description provided for @heartTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'红心'**
-  String get heartTooltip;
-
-  /// No description provided for @unheartTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'取消红心'**
-  String get unheartTooltip;
-
-  /// No description provided for @swipeUpHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'上滑切歌 · 单轮内不重复'**
-  String get swipeUpHint;
+  /// **'正在播放'**
+  String get nowPlaying;
 
   /// No description provided for @lyricsTitle.
   ///
@@ -644,1676 +331,223 @@ abstract class AppLocalizations {
   /// **'歌词'**
   String get lyricsTitle;
 
-  /// No description provided for @sourceBiliSubtitle.
+  /// No description provided for @lyricsEmpty.
   ///
   /// In zh, this message translates to:
-  /// **'B站字幕'**
-  String get sourceBiliSubtitle;
+  /// **'暂无歌词'**
+  String get lyricsEmpty;
 
-  /// No description provided for @sourceAsr.
+  /// No description provided for @lyricsPureMusic.
   ///
   /// In zh, this message translates to:
-  /// **'语音识别'**
-  String get sourceAsr;
-
-  /// No description provided for @loading.
-  ///
-  /// In zh, this message translates to:
-  /// **'加载中…'**
-  String get loading;
-
-  /// No description provided for @lyricsEmptyTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'本曲暂无歌词'**
-  String get lyricsEmptyTitle;
-
-  /// No description provided for @lyricsEmptyBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词在提取入库时自动生成：\n在线歌词库 → B 站字幕 → 本地语音识别，逐级兜底；\n反查命中后回填标准歌词与封面。'**
-  String get lyricsEmptyBody;
-
-  /// No description provided for @modeLoops.
-  ///
-  /// In zh, this message translates to:
-  /// **'列表循环'**
-  String get modeLoops;
-
-  /// No description provided for @modeSingle.
-  ///
-  /// In zh, this message translates to:
-  /// **'单曲循环'**
-  String get modeSingle;
-
-  /// No description provided for @modeSequence.
-  ///
-  /// In zh, this message translates to:
-  /// **'顺序播放'**
-  String get modeSequence;
-
-  /// No description provided for @modeRandom.
-  ///
-  /// In zh, this message translates to:
-  /// **'随机播放'**
-  String get modeRandom;
-
-  /// No description provided for @playTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放'**
-  String get playTitle;
-
-  /// No description provided for @nothingPlaying.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂无播放内容'**
-  String get nothingPlaying;
-
-  /// No description provided for @wheelTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'随机轮盘'**
-  String get wheelTooltip;
-
-  /// No description provided for @shuffleOnTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'随机中（点按改顺序）'**
-  String get shuffleOnTooltip;
-
-  /// No description provided for @dislikeLongTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'垃圾桶（减少推荐）'**
-  String get dislikeLongTooltip;
-
-  /// No description provided for @heartLongTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'红心（加入「我喜欢的音乐」）'**
-  String get heartLongTooltip;
-
-  /// No description provided for @biliNetworkError.
-  ///
-  /// In zh, this message translates to:
-  /// **'网络连不上 B 站——请检查设备的网络连接后重试'**
-  String get biliNetworkError;
-
-  /// No description provided for @searchFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'搜索失败：{error}'**
-  String searchFailed(String error);
-
-  /// No description provided for @extractQueued.
-  ///
-  /// In zh, this message translates to:
-  /// **'已加入提取队列：{title}'**
-  String extractQueued(String title);
-
-  /// No description provided for @searchHintBili.
-  ///
-  /// In zh, this message translates to:
-  /// **'搜索 B 站 / 粘贴链接或 BV 号'**
-  String get searchHintBili;
-
-  /// No description provided for @searchHintLocal.
-  ///
-  /// In zh, this message translates to:
-  /// **'搜索歌曲 / 歌手 / 专辑'**
-  String get searchHintLocal;
-
-  /// No description provided for @segmentLocal.
-  ///
-  /// In zh, this message translates to:
-  /// **'本地曲库'**
-  String get segmentLocal;
-
-  /// No description provided for @segmentBili.
-  ///
-  /// In zh, this message translates to:
-  /// **'B 站'**
-  String get segmentBili;
-
-  /// No description provided for @searchLocalHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'试试搜索歌手或歌名；支持拼音首字母'**
-  String get searchLocalHint;
-
-  /// No description provided for @searchNoResults.
-  ///
-  /// In zh, this message translates to:
-  /// **'没有找到与「{query}」相关的音乐'**
-  String searchNoResults(String query);
-
-  /// No description provided for @scanLoginBili.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫码登录 B 站'**
-  String get scanLoginBili;
-
-  /// No description provided for @retryAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'重试'**
-  String get retryAction;
-
-  /// No description provided for @biliNoResults.
-  ///
-  /// In zh, this message translates to:
-  /// **'没有找到相关内容，换个关键词试试'**
-  String get biliNoResults;
-
-  /// No description provided for @openExtractQueue.
-  ///
-  /// In zh, this message translates to:
-  /// **'打开提取队列'**
-  String get openExtractQueue;
-
-  /// No description provided for @biliRowMeta.
-  ///
-  /// In zh, this message translates to:
-  /// **'{uploader} · {duration} · 播放 {plays}'**
-  String biliRowMeta(String uploader, String duration, String plays);
-
-  /// No description provided for @extractTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取音频入库（含歌词补全链路）'**
-  String get extractTooltip;
-
-  /// No description provided for @parseFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'解析失败：{error}'**
-  String parseFailed(String error);
-
-  /// No description provided for @taskEnqueued.
-  ///
-  /// In zh, this message translates to:
-  /// **'已入队：{title}'**
-  String taskEnqueued(String title);
-
-  /// No description provided for @taskExists.
-  ///
-  /// In zh, this message translates to:
-  /// **'任务已存在，继续沿用'**
-  String get taskExists;
-
-  /// No description provided for @navExtract.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取'**
-  String get navExtract;
-
-  /// No description provided for @extractTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取'**
-  String get extractTitle;
-
-  /// No description provided for @extractIntro.
-  ///
-  /// In zh, this message translates to:
-  /// **'粘贴 B 站链接 / 分享文本，或输入关键词解析合集；提取后自动补全歌名、歌手、封面与歌词。'**
-  String get extractIntro;
-
-  /// No description provided for @extractInputHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'https://www.bilibili.com/video/… 或分享文本'**
-  String get extractInputHint;
-
-  /// No description provided for @parseAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'解析'**
-  String get parseAction;
-
-  /// No description provided for @optOnlineLyrics.
-  ///
-  /// In zh, this message translates to:
-  /// **'在线歌词'**
-  String get optOnlineLyrics;
-
-  /// No description provided for @optBiliSubtitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'B 站字幕'**
-  String get optBiliSubtitle;
-
-  /// No description provided for @taskQueueTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'任务队列'**
-  String get taskQueueTitle;
-
-  /// No description provided for @taskQueueEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'队列为空。粘贴一条 B 站链接开始。'**
-  String get taskQueueEmpty;
-
-  /// No description provided for @extractAction.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取'**
-  String get extractAction;
-
-  /// No description provided for @statusResolved.
-  ///
-  /// In zh, this message translates to:
-  /// **'已解析'**
-  String get statusResolved;
-
-  /// No description provided for @statusGating.
-  ///
-  /// In zh, this message translates to:
-  /// **'门禁中'**
-  String get statusGating;
-
-  /// No description provided for @statusGated.
-  ///
-  /// In zh, this message translates to:
-  /// **'已拦截'**
-  String get statusGated;
-
-  /// No description provided for @complianceTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取前请确认'**
-  String get complianceTitle;
-
-  /// No description provided for @complianceBody.
-  ///
-  /// In zh, this message translates to:
-  /// **'• 提取仅限个人收听用途，请尊重创作者权益\n• 提取内容不入任何公开分发渠道\n• 你需要对提交的链接内容负责'**
-  String get complianceBody;
-
-  /// No description provided for @complianceAck.
-  ///
-  /// In zh, this message translates to:
-  /// **'我已阅读并确认'**
-  String get complianceAck;
-
-  /// No description provided for @qrScanHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'用 B 站 App 扫码登录'**
-  String get qrScanHint;
-
-  /// No description provided for @qrFetchFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'二维码获取失败：{error}'**
-  String qrFetchFailed(String error);
-
-  /// No description provided for @qrWaiting.
-  ///
-  /// In zh, this message translates to:
-  /// **'等待扫码…'**
-  String get qrWaiting;
-
-  /// No description provided for @qrScanned.
-  ///
-  /// In zh, this message translates to:
-  /// **'已扫码，请在手机上确认'**
-  String get qrScanned;
-
-  /// No description provided for @loginSuccess.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录成功'**
-  String get loginSuccess;
-
-  /// No description provided for @welcomeUnlocked.
-  ///
-  /// In zh, this message translates to:
-  /// **'欢迎，{name}（高音质提取已解锁）'**
-  String welcomeUnlocked(String name);
-
-  /// No description provided for @qrExpired.
-  ///
-  /// In zh, this message translates to:
-  /// **'二维码已过期，请刷新'**
-  String get qrExpired;
-
-  /// No description provided for @cookieImported.
-  ///
-  /// In zh, this message translates to:
-  /// **'Cookie 已导入'**
-  String get cookieImported;
-
-  /// No description provided for @cookieInvalid.
-  ///
-  /// In zh, this message translates to:
-  /// **'Cookie 无效或已过期'**
-  String get cookieInvalid;
-
-  /// No description provided for @qrRefresh.
-  ///
-  /// In zh, this message translates to:
-  /// **'刷新二维码'**
-  String get qrRefresh;
-
-  /// No description provided for @cookieSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'或粘贴 Cookie（SESSDATA=…）'**
-  String get cookieSection;
-
-  /// No description provided for @cookieHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'从浏览器登录 B 站后复制 Cookie'**
-  String get cookieHint;
-
-  /// No description provided for @importCookie.
-  ///
-  /// In zh, this message translates to:
-  /// **'导入 Cookie'**
-  String get importCookie;
-
-  /// No description provided for @dirReadFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'无法读取该目录（{reason}）'**
-  String dirReadFailed(String reason);
-
-  /// No description provided for @permissionDenied.
-  ///
-  /// In zh, this message translates to:
-  /// **'权限不足'**
-  String get permissionDenied;
-
-  /// No description provided for @internalStorage.
-  ///
-  /// In zh, this message translates to:
-  /// **'内部存储'**
-  String get internalStorage;
-
-  /// No description provided for @levelUpTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'上一级'**
-  String get levelUpTooltip;
-
-  /// No description provided for @dirBrowserStat.
-  ///
-  /// In zh, this message translates to:
-  /// **'{dirs, plural, other{{dirs} 个子目录}} · {audio, plural, other{{audio} 个音频文件}}'**
-  String dirBrowserStat(int dirs, int audio);
-
-  /// No description provided for @noSubdirs.
-  ///
-  /// In zh, this message translates to:
-  /// **'没有子目录了——可以直接选择当前目录'**
-  String get noSubdirs;
-
-  /// No description provided for @pickThisDir.
-  ///
-  /// In zh, this message translates to:
-  /// **'选择此目录（{name}）'**
-  String pickThisDir(String name);
-
-  /// No description provided for @grantAudioPermission.
-  ///
-  /// In zh, this message translates to:
-  /// **'授予音乐读取权限'**
-  String get grantAudioPermission;
-
-  /// No description provided for @openSystemSettings.
-  ///
-  /// In zh, this message translates to:
-  /// **'去系统设置开启'**
-  String get openSystemSettings;
-
-  /// No description provided for @coverSuffix.
-  ///
-  /// In zh, this message translates to:
-  /// **'封面'**
-  String get coverSuffix;
-
-  /// No description provided for @emptyPoolForShuffle.
-  ///
-  /// In zh, this message translates to:
-  /// **'曲库是空的。先导入音乐，才能随机播放'**
-  String get emptyPoolForShuffle;
-
-  /// No description provided for @emptyPoolForPlay.
-  ///
-  /// In zh, this message translates to:
-  /// **'曲库是空的。先导入音乐，才能播放'**
-  String get emptyPoolForPlay;
-
-  /// No description provided for @fewWatchedNotice.
-  ///
-  /// In zh, this message translates to:
-  /// **'已减少这首的推荐'**
-  String get fewWatchedNotice;
-
-  /// No description provided for @missingSkipped.
-  ///
-  /// In zh, this message translates to:
-  /// **'《{title}》文件缺失，已跳过'**
-  String missingSkipped(String title);
-
-  /// No description provided for @corruptSkipped.
-  ///
-  /// In zh, this message translates to:
-  /// **'《{title}》无法播放该文件（格式或文件损坏），已跳过'**
-  String corruptSkipped(String title);
-
-  /// No description provided for @serviceBrokenNotice.
-  ///
-  /// In zh, this message translates to:
-  /// **'播放服务异常'**
-  String get serviceBrokenNotice;
-
-  /// No description provided for @noContentInLink.
-  ///
-  /// In zh, this message translates to:
-  /// **'未在链接中找到内容'**
-  String get noContentInLink;
-
-  /// No description provided for @subtitleExtractFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'字幕文本提取失败：{error}'**
-  String subtitleExtractFailed(String error);
-
-  /// No description provided for @unknownError.
-  ///
-  /// In zh, this message translates to:
-  /// **'未知异常'**
-  String get unknownError;
-
-  /// No description provided for @noSubtitleAvailable.
-  ///
-  /// In zh, this message translates to:
-  /// **'该视频没有可用的字幕文本（AI 字幕需登录 B 站）'**
-  String get noSubtitleAvailable;
-
-  /// No description provided for @subtitleNotSavedNoRepo.
-  ///
-  /// In zh, this message translates to:
-  /// **'字幕文本未保存：尚未配置音乐仓库'**
-  String get subtitleNotSavedNoRepo;
-
-  /// No description provided for @subtitleSplitSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'字幕文本已按 {count} 段拆分保存'**
-  String subtitleSplitSaved(int count);
-
-  /// No description provided for @subtitleSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'字幕文本已保存：{path}'**
-  String subtitleSaved(String path);
-
-  /// No description provided for @extractTerminated.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取执行失败，任务已终止'**
-  String get extractTerminated;
-
-  /// No description provided for @noRepoConfigured.
-  ///
-  /// In zh, this message translates to:
-  /// **'尚未配置音乐仓库，请先在「设置」添加仓库'**
-  String get noRepoConfigured;
-
-  /// No description provided for @downloadPaused.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载中断，已暂停，联网后自动继续'**
-  String get downloadPaused;
-
-  /// No description provided for @transcodeFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'产物转码失败'**
-  String get transcodeFailed;
-
-  /// No description provided for @videoDirNotWritable.
-  ///
-  /// In zh, this message translates to:
-  /// **'视频目录不可写，任务终止'**
-  String get videoDirNotWritable;
-
-  /// No description provided for @videoMoveFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'视频迁移失败：目标目录不可写'**
-  String get videoMoveFailed;
-
-  /// No description provided for @videoSavedNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'视频已保存到 仓库/提取/视频（不入曲库）'**
-  String get videoSavedNote;
-
-  /// No description provided for @parsingLink.
-  ///
-  /// In zh, this message translates to:
-  /// **'解析链接…'**
-  String get parsingLink;
-
-  /// No description provided for @linkParseDead.
-  ///
-  /// In zh, this message translates to:
-  /// **'链接解析失败：链接可能已失效，或该内容需要登录'**
-  String get linkParseDead;
-
-  /// No description provided for @linkParseNoContent.
-  ///
-  /// In zh, this message translates to:
-  /// **'链接解析失败：未找到内容'**
-  String get linkParseNoContent;
-
-  /// No description provided for @analyzingAudio.
-  ///
-  /// In zh, this message translates to:
-  /// **'分析音频内容…'**
-  String get analyzingAudio;
-
-  /// No description provided for @audioMoveFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'产物迁移失败：目标目录不可写'**
-  String get audioMoveFailed;
-
-  /// No description provided for @registerFailedIsolated.
-  ///
-  /// In zh, this message translates to:
-  /// **'注册失败：产物已隔离，不影响曲库'**
-  String get registerFailedIsolated;
-
-  /// No description provided for @splitFailedWhole.
-  ///
-  /// In zh, this message translates to:
-  /// **'拆分失败，按完整音轨入库'**
-  String get splitFailedWhole;
-
-  /// No description provided for @splitProgress.
-  ///
-  /// In zh, this message translates to:
-  /// **'已拆分 {done}/{total} 首：{title}'**
-  String splitProgress(int done, int total, String title);
-
-  /// No description provided for @splitDone.
-  ///
-  /// In zh, this message translates to:
-  /// **'合集已拆分为 {count} 首，歌名/封面/歌词已按段补全'**
-  String splitDone(int count);
-
-  /// No description provided for @splitRegisterFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'拆分注册失败：产物已隔离'**
-  String get splitRegisterFailed;
-
-  /// No description provided for @noSongBoundary.
-  ///
-  /// In zh, this message translates to:
-  /// **'未检测到歌曲分界，按完整音轨入库'**
-  String get noSongBoundary;
-
-  /// No description provided for @failureAuth.
-  ///
-  /// In zh, this message translates to:
-  /// **'B 站登录状态过期，请重新扫码'**
-  String get failureAuth;
-
-  /// No description provided for @failureDisk.
-  ///
-  /// In zh, this message translates to:
-  /// **'存储空间不足，请清理后重试'**
-  String get failureDisk;
-
-  /// No description provided for @failureUnsupported.
-  ///
-  /// In zh, this message translates to:
-  /// **'该内容暂不支持提取（付费/地区/格式受限，或工具链需更新）'**
-  String get failureUnsupported;
-
-  /// No description provided for @failureNetwork.
-  ///
-  /// In zh, this message translates to:
-  /// **'网络连接中断，任务已暂停，本地数据不受影响'**
-  String get failureNetwork;
-
-  /// No description provided for @noLinkInShareText.
-  ///
-  /// In zh, this message translates to:
-  /// **'未在分享文本中找到链接'**
-  String get noLinkInShareText;
-
-  /// No description provided for @desktopOnlyExtract.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取功能当前为桌面端形态（Windows），Android 端将在后续版本支持'**
-  String get desktopOnlyExtract;
-
-  /// No description provided for @linkNeedLogin.
-  ///
-  /// In zh, this message translates to:
-  /// **'链接解析失败：该内容需要登录，或链接已失效。可登录 B 站账号后再试'**
-  String get linkNeedLogin;
-
-  /// No description provided for @linkFormatUnsupported.
-  ///
-  /// In zh, this message translates to:
-  /// **'该链接格式暂不支持提取（付费/地区/平台形态受限，或提取工具链需要更新）'**
-  String get linkFormatUnsupported;
-
-  /// No description provided for @engineNotInit.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取引擎未初始化（Android）'**
-  String get engineNotInit;
-
-  /// No description provided for @linkParseTimeout.
-  ///
-  /// In zh, this message translates to:
-  /// **'链接解析失败：网络超时，请检查网络后重试（或链接已失效）'**
-  String get linkParseTimeout;
-
-  /// No description provided for @linkParseUnrecognized.
-  ///
-  /// In zh, this message translates to:
-  /// **'链接解析失败：链接格式无法识别，请确认是 B 站视频/合集链接'**
-  String get linkParseUnrecognized;
-
-  /// No description provided for @engineErrorAndroid.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取引擎异常（Android）：{detail}'**
-  String engineErrorAndroid(String detail);
-
-  /// No description provided for @searchQueryEmpty.
-  ///
-  /// In zh, this message translates to:
-  /// **'搜索词为空'**
-  String get searchQueryEmpty;
-
-  /// No description provided for @douyinUnsupported.
-  ///
-  /// In zh, this message translates to:
-  /// **'抖音搜索需平台签名登录态，当前版本支持粘贴分享链接提取'**
-  String get douyinUnsupported;
-
-  /// No description provided for @riskControlIntercepted.
-  ///
-  /// In zh, this message translates to:
-  /// **'平台风控拦截，请稍后再试或登录 B 站账号'**
-  String get riskControlIntercepted;
-
-  /// No description provided for @searchApiFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'B 站搜索失败（{code}）：{reason}'**
-  String searchApiFailed(String code, String reason);
-
-  /// No description provided for @unknownReason.
-  ///
-  /// In zh, this message translates to:
-  /// **'未知原因'**
-  String get unknownReason;
-
-  /// No description provided for @responseNotJson.
-  ///
-  /// In zh, this message translates to:
-  /// **'响应不是 JSON 对象'**
-  String get responseNotJson;
-
-  /// No description provided for @qrCreateFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录二维码获取失败（{code}）'**
-  String qrCreateFailed(String code);
-
-  /// No description provided for @qrDataIncomplete.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录二维码数据不完整'**
-  String get qrDataIncomplete;
-
-  /// No description provided for @pollFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录状态查询失败（{code}）'**
-  String pollFailed(String code);
-
-  /// No description provided for @dbRecoveryHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'数据库打开异常：已进入只读保护，你的数据未丢失；请在设置的「修复引导」中处理。'**
-  String get dbRecoveryHint;
-
-  /// No description provided for @eqBandsNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'5 段均衡 · ±12dB · 拖动实时生效'**
-  String get eqBandsNote;
-
-  /// No description provided for @eqPresetDefault.
-  ///
-  /// In zh, this message translates to:
-  /// **'默认'**
-  String get eqPresetDefault;
-
-  /// No description provided for @eqPresetPop.
-  ///
-  /// In zh, this message translates to:
-  /// **'流行'**
-  String get eqPresetPop;
-
-  /// No description provided for @eqPresetRock.
-  ///
-  /// In zh, this message translates to:
-  /// **'摇滚'**
-  String get eqPresetRock;
-
-  /// No description provided for @eqPresetClassical.
-  ///
-  /// In zh, this message translates to:
-  /// **'古典'**
-  String get eqPresetClassical;
-
-  /// No description provided for @eqPresetJazz.
-  ///
-  /// In zh, this message translates to:
-  /// **'爵士'**
-  String get eqPresetJazz;
-
-  /// No description provided for @eqPresetBass.
-  ///
-  /// In zh, this message translates to:
-  /// **'低音增强'**
-  String get eqPresetBass;
-
-  /// No description provided for @eqPresetCustom.
-  ///
-  /// In zh, this message translates to:
-  /// **'自定义'**
-  String get eqPresetCustom;
-
-  /// No description provided for @eqBandLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'{hz}'**
-  String eqBandLabel(String hz);
-
-  /// No description provided for @menuPlayNext.
-  ///
-  /// In zh, this message translates to:
-  /// **'下一首播放'**
-  String get menuPlayNext;
-
-  /// No description provided for @menuAddToPlaylist.
-  ///
-  /// In zh, this message translates to:
-  /// **'加入歌单'**
-  String get menuAddToPlaylist;
-
-  /// No description provided for @menuEditTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'编辑标题'**
-  String get menuEditTitle;
-
-  /// No description provided for @menuRemoveTrack.
-  ///
-  /// In zh, this message translates to:
-  /// **'从曲库移除'**
-  String get menuRemoveTrack;
-
-  /// No description provided for @editTitleLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌曲标题'**
-  String get editTitleLabel;
-
-  /// No description provided for @save.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存'**
-  String get save;
-
-  /// No description provided for @removeTrackConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'从曲库移除《{title}》？音频文件不会被删除。'**
-  String removeTrackConfirm(String title);
-
-  /// No description provided for @addedToPlaylist.
-  ///
-  /// In zh, this message translates to:
-  /// **'已加入「{name}」'**
-  String addedToPlaylist(String name);
-
-  /// No description provided for @alreadyInPlaylist.
-  ///
-  /// In zh, this message translates to:
-  /// **'《{title}》已在「{name}」中'**
-  String alreadyInPlaylist(String title, String name);
-
-  /// No description provided for @playlistNewName.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌单名称'**
-  String get playlistNewName;
-
-  /// No description provided for @playlistRename.
-  ///
-  /// In zh, this message translates to:
-  /// **'重命名歌单'**
-  String get playlistRename;
-
-  /// No description provided for @playlistDelete.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除歌单'**
-  String get playlistDelete;
-
-  /// No description provided for @playlistDeleteConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除歌单「{name}」？曲目保留在曲库。'**
-  String playlistDeleteConfirm(String name);
-
-  /// No description provided for @queueClear.
-  ///
-  /// In zh, this message translates to:
-  /// **'清空队列'**
-  String get queueClear;
-
-  /// No description provided for @queueClearConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'清空当前播放队列？'**
-  String get queueClearConfirm;
-
-  /// No description provided for @queueRemoveTooltip.
-  ///
-  /// In zh, this message translates to:
-  /// **'移出队列'**
-  String get queueRemoveTooltip;
+  /// **'纯音乐，请欣赏'**
+  String get lyricsPureMusic;
 
   /// No description provided for @historyTitle.
   ///
   /// In zh, this message translates to:
-  /// **'播放历史'**
+  /// **'最近播放'**
   String get historyTitle;
 
-  /// No description provided for @historyClear.
+  /// No description provided for @clearHistory.
   ///
   /// In zh, this message translates to:
-  /// **'清空历史'**
-  String get historyClear;
+  /// **'清空记录'**
+  String get clearHistory;
 
-  /// No description provided for @historyClearConfirm.
+  /// No description provided for @clearHistoryConfirm.
   ///
   /// In zh, this message translates to:
-  /// **'清空全部播放历史？'**
-  String get historyClearConfirm;
+  /// **'确定清空全部播放记录？'**
+  String get clearHistoryConfirm;
 
-  /// No description provided for @historyEmpty.
+  /// No description provided for @settingsTitle.
   ///
   /// In zh, this message translates to:
-  /// **'还没有播放记录'**
-  String get historyEmpty;
+  /// **'设置'**
+  String get settingsTitle;
 
-  /// No description provided for @historyToday.
+  /// No description provided for @sectionLibrary.
   ///
   /// In zh, this message translates to:
-  /// **'今天'**
-  String get historyToday;
+  /// **'曲库'**
+  String get sectionLibrary;
 
-  /// No description provided for @historyYesterday.
+  /// No description provided for @musicFolders.
   ///
   /// In zh, this message translates to:
-  /// **'昨天'**
-  String get historyYesterday;
+  /// **'音乐文件夹'**
+  String get musicFolders;
 
-  /// No description provided for @cardFavorites.
+  /// No description provided for @addFolder.
   ///
   /// In zh, this message translates to:
-  /// **'喜欢'**
-  String get cardFavorites;
+  /// **'添加文件夹'**
+  String get addFolder;
 
-  /// No description provided for @cardHistory.
+  /// No description provided for @removeFolder.
   ///
   /// In zh, this message translates to:
-  /// **'历史'**
-  String get cardHistory;
+  /// **'移除'**
+  String get removeFolder;
 
-  /// No description provided for @cardLocal.
+  /// No description provided for @rescanAll.
   ///
   /// In zh, this message translates to:
-  /// **'本地'**
-  String get cardLocal;
+  /// **'重新扫描全部'**
+  String get rescanAll;
 
-  /// No description provided for @repoRemoveTooltip.
+  /// No description provided for @folderAlreadyAdded.
   ///
   /// In zh, this message translates to:
-  /// **'移除仓库'**
-  String get repoRemoveTooltip;
+  /// **'该文件夹已在曲库中'**
+  String get folderAlreadyAdded;
 
-  /// No description provided for @repoRemoveConfirm.
+  /// No description provided for @scanning.
   ///
   /// In zh, this message translates to:
-  /// **'移除仓库「{name}」？曲库记录将移除，音频文件保留。'**
-  String repoRemoveConfirm(String name);
+  /// **'扫描中… {done}/{total}'**
+  String scanning(int done, int total);
 
-  /// No description provided for @fewWatchClear.
+  /// No description provided for @scanComplete.
   ///
   /// In zh, this message translates to:
-  /// **'清空少播名单'**
-  String get fewWatchClear;
+  /// **'扫描完成，共 {n} 首'**
+  String scanComplete(int n);
 
-  /// No description provided for @fewWatchCleared.
+  /// No description provided for @sectionAppearance.
   ///
   /// In zh, this message translates to:
-  /// **'少播名单已清空'**
-  String get fewWatchCleared;
+  /// **'外观'**
+  String get sectionAppearance;
 
-  /// No description provided for @playbackSection.
+  /// No description provided for @themeSystem.
   ///
   /// In zh, this message translates to:
-  /// **'播放'**
-  String get playbackSection;
+  /// **'跟随系统'**
+  String get themeSystem;
 
-  /// No description provided for @repoRemoved.
+  /// No description provided for @themeLight.
   ///
   /// In zh, this message translates to:
-  /// **'仓库已移除'**
-  String get repoRemoved;
+  /// **'浅色'**
+  String get themeLight;
 
-  /// No description provided for @trackRemoved.
+  /// No description provided for @themeDark.
   ///
   /// In zh, this message translates to:
-  /// **'已从曲库移除'**
-  String get trackRemoved;
+  /// **'深色'**
+  String get themeDark;
 
-  /// No description provided for @renamed.
+  /// No description provided for @sectionLanguage.
   ///
   /// In zh, this message translates to:
-  /// **'已重命名'**
-  String get renamed;
+  /// **'语言'**
+  String get sectionLanguage;
 
-  /// No description provided for @playlistDeleted.
+  /// No description provided for @languageSystem.
   ///
   /// In zh, this message translates to:
-  /// **'歌单已删除'**
-  String get playlistDeleted;
+  /// **'跟随系统'**
+  String get languageSystem;
 
-  /// No description provided for @historyCleared.
+  /// No description provided for @sectionAbout.
   ///
   /// In zh, this message translates to:
-  /// **'播放历史已清空'**
-  String get historyCleared;
+  /// **'关于'**
+  String get sectionAbout;
 
-  /// No description provided for @qualityLabel.
+  /// No description provided for @aboutVersion.
   ///
   /// In zh, this message translates to:
-  /// **'音质'**
-  String get qualityLabel;
-
-  /// No description provided for @quality64.
-  ///
-  /// In zh, this message translates to:
-  /// **'64k'**
-  String get quality64;
-
-  /// No description provided for @quality128.
-  ///
-  /// In zh, this message translates to:
-  /// **'128k'**
-  String get quality128;
-
-  /// No description provided for @quality192.
-  ///
-  /// In zh, this message translates to:
-  /// **'192k'**
-  String get quality192;
-
-  /// No description provided for @qualityHires.
-  ///
-  /// In zh, this message translates to:
-  /// **'Hi-Res'**
-  String get qualityHires;
-
-  /// No description provided for @qualityHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'登录 B 站后可选高码率'**
-  String get qualityHint;
-
-  /// No description provided for @statusDownloading.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载中'**
-  String get statusDownloading;
-
-  /// No description provided for @statusPaused.
-  ///
-  /// In zh, this message translates to:
-  /// **'已暂停'**
-  String get statusPaused;
-
-  /// No description provided for @statusTranscoding.
-  ///
-  /// In zh, this message translates to:
-  /// **'转码中'**
-  String get statusTranscoding;
-
-  /// No description provided for @statusRegistered.
-  ///
-  /// In zh, this message translates to:
-  /// **'已入库'**
-  String get statusRegistered;
-
-  /// No description provided for @statusFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'失败'**
-  String get statusFailed;
-
-  /// No description provided for @statusDup.
-  ///
-  /// In zh, this message translates to:
-  /// **'重复'**
-  String get statusDup;
-
-  /// No description provided for @taskPause.
-  ///
-  /// In zh, this message translates to:
-  /// **'暂停'**
-  String get taskPause;
-
-  /// No description provided for @taskRetry.
-  ///
-  /// In zh, this message translates to:
-  /// **'重试'**
-  String get taskRetry;
-
-  /// No description provided for @taskSkipDup.
-  ///
-  /// In zh, this message translates to:
-  /// **'跳过'**
-  String get taskSkipDup;
-
-  /// No description provided for @extractNotification.
-  ///
-  /// In zh, this message translates to:
-  /// **'提取任务进行中'**
-  String get extractNotification;
-
-  /// No description provided for @lyricsOffset.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词偏移'**
-  String get lyricsOffset;
-
-  /// No description provided for @lyricsOffsetValue.
-  ///
-  /// In zh, this message translates to:
-  /// **'偏移 {s} 秒'**
-  String lyricsOffsetValue(String s);
-
-  /// No description provided for @lyricsOffsetWriteBack.
-  ///
-  /// In zh, this message translates to:
-  /// **'写入 .lrc 文件'**
-  String get lyricsOffsetWriteBack;
-
-  /// No description provided for @lyricsOffsetSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'偏移已保存'**
-  String get lyricsOffsetSaved;
-
-  /// No description provided for @lyricsOffsetReset.
-  ///
-  /// In zh, this message translates to:
-  /// **'归零'**
-  String get lyricsOffsetReset;
-
-  /// No description provided for @lyricsPaste.
-  ///
-  /// In zh, this message translates to:
-  /// **'粘贴歌词'**
-  String get lyricsPaste;
-
-  /// No description provided for @lyricsPasteHint.
-  ///
-  /// In zh, this message translates to:
-  /// **'粘贴歌词（支持 LRC 格式）'**
-  String get lyricsPasteHint;
-
-  /// No description provided for @lyricsPasteSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词已保存'**
-  String get lyricsPasteSaved;
-
-  /// No description provided for @lyricsGen.
-  ///
-  /// In zh, this message translates to:
-  /// **'生成歌词（本地 AI）'**
-  String get lyricsGen;
-
-  /// No description provided for @lyricsGenStarted.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词生成已开始'**
-  String get lyricsGenStarted;
-
-  /// No description provided for @lyricsGenNoModel.
-  ///
-  /// In zh, this message translates to:
-  /// **'需要先在设置中下载歌词模型'**
-  String get lyricsGenNoModel;
-
-  /// No description provided for @lyricsPreviewTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'预览歌词'**
-  String get lyricsPreviewTitle;
-
-  /// No description provided for @lyricsPreviewSave.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存歌词'**
-  String get lyricsPreviewSave;
-
-  /// No description provided for @lyricsPreviewSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词已保存'**
-  String get lyricsPreviewSaved;
-
-  /// No description provided for @lyricsFontSize.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词字号'**
-  String get lyricsFontSize;
-
-  /// No description provided for @modelManagerTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词模型'**
-  String get modelManagerTitle;
-
-  /// No description provided for @modelStatusAbsent.
-  ///
-  /// In zh, this message translates to:
-  /// **'未下载'**
-  String get modelStatusAbsent;
-
-  /// No description provided for @modelStatusPresent.
-  ///
-  /// In zh, this message translates to:
-  /// **'已就绪'**
-  String get modelStatusPresent;
-
-  /// No description provided for @modelDownload.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载模型'**
-  String get modelDownload;
-
-  /// No description provided for @modelDelete.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除模型'**
-  String get modelDelete;
-
-  /// No description provided for @modelDeleteConfirm.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除已下载的模型？生成歌词功能将回到未就绪状态。'**
-  String get modelDeleteConfirm;
-
-  /// No description provided for @modelDeleted.
-  ///
-  /// In zh, this message translates to:
-  /// **'模型已删除'**
-  String get modelDeleted;
-
-  /// No description provided for @modelDownloading.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载中 {pct}%'**
-  String modelDownloading(int pct);
-
-  /// No description provided for @modelSizeLabel.
-  ///
-  /// In zh, this message translates to:
-  /// **'大小：{mb} MB'**
-  String modelSizeLabel(int mb);
-
-  /// No description provided for @modelDownloadDone.
-  ///
-  /// In zh, this message translates to:
-  /// **'模型已就绪'**
-  String get modelDownloadDone;
-
-  /// No description provided for @modelDownloadFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'下载失败：检查网络后重试'**
-  String get modelDownloadFailed;
-
-  /// No description provided for @tracksSelect.
-  ///
-  /// In zh, this message translates to:
-  /// **'多选'**
-  String get tracksSelect;
-
-  /// No description provided for @tracksSelected.
-  ///
-  /// In zh, this message translates to:
-  /// **'已选 {n} 首'**
-  String tracksSelected(int n);
-
-  /// No description provided for @batchLyricsTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'批量生成歌词'**
-  String get batchLyricsTitle;
-
-  /// No description provided for @batchLyricsRunning.
-  ///
-  /// In zh, this message translates to:
-  /// **'生成中 {done}/{total}'**
-  String batchLyricsRunning(int done, int total);
-
-  /// No description provided for @batchLyricsDone.
-  ///
-  /// In zh, this message translates to:
-  /// **'批量生成完成：成功 {ok} · 跳过 {skip} · 失败 {fail}'**
-  String batchLyricsDone(int ok, int skip, int fail);
-
-  /// No description provided for @lyricsSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'歌词'**
-  String get lyricsSection;
-
-  /// No description provided for @fontSizeS.
-  ///
-  /// In zh, this message translates to:
-  /// **'小'**
-  String get fontSizeS;
-
-  /// No description provided for @fontSizeM.
-  ///
-  /// In zh, this message translates to:
-  /// **'标准'**
-  String get fontSizeM;
-
-  /// No description provided for @fontSizeL.
-  ///
-  /// In zh, this message translates to:
-  /// **'大'**
-  String get fontSizeL;
-
-  /// No description provided for @syncSection.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步'**
-  String get syncSection;
-
-  /// No description provided for @syncCenterTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步中心'**
-  String get syncCenterTitle;
-
-  /// No description provided for @syncChannelWebdav.
-  ///
-  /// In zh, this message translates to:
-  /// **'WebDAV'**
-  String get syncChannelWebdav;
-
-  /// No description provided for @syncChannelGithub.
-  ///
-  /// In zh, this message translates to:
-  /// **'GitHub'**
-  String get syncChannelGithub;
-
-  /// No description provided for @syncChannelOnedrive.
-  ///
-  /// In zh, this message translates to:
-  /// **'OneDrive'**
-  String get syncChannelOnedrive;
-
-  /// No description provided for @syncChannelGdrive.
-  ///
-  /// In zh, this message translates to:
-  /// **'Google Drive'**
-  String get syncChannelGdrive;
-
-  /// No description provided for @syncWebdavNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'最稳定，推荐'**
-  String get syncWebdavNote;
-
-  /// No description provided for @syncGithubNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'仅同步歌单/歌词/元数据，不存音频'**
-  String get syncGithubNote;
-
-  /// No description provided for @syncServerAddress.
-  ///
-  /// In zh, this message translates to:
-  /// **'服务器地址'**
-  String get syncServerAddress;
-
-  /// No description provided for @syncAccount.
-  ///
-  /// In zh, this message translates to:
-  /// **'账号'**
-  String get syncAccount;
-
-  /// No description provided for @syncPassword.
-  ///
-  /// In zh, this message translates to:
-  /// **'密码'**
-  String get syncPassword;
-
-  /// No description provided for @syncToken.
-  ///
-  /// In zh, this message translates to:
-  /// **'访问 Token'**
-  String get syncToken;
-
-  /// No description provided for @syncRemoteDir.
-  ///
-  /// In zh, this message translates to:
-  /// **'远程目录'**
-  String get syncRemoteDir;
-
-  /// No description provided for @syncTestConnection.
-  ///
-  /// In zh, this message translates to:
-  /// **'连接测试'**
-  String get syncTestConnection;
-
-  /// No description provided for @syncTestOk.
-  ///
-  /// In zh, this message translates to:
-  /// **'连接测试成功'**
-  String get syncTestOk;
-
-  /// No description provided for @syncSaveChannel.
-  ///
-  /// In zh, this message translates to:
-  /// **'保存通道'**
-  String get syncSaveChannel;
-
-  /// No description provided for @syncDisconnect.
-  ///
-  /// In zh, this message translates to:
-  /// **'断开通道'**
-  String get syncDisconnect;
-
-  /// No description provided for @syncLastSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'上次同步：{time}'**
-  String syncLastSync(String time);
-
-  /// No description provided for @syncNever.
-  ///
-  /// In zh, this message translates to:
-  /// **'从未同步'**
-  String get syncNever;
-
-  /// No description provided for @syncNow.
-  ///
-  /// In zh, this message translates to:
-  /// **'立即同步'**
-  String get syncNow;
-
-  /// No description provided for @syncRunning.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步中…'**
-  String get syncRunning;
-
-  /// No description provided for @syncIdle.
-  ///
-  /// In zh, this message translates to:
-  /// **'待机'**
-  String get syncIdle;
-
-  /// No description provided for @syncStatePaused.
-  ///
-  /// In zh, this message translates to:
-  /// **'已暂停：{reason}'**
-  String syncStatePaused(String reason);
-
-  /// No description provided for @syncNeedsReauth.
-  ///
-  /// In zh, this message translates to:
-  /// **'需要重新授权'**
-  String get syncNeedsReauth;
-
-  /// No description provided for @syncSuspendedDisk.
-  ///
-  /// In zh, this message translates to:
-  /// **'存储空间不足，已暂停'**
-  String get syncSuspendedDisk;
-
-  /// No description provided for @syncNoChannel.
-  ///
-  /// In zh, this message translates to:
-  /// **'未配置通道'**
-  String get syncNoChannel;
-
-  /// No description provided for @syncConflictCopies.
-  ///
-  /// In zh, this message translates to:
-  /// **'冲突副本（{n}）'**
-  String syncConflictCopies(int n);
-
-  /// No description provided for @syncTombstoneNote.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除同步仅传播记录，云端音频文件不会被自动删除'**
-  String get syncTombstoneNote;
-
-  /// No description provided for @syncCurrentFile.
-  ///
-  /// In zh, this message translates to:
-  /// **'当前：{name}'**
-  String syncCurrentFile(String name);
-
-  /// No description provided for @syncSaved.
-  ///
-  /// In zh, this message translates to:
-  /// **'通道已保存'**
-  String get syncSaved;
-
-  /// No description provided for @syncDisconnected.
-  ///
-  /// In zh, this message translates to:
-  /// **'通道已断开'**
-  String get syncDisconnected;
-
-  /// No description provided for @syncSummary.
-  ///
-  /// In zh, this message translates to:
-  /// **'本次：上传 {up} · 下载 {down} · 失败 {fail}'**
-  String syncSummary(int up, int down, int fail);
-
-  /// No description provided for @conflictCopiesTitle.
-  ///
-  /// In zh, this message translates to:
-  /// **'冲突副本'**
-  String get conflictCopiesTitle;
-
-  /// No description provided for @conflictLoser.
-  ///
-  /// In zh, this message translates to:
-  /// **'本机旧值'**
-  String get conflictLoser;
-
-  /// No description provided for @conflictWinner.
-  ///
-  /// In zh, this message translates to:
-  /// **'同步保留值'**
-  String get conflictWinner;
-
-  /// No description provided for @conflictDelete.
-  ///
-  /// In zh, this message translates to:
-  /// **'删除副本'**
-  String get conflictDelete;
-
-  /// No description provided for @conflictDeleted.
-  ///
-  /// In zh, this message translates to:
-  /// **'冲突副本已删除'**
-  String get conflictDeleted;
-
-  /// No description provided for @onboardingFromSync.
-  ///
-  /// In zh, this message translates to:
-  /// **'从同步恢复'**
-  String get onboardingFromSync;
+  /// **'版本'**
+  String get aboutVersion;
 
   /// No description provided for @onboardingTitle.
   ///
   /// In zh, this message translates to:
-  /// **'你的音乐放在哪？'**
+  /// **'欢迎使用 iA 音乐'**
   String get onboardingTitle;
 
   /// No description provided for @onboardingSubtitle.
   ///
   /// In zh, this message translates to:
-  /// **'选择音乐所在文件夹，iA-Music 会自动扫描入库'**
+  /// **'本地优先的个人音乐库：把散落的音乐收进来、看得清、听得好。'**
   String get onboardingSubtitle;
-
-  /// No description provided for @onboardingUseSuggested.
-  ///
-  /// In zh, this message translates to:
-  /// **'使用『音乐』文件夹'**
-  String get onboardingUseSuggested;
 
   /// No description provided for @onboardingPickFolder.
   ///
   /// In zh, this message translates to:
-  /// **'选择其他文件夹…'**
+  /// **'选择音乐文件夹'**
   String get onboardingPickFolder;
-
-  /// No description provided for @onboardingScanning.
-  ///
-  /// In zh, this message translates to:
-  /// **'已发现 {n} 首'**
-  String onboardingScanning(int n);
-
-  /// No description provided for @onboardingScanDone.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫描完成：{n} 首已入库'**
-  String onboardingScanDone(int n);
-
-  /// No description provided for @onboardingNext.
-  ///
-  /// In zh, this message translates to:
-  /// **'下一步'**
-  String get onboardingNext;
-
-  /// No description provided for @onboardingStart.
-  ///
-  /// In zh, this message translates to:
-  /// **'开始聆听'**
-  String get onboardingStart;
 
   /// No description provided for @onboardingSkip.
   ///
   /// In zh, this message translates to:
-  /// **'跳过，直接开始'**
+  /// **'先跳过'**
   String get onboardingSkip;
 
-  /// No description provided for @onboardingStep2Title.
+  /// No description provided for @trackMissing.
   ///
   /// In zh, this message translates to:
-  /// **'试试提取你的第一首歌'**
-  String get onboardingStep2Title;
+  /// **'文件缺失'**
+  String get trackMissing;
 
-  /// No description provided for @onboardingStep2Body.
+  /// No description provided for @unknownArtist.
   ///
   /// In zh, this message translates to:
-  /// **'从 B 站复制分享链接粘贴到这里（可选）'**
-  String get onboardingStep2Body;
+  /// **'未知歌手'**
+  String get unknownArtist;
 
-  /// No description provided for @onboardingExtract.
+  /// No description provided for @unknownAlbum.
   ///
   /// In zh, this message translates to:
-  /// **'提取这首歌'**
-  String get onboardingExtract;
+  /// **'未知专辑'**
+  String get unknownAlbum;
 
-  /// No description provided for @searchViewAll.
+  /// No description provided for @errorGeneric.
   ///
   /// In zh, this message translates to:
-  /// **'查看全部'**
-  String get searchViewAll;
+  /// **'出错了，请重试'**
+  String get errorGeneric;
 
-  /// No description provided for @settingsEffects.
+  /// No description provided for @retry.
   ///
   /// In zh, this message translates to:
-  /// **'音效'**
-  String get settingsEffects;
+  /// **'重试'**
+  String get retry;
 
-  /// No description provided for @complianceReview.
+  /// No description provided for @cancel.
   ///
   /// In zh, this message translates to:
-  /// **'合规声明（回看）'**
-  String get complianceReview;
+  /// **'取消'**
+  String get cancel;
 
-  /// No description provided for @versionLabel.
+  /// No description provided for @confirm.
   ///
   /// In zh, this message translates to:
-  /// **'版本 {v}'**
-  String versionLabel(String v);
+  /// **'确定'**
+  String get confirm;
 
-  /// No description provided for @enrichProgressCounts.
+  /// No description provided for @remove.
   ///
   /// In zh, this message translates to:
-  /// **'识别修正：已修正 {done} · 未命中 {failed} · 待处理 {pending}'**
-  String enrichProgressCounts(int done, int failed, int pending);
+  /// **'移除'**
+  String get remove;
 
-  /// No description provided for @enrichProgressCurrent.
+  /// No description provided for @delete.
   ///
   /// In zh, this message translates to:
-  /// **'识别修正中 {done}/{total}：《{title}》（未命中 {failed} · 待处理 {pending}）'**
-  String enrichProgressCurrent(
-    int done,
-    int total,
-    String title,
-    int failed,
-    int pending,
-  );
+  /// **'删除'**
+  String get delete;
 }
 
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
-  const _AppLocalizationsDelegate();
+class _SDelegate extends LocalizationsDelegate<S> {
+  const _SDelegate();
 
   @override
-  Future<AppLocalizations> load(Locale locale) {
-    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  Future<S> load(Locale locale) {
+    return SynchronousFuture<S>(lookupS(locale));
   }
 
   @override
@@ -2321,20 +555,20 @@ class _AppLocalizationsDelegate
       <String>['en', 'zh'].contains(locale.languageCode);
 
   @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
+  bool shouldReload(_SDelegate old) => false;
 }
 
-AppLocalizations lookupAppLocalizations(Locale locale) {
+S lookupS(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
     case 'en':
-      return AppLocalizationsEn();
+      return SEn();
     case 'zh':
-      return AppLocalizationsZh();
+      return SZh();
   }
 
   throw FlutterError(
-    'AppLocalizations.delegate failed to load unsupported locale "$locale". This is likely '
+    'S.delegate failed to load unsupported locale "$locale". This is likely '
     'an issue with the localizations generation tool. Please file an issue '
     'on GitHub with a reproducible sample app and the gen-l10n configuration '
     'that was used.',

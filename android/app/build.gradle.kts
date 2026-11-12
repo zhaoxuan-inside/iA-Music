@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.hardstone.ia_music"
+    namespace = "dev.iamusic.ia_music"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,17 +15,16 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.hardstone.ia_music"
-        // 最低 OS 版本（DEC-008 ④ 锁定：Android 8+ = API 26）
-        minSdk = 26
+        applicationId = "dev.iamusic.ia_music"
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // v2 只分发 arm64（packaging/mpv 仅内置 arm64 运行库；构建须配
+        // `flutter build apk --target-platform android-arm64`）
+        ndk {
+            abiFilters.add("arm64-v8a")
+        }
     }
 
     buildTypes {
@@ -45,14 +44,4 @@ kotlin {
 
 flutter {
     source = "../.."
-}
-
-dependencies {
-    // T9A（S6 Android 侧）：DEC-008① 锁定的 MIT yt-dlp AAR（内嵌 CPython 3.13+yt-dlp）
-    // + MIT ffmpeg-kit（-x/--audio-format mp3 后处理所需；经 --ffmpeg-location 供路径）。
-    implementation("dev.ffmpegkit-maintained:yt-dlp-android:2.0.2")
-    implementation("dev.ffmpegkit-maintained:ffmpeg-kit-full:8.1.7")
-    // ffmpeg-kit 运行时必需（POM 未声明：LLGPL fork 打包缺依赖——T9A 实证
-    // NoClassDefFoundError com/arthenica/smartexception/java/Exceptions）。
-    implementation("com.arthenica:smart-exception-java:0.2.1")
 }

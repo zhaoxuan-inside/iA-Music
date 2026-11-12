@@ -1,308 +1,354 @@
-/// 沉浸播放页（Harmonoid 形态 · DEC-012：近满屏大封面 + 五键控制排 + 工具排）。
+/// 沉浸播放页：大封面 + 控制 + 歌词/队列两块侧栏（宽屏）或 Tab（窄屏）。
 library;
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:contracts/contracts.dart';
+import '../../app/theme/design_tokens.dart';
+import '../../domain/entities/lyrics.dart';
+import '../../domain/entities/playback.dart';
+import '../../domain/entities/track.dart';
+import '../../l10n/app_localizations.dart';
+import '../../state/library_providers.dart';
+import '../../state/media_providers.dart';
+import '../../state/playback_controller.dart';
+import '../shared/common.dart' hide TrackRow;
 
-import 'package:ia_music/data/daos.dart';
-import 'package:ia_music/library/cover_chain.dart';
-import 'package:ia_music/library/library_hub.dart';
-import 'package:ia_music/l10n/app_localizations.dart';
-import 'package:ia_music/l10n/s.dart';
-import 'package:ia_music/playback/playback_service.dart';
-import 'package:ia_music/playlists/playlist_service.dart';
-import 'package:ia_music/ui/play/eq_page.dart';
-import 'package:ia_music/ui/play/lyrics_page.dart';
-import 'package:ia_music/ui/play/playback_notice.dart';
-import 'package:ia_music/ui/play/queue_page.dart';
-import 'package:ia_music/ui/play/shuffle_page.dart';
-import 'package:ia_music/ui/shared/cover_art.dart';
-import 'package:ia_music/ui/shared/ia_format.dart';
-import 'package:ia_music/ui/theme/ia_icons.dart';
-import 'package:ia_music/ui/theme/ia_theme.dart';
-
-final class NowPlayingPage extends StatefulWidget {
-  const NowPlayingPage({
-    super.key,
-    required this.service,
-    required this.data,
-    this.covers,
-    this.hub,
-  });
-
-  final PlaybackService service;
-  final DataAccess data;
-  final CoverChain? covers;
-
-  /// 组合根（WS4：歌词页生成歌词/粘贴入口需要；null=相关入口隐藏）。
-  final LibraryHub? hub;
+class NowPlayingPage extends ConsumerStatefulWidget {
+  const NowPlayingPage({super.key});
 
   @override
-  State<NowPlayingPage> createState() => NowPlayingPageState();
+  ConsumerState<NowPlayingPage> createState() => _NowPlayingPageState();
 }
 
-class NowPlayingPageState extends State<NowPlayingPage> {
-  PlaylistService get _playlists => PlaylistService(widget.data);
+class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
+  bool _showLyrics = false;
+  bool _showQueue = false;
+  double? _dragValue;
 
-  bool _fav = false;
-  int? _favForTrack;
-  bool _favInflight = false;
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final p = context.ia;
+    final snap = ref.watch(playbackProvider);
+    final track = snap.current;
 
-  /// 播放模式标签（AppBar 标题即模式名，单处映射）。
-  String _modeLabel(AppLocalizations t, PlaybackMode mode) => switch (mode) {
-    PlaybackMode.loops => t.modeLoops,
-    PlaybackMode.single => t.modeSingle,
-    PlaybackMode.sequence => t.modeSequence,
-    PlaybackMode.random => t.modeRandom,
-  };
-
-  Future<void> refreshFav() async {
-    if (_favInflight) return;
-    _favInflight = true;
-    try {
-      while (true) {
-        final cur = widget.service.snapshot.currentTrack;
-        if (cur == null) return;
-        final wanted = cur.id;
-        final fav = await _playlists.isFavorite(wanted);
-        if (!mounted) return;
-        setState(() {
-          _favForTrack = wanted;
-          _fav = fav;
-        });
-        final now = widget.service.snapshot.currentTrack;
-        if (now == null || now.id == wanted) return;
-      }
-    } finally {
-      _favInflight = false;
+    if (track == null) {
+      return Scaffold(
+        backgroundColor: p.canvas,
+        appBar: AppBar(),
+        body: EmptyState(icon: Icons.music_note_outlined, title: s.emptyQueue),
+      );
     }
-  }
 
-  Future<bool> toggleHeart() async {
-    final cur = widget.service.snapshot.currentTrack;
-    if (cur == null) return false;
-    final added = await _playlists.toggleFavorite(
-      cur.id,
-      nowMs: DateTime.now().millisecondsSinceEpoch,
+    final wide = MediaQuery.sizeOf(context).width >= 880;
+    final side = wide
+        ? (_showLyrics || _showQueue)
+            ? (_showLyrics ? const _LyricsPane() as Widget : const _QueuePane())
+            : null
+        : null;
+
+    return Scaffold(
+      backgroundColor: p.canvas,
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
+        title: Text(s.nowPlaying,
+            style: TextStyle(fontSize: 14, color: p.secondaryText)),
+        actions: [
+          if (wide) ...[
+            IconButton(
+              tooltip: s.lyricsTitle,
+              icon: Icon(Icons.lyrics, color: _showLyrics ? p.accent : p.secondaryText),
+              onPressed: () => setState(() {
+                _showLyrics = !_showLyrics;
+                if (_showLyrics) _showQueue = false;
+              }),
+            ),
+            IconButton(
+              tooltip: s.queueTitle,
+              icon: Icon(Icons.queue_music, color: _showQueue ? p.accent : p.secondaryText),
+              onPressed: () => setState(() {
+                _showQueue = !_showQueue;
+                if (_showQueue) _showLyrics = false;
+              }),
+            ),
+          ],
+          const SizedBox(width: IaSpacing.s),
+        ],
+      ),
+      body: wide
+          ? Row(
+              children: [
+                Expanded(child: _PlayerBody(track: track, snap: snap, dragValue: _dragValue, onDrag: (v) => setState(() => _dragValue = v), onTogglePane: _togglePane, wide: true)),
+                if (side != null)
+                  Container(
+                    width: 380,
+                    decoration: BoxDecoration(
+                      color: p.surface,
+                      border: Border(left: BorderSide(color: p.separator)),
+                    ),
+                    child: side,
+                  ),
+              ],
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: _showLyrics
+                      ? const _LyricsPane()
+                      : _showQueue
+                          ? const _QueuePane()
+                          : _PlayerBody(track: track, snap: snap, dragValue: _dragValue, onDrag: (v) => setState(() => _dragValue = v), onTogglePane: _togglePane, wide: false),
+                ),
+                if (_showLyrics || _showQueue)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: IaSpacing.l),
+                    child: TextButton(
+                      onPressed: () => setState(() {
+                        _showLyrics = false;
+                        _showQueue = false;
+                      }),
+                      child: Text(s.nowPlaying,
+                          style: TextStyle(color: p.secondaryText)),
+                    ),
+                  ),
+              ],
+            ),
     );
-    if (mounted) setState(() => _fav = added);
-    // 媒体会话红心态回写（REQ-PLAY-05：通知栏/锁屏一致）
-    unawaited(widget.service.notifyFavoriteChanged(cur.id, added));
-    return added;
   }
 
-  Future<void> dislike() => widget.service.dislikeThenNext();
-  Future<void> togglePlay() async {
-    final s = widget.service.snapshot;
-    if (s.playing) {
-      await widget.service.pause();
-    } else {
-      await widget.service.play();
-    }
-  }
-
-  /// 五键左：随机 ⇄ 顺序。
-  Future<void> toggleShuffle() async {
-    final cur = widget.service.mode;
-    widget.service.setMode(
-      cur == PlaybackMode.random ? PlaybackMode.sequence : PlaybackMode.random,
-    );
-  }
-
-  /// 五键右：循环族切换（列表 → 单曲 → 顺序）。
-  Future<void> cycleRepeat() async {
-    final cur = widget.service.mode;
-    widget.service.setMode(switch (cur) {
-      PlaybackMode.loops => PlaybackMode.single,
-      PlaybackMode.single => PlaybackMode.sequence,
-      _ => PlaybackMode.loops,
+  void _togglePane({bool lyrics = false, bool queue = false}) {
+    setState(() {
+      _showLyrics = lyrics;
+      _showQueue = queue;
     });
   }
+}
 
-  Future<void> openLyrics() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LyricsPage(
-          service: widget.service,
-          data: widget.data,
-          covers: widget.covers,
-          hub: widget.hub,
+class _PlayerBody extends ConsumerWidget {
+  const _PlayerBody({
+    required this.track,
+    required this.snap,
+    required this.dragValue,
+    required this.onDrag,
+    required this.onTogglePane,
+    this.wide = true,
+  });
+
+  final Track track;
+  final PlaybackSnapshot snap;
+  final double? dragValue;
+  final ValueChanged<double> onDrag;
+  final void Function({bool lyrics, bool queue}) onTogglePane;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final p = context.ia;
+    final s = S.of(context);
+    final ctrl = ref.read(playbackProvider.notifier);
+    final maxSec = (snap.durationMs > 0 ? snap.durationMs / 1000.0 : 0.0);
+    final value = dragValue ?? snap.positionMs / 1000.0;
+
+    final fav = ref.watch(favoriteProvider(track.id)).value ?? false;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Padding(
+          padding: const EdgeInsets.all(IaSpacing.xl),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: 1,
+                child: CoverArt(track: track, size: double.infinity),
+              ),
+              const SizedBox(height: IaSpacing.xl),
+              Text(track.title,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: p.mainText),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: IaSpacing.xs),
+              Text(track.artistDisplay,
+                  style: TextStyle(fontSize: 14, color: p.secondaryText),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: IaSpacing.l),
+              Row(children: [
+                Text(_fmt(snap.positionMs),
+                    style: TextStyle(fontSize: 11.5, color: p.secondaryText)),
+                Expanded(
+                  child: Slider(
+                    value: maxSec > 0 ? value.clamp(0.0, maxSec) : 0,
+                    max: maxSec > 0 ? maxSec : 1,
+                    onChanged: maxSec > 0 ? onDrag : null,
+                    onChangeEnd: (v) {
+                      ctrl.seekTo((v * 1000).round());
+                      onDrag(0);
+                    },
+                  ),
+                ),
+                Text(_fmt(snap.durationMs),
+                    style: TextStyle(fontSize: 11.5, color: p.secondaryText)),
+              ]),
+              const SizedBox(height: IaSpacing.s),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.shuffle,
+                        color: snap.shuffle ? p.accent : p.secondaryText),
+                    onPressed: ctrl.toggleShuffle,
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.skip_previous, color: p.mainText, size: 32),
+                    onPressed: ctrl.previous,
+                  ),
+                  InkWell(
+                    onTap: ctrl.togglePlay,
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: p.accent),
+                      child: Icon(
+                        snap.loading
+                            ? Icons.hourglass_top
+                            : (snap.playing ? Icons.pause : Icons.play_arrow),
+                        size: 32,
+                        color: p.onAccent,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.skip_next, color: p.mainText, size: 32),
+                    onPressed: ctrl.next,
+                  ),
+                  IconButton(
+                    icon: Icon(fav ? Icons.favorite : Icons.favorite_outline,
+                        color: fav ? p.heart : p.secondaryText),
+                    onPressed: () async {
+                      final cur = await ref.read(dbActionsProvider).isFavorite(track.id);
+                      await ref.read(dbActionsProvider).setFavorite(track.id, !cur);
+                    },
+                  ),
+                ],
+              ),
+              if (!wide) ...[
+                const SizedBox(height: IaSpacing.m),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => onTogglePane(lyrics: true),
+                      icon: Icon(Icons.lyrics, size: 18, color: p.secondaryText),
+                      label: Text(s.lyricsTitle,
+                          style: TextStyle(color: p.secondaryText)),
+                    ),
+                    const SizedBox(width: IaSpacing.l),
+                    TextButton.icon(
+                      onPressed: () => onTogglePane(queue: true),
+                      icon: Icon(Icons.queue_music, size: 18, color: p.secondaryText),
+                      label: Text(s.queueTitle,
+                          style: TextStyle(color: p.secondaryText)),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
-    unawaited(refreshFav());
   }
+}
 
-  Future<void> openQueue() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => QueuePage(service: widget.service),
-      ),
-    );
-  }
+class _LyricsPane extends ConsumerStatefulWidget {
+  const _LyricsPane();
 
-  Future<void> openEq() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => EqPage(service: widget.service)),
-    );
-  }
+  @override
+  ConsumerState<_LyricsPane> createState() => _LyricsPaneState();
+}
 
-  Future<void> openWheel() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ShufflePage(
-          service: widget.service,
-          data: widget.data,
-          covers: widget.covers,
-        ),
-      ),
-    );
+class _LyricsPaneState extends ConsumerState<_LyricsPane> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final p = context.ia;
-    final t = sOf(context);
-    return StreamBuilder<PlaybackSnapshot>(
-      initialData: widget.service.snapshot,
-      stream: widget.service.status,
-      builder: (context, snap) {
-        final s = snap.data;
-        final cur = s?.currentTrack;
-        if (s == null || cur == null) {
-          return Scaffold(
-            key: const ValueKey('now_playing'),
-            backgroundColor: p.canvas,
-            appBar: AppBar(title: Text(t.playTitle)),
-            body: Center(child: Text(t.nothingPlaying)),
-          );
+    final s = S.of(context);
+    final track = ref.watch(currentTrackProvider);
+    final snap = ref.watch(playbackProvider);
+    final lyrics = track == null
+        ? const AsyncData<LyricsResult?>(null)
+        : ref.watch(trackLyricsProvider(track.id));
+
+    final result = lyrics.value;
+    final doc = result?.doc;
+    final offset = result?.offsetMs ?? 0;
+
+    if (doc == null || doc.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lyrics, size: 44, color: p.secondaryText.withValues(alpha: 0.5)),
+            const SizedBox(height: IaSpacing.m),
+            Text(s.lyricsEmpty, style: TextStyle(color: p.secondaryText)),
+          ],
+        ),
+      );
+    }
+
+    final currentLine = doc.lineIndexAt(snap.positionMs - offset);
+
+    // 当前行滚动
+    if (currentLine != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scroll.hasClients) {
+          return;
         }
-        if (_favForTrack != cur.id) unawaited(refreshFav());
-        final duration = cur.durationMs > 0 ? cur.durationMs : 1;
-        final pos = s.positionMs.clamp(0, duration);
-        return Scaffold(
-          key: const ValueKey('now_playing'),
-          backgroundColor: p.canvas,
-          appBar: AppBar(
-            title: Text(
-              _modeLabel(t, s.mode),
-              key: const ValueKey('play_mode'),
+        const itemExtent = 44.0;
+        final target = (currentLine * itemExtent - MediaQuery.sizeOf(context).height / 3)
+            .clamp(0.0, _scroll.position.maxScrollExtent);
+        if ((_scroll.offset - target).abs() > itemExtent * 1.5) {
+          _scroll.animateTo(target,
+              duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
+        }
+      });
+    }
+
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.all(IaSpacing.xl),
+      itemCount: doc.lines.length,
+      itemExtent: 44,
+      itemBuilder: (_, i) {
+        final active = i == currentLine;
+        return InkWell(
+          onTap: () {
+            ref
+                .read(playbackProvider.notifier)
+                .seekTo(doc.lines[i].tMs + offset);
+          },
+          child: Container(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              doc.lines[i].text.isEmpty ? '· · ·' : doc.lines[i].text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: active ? 17 : 14.5,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                color: active ? p.accent : p.secondaryText.withValues(alpha: 0.85),
+              ),
             ),
-            actions: [
-              if (s.mode == PlaybackMode.random)
-                IconButton(
-                  key: const ValueKey('play_wheel_entry'),
-                  tooltip: t.wheelTooltip,
-                  onPressed: () => unawaited(openWheel()),
-                  icon: Icon(IaIcon.shuffle),
-                ),
-              IconButton(
-                key: const ValueKey('play_eq_entry'),
-                tooltip: t.eqTitle,
-                onPressed: () => unawaited(openEq()),
-                icon: Icon(IaIcon.tune),
-              ),
-              IconButton(
-                key: const ValueKey('play_queue_entry'),
-                tooltip: t.queueTitle,
-                onPressed: () => unawaited(openQueue()),
-                icon: Icon(IaIcon.playlist),
-              ),
-            ],
-          ),
-          body: LayoutBuilder(
-            builder: (context, cons) {
-              final wide = cons.maxWidth >= 720;
-              final cover = ClipRRect(
-                borderRadius: BorderRadius.circular(IaRadius.cover),
-                child: Builder(
-                  builder: (context) {
-                    final side = wide
-                        ? 360.0
-                        : (cons.maxWidth - 48).clamp(0.0, 520.0).toDouble();
-                    return SizedBox(
-                      width: side,
-                      height: side,
-                      child: CoverArt(
-                        trackId: cur.id,
-                        title: cur.title,
-                        data: widget.data,
-                        chain: widget.covers,
-                        size: side,
-                      ),
-                    );
-                  },
-                ),
-              );
-              final controls = _Controls(
-                service: widget.service,
-                playing: s.playing,
-                mode: s.mode,
-                pos: pos,
-                duration: duration,
-                fav: _fav,
-                showVolume: wide,
-                onDislike: () => unawaited(dislike()),
-                onTogglePlay: () => unawaited(togglePlay()),
-                onShuffle: () => unawaited(toggleShuffle()),
-                onRepeat: () => unawaited(cycleRepeat()),
-                onHeart: () => unawaited(toggleHeart()),
-                onLyrics: () => unawaited(openLyrics()),
-                onQueue: () => unawaited(openQueue()),
-              );
-              return Column(
-                children: [
-                  PlaybackNoticeBar(service: widget.service),
-                  Expanded(
-                    child: wide
-                        ? Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(32),
-                                child: cover,
-                              ),
-                              Expanded(
-                                child: Center(
-                                  child: SingleChildScrollView(
-                                    child: _Details(
-                                      service: widget.service,
-                                      data: widget.data,
-                                      cur: cur,
-                                      controls: controls,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : SingleChildScrollView(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              child: Column(
-                                children: [
-                                  const SizedBox(height: 8),
-                                  cover,
-                                  const SizedBox(height: 20),
-                                  _Details(
-                                    service: widget.service,
-                                    data: widget.data,
-                                    cur: cur,
-                                    controls: controls,
-                                  ),
-                                  const SizedBox(height: 24),
-                                ],
-                              ),
-                            ),
-                          ),
-                  ),
-                ],
-              );
-            },
           ),
         );
       },
@@ -310,359 +356,85 @@ class NowPlayingPageState extends State<NowPlayingPage> {
   }
 }
 
-/// 标题/歌手/专辑信息列。
-final class _Details extends StatelessWidget {
-  _Details({
-    required this.service,
-    required this.data,
-    required this.cur,
-    required this.controls,
-  });
-
-  final PlaybackService service;
-  final DataAccess data;
-  final TrackLite cur;
-  final Widget controls;
+class _QueuePane extends ConsumerWidget {
+  const _QueuePane();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final p = context.ia;
-    final t = sOf(context);
+    final s = S.of(context);
+    final snap = ref.watch(playbackProvider);
+
+    if (snap.queue.isEmpty) {
+      return Center(
+          child: Text(s.emptyQueue, style: TextStyle(color: p.secondaryText)));
+    }
+
     return Column(
-      key: const ValueKey('play_details'),
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          cur.title,
-          key: const ValueKey('play_title'),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
+        Padding(
+          padding: const EdgeInsets.all(IaSpacing.l),
+          child: Row(
+            children: [
+              Text(s.queueTitle,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: p.mainText)),
+              const Spacer(),
+              TextButton(
+                onPressed: () => ref.read(playbackProvider.notifier).clearQueue(),
+                child: Text(s.clearQueue,
+                    style: TextStyle(fontSize: 12.5, color: p.secondaryText)),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          cur.artistDisplay.isEmpty ? t.unknownArtist : cur.artistDisplay,
-          key: const ValueKey('play_artist'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 15, color: p.secondaryText),
-        ),
-        FutureBuilder<String>(
-          future: _albumOf(cur.id),
-          builder: (context, a) => a.data == null || a.data!.isEmpty
-              ? const SizedBox.shrink()
-              : Text(
-                  a.data!,
-                  key: const ValueKey('play_album'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: p.secondaryText),
+        Expanded(
+          child: ListView.builder(
+            itemCount: snap.queue.length,
+            itemBuilder: (_, i) {
+              final t = snap.queue[i];
+              final active = i == snap.index;
+              return ListTile(
+                dense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: IaSpacing.l),
+                leading: active
+                    ? Icon(Icons.graphic_eq, size: 18, color: p.accent)
+                    : Text('${i + 1}',
+                        style: TextStyle(fontSize: 12, color: p.secondaryText)),
+                title: Text(t.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        color: active ? p.accent : p.mainText,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400)),
+                subtitle: Text(t.artistDisplay,
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: IconButton(
+                  icon: Icon(Icons.close, size: 16, color: p.secondaryText),
+                  onPressed: () =>
+                      ref.read(playbackProvider.notifier).removeFromQueue(i),
                 ),
+                onTap: () async {
+                  await ref
+                      .read(playbackProvider.notifier)
+                      .playTracks(snap.queue, startIndex: i);
+                },
+              );
+            },
+          ),
         ),
-        const SizedBox(height: 20),
-        controls,
-        const SizedBox(height: 8),
       ],
     );
   }
-
-  final Map<int, String> _albumMemo = {};
-
-  Future<String> _albumOf(int id) async {
-    final memo = _albumMemo[id];
-    if (memo != null) return memo;
-    final row = await data.library.rowById(id);
-    final album = row?.albumDisplay ?? '';
-    _albumMemo[id] = album;
-    return album;
-  }
 }
 
-/// 五键控制排 + 进度 + 音量（桌面）+ 工具排（Harmonoid 签名形态）。
-final class _Controls extends StatefulWidget {
-  const _Controls({
-    required this.service,
-    required this.playing,
-    required this.mode,
-    required this.pos,
-    required this.duration,
-    required this.fav,
-    required this.onDislike,
-    required this.onTogglePlay,
-    required this.onShuffle,
-    required this.onRepeat,
-    required this.onHeart,
-    required this.onLyrics,
-    required this.onQueue,
-    this.showVolume = false,
-  });
-
-  final PlaybackService service;
-  final bool playing;
-  final PlaybackMode mode;
-  final int pos;
-  final int duration;
-  final bool fav;
-  final VoidCallback onDislike;
-  final VoidCallback onTogglePlay;
-  final VoidCallback onShuffle;
-  final VoidCallback onRepeat;
-  final VoidCallback onHeart;
-  final VoidCallback onLyrics;
-  final VoidCallback onQueue;
-
-  /// 桌面（宽布局）显示音量滑杆（PRD §3.1：Android 走系统音量）。
-  final bool showVolume;
-
-  @override
-  State<_Controls> createState() => _ControlsState();
-}
-
-final class _ControlsState extends State<_Controls> {
-  /// 拖动预览位（null=未拖动；拖动中显示拖动态并停用进度推进回显）。
-  int? _dragMs;
-
-  /// 音量本地拖动值（onChangeEnd 落服务并持久化）。
-  double? _volumeDrag;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ia;
-    final t = sOf(context);
-    final w = widget;
-    final shownPos = _dragMs ?? w.pos;
-    return Center(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // 五键排：随机 | 上一首 | 大圆播放 | 下一首 | 循环
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  key: const ValueKey('play_shuffle_key'),
-                  tooltip: w.mode == PlaybackMode.random
-                      ? t.shuffleOnTooltip
-                      : t.modeRandom,
-                  onPressed: w.onShuffle,
-                  icon: Icon(
-                    IaIcon.shuffle,
-                    size: 24,
-                    color: w.mode == PlaybackMode.random
-                        ? p.accent
-                        : p.secondaryText,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                IconButton(
-                  key: const ValueKey('play_prev'),
-                  tooltip: t.previousTooltip,
-                  iconSize: 30,
-                  constraints: const BoxConstraints(
-                    minWidth: 52,
-                    minHeight: 52,
-                  ),
-                  onPressed: () => unawaited(w.service.previous()),
-                  icon: Icon(IaIcon.previous, color: p.mainText),
-                ),
-                const SizedBox(width: 16),
-                SizedBox(
-                  width: 68,
-                  height: 68,
-                  child: FilledButton(
-                    key: const ValueKey('play_toggle'),
-                    style: FilledButton.styleFrom(
-                      shape: const CircleBorder(),
-                      padding: EdgeInsets.zero,
-                    ),
-                    onPressed: w.onTogglePlay,
-                    child: Icon(
-                      w.playing ? IaIcon.pause : IaIcon.play,
-                      size: 34,
-                      fill: 1.0,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                IconButton(
-                  key: const ValueKey('play_next'),
-                  tooltip: t.nextTooltip,
-                  iconSize: 30,
-                  constraints: const BoxConstraints(
-                    minWidth: 52,
-                    minHeight: 52,
-                  ),
-                  onPressed: () => unawaited(w.service.next()),
-                  icon: Icon(IaIcon.next, color: p.mainText),
-                ),
-                const SizedBox(width: 14),
-                IconButton(
-                  key: const ValueKey('play_repeat_key'),
-                  tooltip: switch (w.mode) {
-                    PlaybackMode.loops => t.modeLoops,
-                    PlaybackMode.single => t.modeSingle,
-                    _ => t.modeSequence,
-                  },
-                  onPressed: w.onRepeat,
-                  icon: Icon(
-                    w.mode == PlaybackMode.single
-                        ? IaIcon.repeatOne
-                        : IaIcon.repeat,
-                    size: 24,
-                    color:
-                        (w.mode == PlaybackMode.loops ||
-                            w.mode == PlaybackMode.single)
-                        ? p.accent
-                        : p.secondaryText,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // 进度 + 双侧时间（拖动预览：拖动中显示拖动态，松手落 seek）
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Column(
-                children: [
-                  SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 6,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 7,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 16,
-                      ),
-                    ),
-                    child: Slider(
-                      key: const ValueKey('play_progress'),
-                      value: (_dragMs ?? w.pos).toDouble(),
-                      max: w.duration.toDouble(),
-                      onChanged: (v) => setState(() => _dragMs = v.round()),
-                      onChangeEnd: (v) {
-                        setState(() => _dragMs = null);
-                        unawaited(w.service.seekTo(v.round()));
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          iaMmss(shownPos),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: p.secondaryText,
-                            fontFeatures: kIaNumericFeatures,
-                          ),
-                        ),
-                        Text(
-                          iaMmss(w.duration),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: p.secondaryText,
-                            fontFeatures: kIaNumericFeatures,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (w.showVolume) ...[
-              const SizedBox(height: 2),
-              // 音量滑杆（桌面；PRD REQ-PLAY-01）
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 280),
-                child: Row(
-                  key: const ValueKey('play_volume_row'),
-                  children: [
-                    Icon(IaIcon.volume, size: 18, color: p.secondaryText),
-                    Expanded(
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 4,
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 6,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 12,
-                          ),
-                        ),
-                        child: Slider(
-                          key: const ValueKey('play_volume'),
-                          value: (_volumeDrag ?? w.service.volume).clamp(
-                            0.0,
-                            100.0,
-                          ),
-                          min: 0,
-                          max: 100,
-                          onChanged: (v) => setState(() => _volumeDrag = v),
-                          onChangeEnd: (v) {
-                            setState(() => _volumeDrag = null);
-                            unawaited(w.service.setVolume(v));
-                          },
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 38,
-                      child: Text(
-                        '${((_volumeDrag ?? w.service.volume).round())}',
-                        textAlign: TextAlign.end,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: p.secondaryText,
-                          fontFeatures: kIaNumericFeatures,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 4),
-            // 工具排：垃圾桶 | 歌词 | 红心
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  key: const ValueKey('play_dislike'),
-                  tooltip: t.dislikeLongTooltip,
-                  onPressed: w.onDislike,
-                  icon: Icon(IaIcon.delete, size: 22, color: p.secondaryText),
-                ),
-                IconButton(
-                  key: const ValueKey('play_lyrics_entry'),
-                  tooltip: t.lyricsTitle,
-                  onPressed: w.onLyrics,
-                  icon: Icon(IaIcon.lyrics, size: 24, color: p.secondaryText),
-                ),
-                IconButton(
-                  key: const ValueKey('play_heart'),
-                  tooltip: w.fav ? t.unheartTooltip : t.heartLongTooltip,
-                  onPressed: w.onHeart,
-                  icon: Icon(
-                    IaIcon.heart,
-                    fill: w.fav ? 1.0 : 0.0,
-                    size: 24,
-                    color: w.fav ? p.heart : p.secondaryText,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+String _fmt(int ms) {
+  final m = ms ~/ 60000;
+  final sec = (ms % 60000) ~/ 1000;
+  return '$m:${sec.toString().padLeft(2, '0')}';
 }
