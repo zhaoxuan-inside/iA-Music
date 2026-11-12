@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../data/database.dart' hide TrackRow;
 import '../../l10n/app_localizations.dart';
-import '../../state/playback_controller.dart';
 import '../../state/providers.dart';
 import '../shared/common.dart' hide DbActions;
 
