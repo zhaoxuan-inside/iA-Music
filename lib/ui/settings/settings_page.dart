@@ -147,23 +147,20 @@ class SettingsPage extends ConsumerWidget {
   Future<void> _addFolder(BuildContext context, WidgetRef ref) async {
     final s = S.of(context);
     final ctrl = ref.read(scanProvider.notifier);
-    String? path;
 
-    path = await ctrl.pickFolder();
-    if (path == null) {
-      // Android：权限门 + 预置/手输名
-      final granted = await ctrl.ensureAudioPermission();
-      if (!granted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(s.errorGeneric)));
-        }
-        return;
-      }
+    // 权限门 + 预置/手输名
+    final granted = await ctrl.ensureAudioPermission();
+    if (!granted) {
       if (context.mounted) {
-        path = await _androidFolderDialog(context, ctrl);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(s.errorGeneric)));
       }
+      return;
     }
+    if (!context.mounted) {
+      return;
+    }
+    final path = await _androidFolderDialog(context, ctrl);
     if (path == null || path.trim().isEmpty || !context.mounted) {
       return;
     }

@@ -27,8 +27,7 @@ dependencies:
   audio_metadata_reader: ^1.8.1
   pinyin: 3.3.0
   crypto: ^3.0.7
-  mpv_audio_kit: 0.5.1 # 0.5.3 丢失了 Windows /utf-8 编译选项（中文代码页下 C4819→错误）；0.5.1 修
-  file_selector: ^1.1.0
+  mpv_audio_kit: 0.5.1 # 锁定：与 vendored libmpv 及适配器语义已验证对齐（0.5.3 变更未验证）
   permission_handler: ^11.3.1
 
 dev_dependencies:
@@ -39,9 +38,11 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 # 原生构建链（自 v1 趟平的路径原样保留）：
-# * sqlite3 三端从仓库内置源码编译（native/sqlite3/sqlite3.c），FTS5 内建。
-# * mpv_audio_kit 的 arm64-v8a 运行库随仓库提供（packaging/mpv），
-#   SHA-256 由插件 hook 校验（libmpv-r17），避免构建时访问 GitHub release。
+# * sqlite3：Android 目标与测试宿主(Windows)均从仓库内置源码编译
+#   （native/sqlite3/sqlite3.c），FTS5 内建。
+# * mpv_audio_kit 运行库随仓库提供（packaging/mpv，Android arm64 +
+#   Windows 宿主 dll——后者仅供本机 flutter test 的宿主构建），
+#   避免构建时访问 GitHub release。
 hooks:
   user_defines:
     mpv_audio_kit:

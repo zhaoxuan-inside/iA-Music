@@ -38,7 +38,7 @@ const String kFtsDdl =
 class IaDatabase extends _$IaDatabase {
   IaDatabase(super.e);
 
-  /// 测试/桌面诊断：内存库或自定义执行器。
+  /// 测试/诊断：内存库或自定义执行器。
   IaDatabase.connect(super.e);
 
   @override

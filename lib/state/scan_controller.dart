@@ -4,8 +4,6 @@ library;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:file_selector/file_selector.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -46,24 +44,12 @@ class ScanController extends Notifier<ScanState> {
     return const ScanState();
   }
 
-  bool get _isDesktop =>
-      !kIsWeb &&
-      (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
   Future<void> _attachWatcher() async {
     try {
       await ref.read(rootWatcherProvider).sync();
     } on Object {
       // watcher 不可用不阻断
     }
-  }
-
-  /// 选目录：桌面走系统选择器；Android 用预置目录（权限门内由调用方保证）。
-  Future<String?> pickFolder() async {
-    if (_isDesktop) {
-      return getDirectoryPath();
-    }
-    return null; // Android 端 UI 走预置/手输名
   }
 
   /// Android 预置目录集合（授权后可用）。

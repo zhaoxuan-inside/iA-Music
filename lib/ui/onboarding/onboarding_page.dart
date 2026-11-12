@@ -89,13 +89,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   Future<void> _pickAndScan() async {
     setState(() => _busy = true);
     final ctrl = ref.read(scanProvider.notifier);
-    var path = await ctrl.pickFolder();
-    if (path == null) {
-      final granted = await ctrl.ensureAudioPermission();
-      if (granted) {
-        final presets = await ctrl.androidPresetFolders();
-        path = presets.isNotEmpty ? presets.first : null;
-      }
+    final granted = await ctrl.ensureAudioPermission();
+    String? path;
+    if (granted) {
+      final presets = await ctrl.androidPresetFolders();
+      path = presets.isNotEmpty ? presets.first : null;
     }
     if (path != null && path.trim().isNotEmpty) {
       await ctrl.addRoot(path.trim());

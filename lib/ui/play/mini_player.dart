@@ -1,4 +1,4 @@
-/// 迷你播放条：桌面通栏 / 移动悬浮胶囊。
+/// 迷你播放条：宽屏通栏 / 移动悬浮胶囊。
 library;
 
 import 'package:flutter/material.dart';

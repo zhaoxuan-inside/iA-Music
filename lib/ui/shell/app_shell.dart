@@ -1,4 +1,4 @@
-/// 响应式壳层：桌面侧栏 + 迷你条 / 移动底 Tab + 悬浮胶囊。
+/// 响应式壳层：宽屏侧栏 + 迷你条 / 移动底 Tab + 悬浮胶囊。
 library;
 
 import 'package:flutter/material.dart';

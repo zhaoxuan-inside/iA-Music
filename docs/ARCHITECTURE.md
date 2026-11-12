@@ -54,6 +54,9 @@ Flutter 与 l10n。
 
 ## 构建链
 
-- sqlite3：仓库内置源码三端自编（`native/sqlite3/sqlite3.c`，hooks user_defines）。
-- mpv：Android arm64 运行库随仓库（`packaging/mpv/`）。
+- 平台：**仅 Android（arm64）**——`flutter build apk --target-platform android-arm64`
+  （`packaging/build.ps1` 一键）。
+- sqlite3：仓库内置源码自编（`native/sqlite3/sqlite3.c`，hooks user_defines；
+  测试宿主的 Windows 构建同走源码编译）。
+- mpv：运行库随仓库（`packaging/mpv/`，见 SOURCE.md）。
 - 原生二进制入库需在 PR 说明里给出理由与 SHA-256。
