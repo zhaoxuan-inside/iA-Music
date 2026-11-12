@@ -10,7 +10,8 @@ import '../../domain/entities/track.dart';
 import '../../l10n/app_localizations.dart';
 import '../../state/playback_controller.dart';
 import '../../state/providers.dart';
-import '../shared/common.dart';
+import '../shared/common.dart' hide DbActions;
+import 'history_page.dart';
 
 class PlaylistsPage extends ConsumerWidget {
   const PlaylistsPage({super.key});
@@ -54,6 +55,7 @@ class PlaylistsPage extends ConsumerWidget {
                     : ListView(
                         padding: const EdgeInsets.all(IaSpacing.xl),
                         children: [
+                          _HistoryCard(),
                           for (final pl in playlists.where((p) => p.isSystem))
                             _PlaylistCard(playlist: pl),
                           if (playlists.any((p) => !p.isSystem)) ...[
@@ -127,6 +129,36 @@ Future<String?> _askName(BuildContext context, String title, String hint,
       ],
     ),
   );
+}
+
+/// 最近播放入口卡（数据在 play_history 表，不入歌单域）。
+class _HistoryCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final s = S.of(context);
+    final p = context.ia;
+    return Card(
+      margin: const EdgeInsets.only(bottom: IaSpacing.m),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: IaSpacing.l, vertical: IaSpacing.s),
+        leading: Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: p.lifted,
+            borderRadius: BorderRadius.circular(IaSpacing.radiusM),
+          ),
+          child: Icon(Icons.history, color: p.secondaryText, size: 22),
+        ),
+        title: Text(s.playlistHistory,
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const HistoryPage()),
+        ),
+      ),
+    );
+  }
 }
 
 class _PlaylistCard extends ConsumerWidget {
