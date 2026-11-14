@@ -1,141 +1,234 @@
-/// 搜索页：FTS 拼音即时检索（防抖 250ms）。
+/// 搜索页：即时分组结果（歌曲/艺人/专辑/歌单）+ 拼音全拼与首字母。
 library;
-
-import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../l10n/app_localizations.dart';
+import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
-import '../shared/common.dart';
+import '../../state/listen_providers.dart';
+import '../../domain/entities/playlist.dart';
+import '../../domain/entities/playlist.dart';
+import '../../state/playlist_providers.dart';
+import '../../state/playback_controller.dart';
+import '../detail/detail_page.dart';
+import '../shared/actions.dart';
+import '../shared/cover.dart';
+import '../shared/ui_kit.dart';
 
-class SearchPage extends ConsumerStatefulWidget {
-  const SearchPage({super.key});
+class MusicSearchPage extends ConsumerStatefulWidget {
+  const MusicSearchPage({super.key});
 
   @override
-  ConsumerState<SearchPage> createState() => _SearchPageState();
+  ConsumerState<MusicSearchPage> createState() => _MusicSearchPageState();
 }
 
-class _SearchPageState extends ConsumerState<SearchPage> {
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
-  Timer? _debounce;
-  String _query = '';
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    _focus.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
-      if (mounted) {
-        setState(() => _query = v.trim());
-      }
-    });
-  }
+class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
+  String _q = '';
 
   @override
   Widget build(BuildContext context) {
-    final s = S.of(context);
-    final p = context.ia;
+    final edge = edgeInsets(context);
+    final q = _q.trim().toLowerCase();
+
+    final tracks = ref.watch(tracksProvider(TrackSort.title)).value ?? const <Track>[];
+    final artists = ref.watch(artistsProvider).value ?? const <ArtistGroup>[];
+    final albums = ref.watch(albumsProvider).value ?? const <AlbumGroup>[];
+    final pls = ref.watch(playlistListProvider).value ?? const <Playlist>[];
+
+    List<T> hit<T>(Iterable<T> src, bool Function(T) test) =>
+        q.isEmpty ? <T>[] : src.where(test).toList();
+
+    final fts = q.isEmpty ? const <Track>[] : (ref.watch(ftsSearchProvider(q)).value ?? const <Track>[]);
+    final hitTracks = hit(tracks, (t) => _match(q, [t.title, t.artistDisplay, t.albumDisplay]));
+    for (final t in fts) {
+      if (!hitTracks.any((x) => x.id == t.id)) {
+        hitTracks.add(t);
+      }
+    }
+    final hitArtists = hit(artists, (a) => _match(q, [a.artist]));
+    final hitAlbums = hit(albums, (a) => _match(q, [a.album, a.artist]));
+    final hitPls = hit(pls, (x) => _match(q, [x.name]));
+    final playingId = ref.watch(playbackProvider.select((s) => s.current?.id));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                IaSpacing.xl, IaSpacing.l, IaSpacing.xl, IaSpacing.s),
-            child: Text(s.navSearch,
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w700, color: p.mainText)),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: IaSpacing.xl),
-            child: TextField(
-              controller: _controller,
-              focusNode: _focus,
-              onChanged: _onChanged,
-              decoration: InputDecoration(
-                hintText: s.searchHint,
-                prefixIcon: Icon(Icons.search, color: p.secondaryText),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: Icon(Icons.close, size: 18, color: p.secondaryText),
-                        onPressed: () {
-                          _controller.clear();
-                          setState(() => _query = '');
-                        },
+      backgroundColor: IaColors.canvas,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.m, edge.right, 0),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      autofocus: true,
+                      onChanged: (v) => setState(() => _q = v),
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: IaType.light,
+                          color: IaColors.textHi),
+                      decoration: const InputDecoration(
+                        hintText: '歌曲 / 艺人 / 专辑 / 歌单（拼音均可）',
+                        border: InputBorder.none,
                       ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Expanded(
-            child: _query.isEmpty
-                ? const SizedBox.shrink()
-                : _Results(query: _query),
-          ),
-        ],
+            const SizedBox(height: IaSpacing.m),
+            Expanded(
+              child: q.isEmpty
+                  ? ListView(
+                      padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 40),
+                      children: const [
+                        SectionLabel('搜索'),
+                        SizedBox(height: IaSpacing.s),
+                        Text('支持拼音全拼与首字母 · 如 zjl / zhoujielun',
+                            style:
+                                TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+                      ],
+                    )
+                  : ListView(
+                      padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 140),
+                      children: [
+                        if (hitArtists.isNotEmpty) ...[
+                          const SectionLabel('艺人'),
+                          for (final a in hitArtists)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                        builder: (_) => DetailPage(
+                                            type: DetailType.artist,
+                                            id: artistKey(a.artist)))),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: IaSpacing.m,
+                                      vertical: IaSpacing.m),
+                                  decoration: const BoxDecoration(
+                                      border: Border(
+                                          bottom: BorderSide(color: IaColors.hairline))),
+                                  child: Text(a.artist,
+                                      style: const TextStyle(
+                                          fontSize: IaType.list,
+                                          color: IaColors.textHi)),
+                                ),
+                              ),
+                            ),
+                        ],
+                        if (hitTracks.isNotEmpty) ...[
+                          const SizedBox(height: IaSpacing.m),
+                          const SectionLabel('歌曲'),
+                          for (final t in hitTracks)
+                            Row(
+                              children: [
+                                CoverArt(track: t, size: IaSpacing.coverSmall),
+                                Expanded(
+                                  child: SongRow(
+                                    track: t,
+                                    isPlaying: playingId == t.id,
+                                    isLiked: ref
+                                            .watch(favoriteProvider(t.id))
+                                            .value ??
+                                        false,
+                                    onTap: () {
+                                      final qi = hitTracks.indexOf(t);
+                                      ref.read(playbackProvider.notifier).playTracks(
+                                          hitTracks,
+                                          startIndex: qi < 0 ? 0 : qi);
+                                    },
+                                    onLongPress: () => showTrackMenu(context, ref, t),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                        if (hitAlbums.isNotEmpty) ...[
+                          const SizedBox(height: IaSpacing.m),
+                          const SectionLabel('专辑'),
+                          for (final a in hitAlbums)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                        builder: (_) => DetailPage(
+                                            type: DetailType.album,
+                                            id: albumKey(a.album)))),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: IaSpacing.m,
+                                      vertical: IaSpacing.m),
+                                  decoration: const BoxDecoration(
+                                      border: Border(
+                                          bottom: BorderSide(color: IaColors.hairline))),
+                                  child: Text('${a.album} · ${a.artist}',
+                                      style: const TextStyle(
+                                          fontSize: IaType.list,
+                                          color: IaColors.textHi)),
+                                ),
+                              ),
+                            ),
+                        ],
+                        if (hitPls.isNotEmpty) ...[
+                          const SizedBox(height: IaSpacing.m),
+                          const SectionLabel('歌单'),
+                          for (final x in hitPls)
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                        builder: (_) => DetailPage(
+                                            type: DetailType.playlist,
+                                            id: x.id.toString()))),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: IaSpacing.m,
+                                      vertical: IaSpacing.m),
+                                  decoration: const BoxDecoration(
+                                      border: Border(
+                                          bottom: BorderSide(color: IaColors.hairline))),
+                                  child: Text(x.name,
+                                      style: const TextStyle(
+                                          fontSize: IaType.list,
+                                          color: IaColors.textHi)),
+                                ),
+                              ),
+                            ),
+                        ],
+                        if (hitTracks.isEmpty &&
+                            hitArtists.isEmpty &&
+                            hitAlbums.isEmpty &&
+                            hitPls.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.only(top: IaSpacing.xl),
+                            child: Text('没有匹配的结果',
+                                style: TextStyle(
+                                    fontSize: 13, color: IaColors.textLow)),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
-}
 
-class _Results extends ConsumerWidget {
-  const _Results({required this.query});
-
-  final String query;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s = S.of(context);
-    final p = context.ia;
-    final results = ref.watch(searchResultsProvider(query));
-
-    return results.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(
-          child: Text(s.errorGeneric, style: TextStyle(color: p.secondaryText))),
-      data: (tracks) {
-        if (tracks.isEmpty) {
-          return EmptyState(
-            icon: Icons.search_off,
-            title: s.emptySearchTitle(query),
-            subtitle: s.emptySearchHint,
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  IaSpacing.xl, IaSpacing.m, IaSpacing.xl, 0),
-              child: Text(s.searchResults,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: p.secondaryText)),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.xl, vertical: IaSpacing.s),
-                itemCount: tracks.length,
-                itemBuilder: (_, i) => TrackRow(tracks: tracks, index: i),
-              ),
-            ),
-          ],
-        );
-      },
-    );
+  bool _match(String q, List<String> fields) {
+    if (q.isEmpty) {
+      return false;
+    }
+    return fields.any((f) => f.toLowerCase().contains(q));
   }
 }

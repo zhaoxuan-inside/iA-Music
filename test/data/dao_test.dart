@@ -28,6 +28,8 @@ void main() {
         title: title,
         artist: artist,
         album: album,
+        genre: '',
+        needsMeta: false,
         trackNo: 0,
         durationMs: 1000,
         sizeBytes: 1,

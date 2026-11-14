@@ -6,6 +6,8 @@
 /// * 事件顺序契约：StateChanged 先于派生事件；position 心跳 ≤250ms。
 library;
 
+import '../entities/playback.dart';
+
 /// 引擎消息（单流多态，按实际发生顺序推送）。
 sealed class EngineEvent {
   const EngineEvent();
@@ -92,6 +94,9 @@ abstract class EnginePort {
 
   /// 音量（0..100；100=不衰减）。
   Future<void> setVolume(double volume);
+
+  /// 循环模式（引擎侧映射 loop 属性；加载队列后需重设）。
+  Future<void> setRepeatMode(RepeatMode mode);
 
   /// 插队：把 [item] 插为当前曲后立刻播放的下一首（不打断当前曲）。
   Future<void> insertNext(QueueItem item);

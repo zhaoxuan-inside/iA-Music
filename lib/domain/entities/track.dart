@@ -10,6 +10,7 @@ class Track {
     required this.title,
     required this.artist,
     required this.album,
+    required this.genre,
     required this.durationMs,
     required this.sizeBytes,
     required this.contentHash,
@@ -17,6 +18,8 @@ class Track {
     required this.trackNo,
     required this.coverPath,
     required this.addedAt,
+    this.needsMeta = false,
+    this.enrichedAt,
     this.missing = false,
   });
 
@@ -27,6 +30,9 @@ class Track {
   final String title;
   final String artist;
   final String album;
+
+  /// 流派裸值（真实标签解析；空串=无标签，UI 隐藏流派入口）。
+  final String genre;
   final int durationMs;
   final int sizeBytes;
   final String contentHash;
@@ -37,20 +43,33 @@ class Track {
   final String? coverPath;
   final DateTime addedAt;
 
+  /// 元数据补全：true=歌手/歌名缺失，等待反向重建。
+  final bool needsMeta;
+  final DateTime? enrichedAt;
+
   /// 磁盘上已找不到（诚实灰显；不参与随机/连播）。
   final bool missing;
 
   String get artistDisplay => artist.isEmpty ? '未知歌手' : artist;
   String get albumDisplay => album.isEmpty ? '未知专辑' : album;
+  String get genreDisplay => genre.isEmpty ? '' : genre;
 
-  Track copyWith({String? coverPath, bool? missing}) => Track(
+  Track copyWith(
+          {String? coverPath,
+          bool? missing,
+          String? title,
+          String? artist,
+          bool? needsMeta,
+          DateTime? enrichedAt}) =>
+      Track(
         id: id,
         rootId: rootId,
         relPath: relPath,
         path: path,
-        title: title,
-        artist: artist,
+        title: title ?? this.title,
+        artist: artist ?? this.artist,
         album: album,
+        genre: genre,
         durationMs: durationMs,
         sizeBytes: sizeBytes,
         contentHash: contentHash,
@@ -58,6 +77,8 @@ class Track {
         trackNo: trackNo,
         coverPath: coverPath ?? this.coverPath,
         addedAt: addedAt,
+        needsMeta: needsMeta ?? this.needsMeta,
+        enrichedAt: enrichedAt ?? this.enrichedAt,
         missing: missing ?? this.missing,
       );
 }
@@ -86,4 +107,12 @@ class ArtistGroup {
 
   final String artist;
   final int trackCount;
+}
+
+/// 流派聚合视图行（按 genre 分组的专辑数）。
+class GenreGroup {
+  const GenreGroup({required this.genre, required this.albumCount});
+
+  final String genre;
+  final int albumCount;
 }

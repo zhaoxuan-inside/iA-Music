@@ -10,7 +10,7 @@ import '../tables.dart';
 
 part 'library_dao.g.dart';
 
-@DriftAccessor(tables: [RepositoryRoots, Tracks])
+@DriftAccessor(tables: [RepositoryRoots, Tracks, PlayHistory])
 class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   LibraryDao(super.db);
 
@@ -22,6 +22,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         title: r.title,
         artist: r.artist,
         album: r.album,
+        genre: r.genre,
         durationMs: r.durationMs,
         sizeBytes: r.sizeBytes,
         contentHash: r.contentHash,
@@ -29,6 +30,8 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         trackNo: r.trackNo,
         coverPath: r.coverPath,
         addedAt: r.addedAt,
+        needsMeta: r.needsMeta,
+        enrichedAt: r.enrichedAt,
         missing: r.missingAt != null,
       );
 
@@ -163,6 +166,112 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         .map((rows) => rows.map(_map).toList());
   }
 
+  // ── 流派面（真实标签解析；空流派不参与聚合） ─────────────────────────
+
+  /// 流派列表（按专辑数排序；genre 为空的行不入组）。
+  Stream<List<GenreGroup>> watchGenres() {
+    final genre = tracks.genre;
+    final albumNorm = tracks.albumNorm;
+    final cnt = albumNorm.count(distinct: true);
+    final q = selectOnly(tracks)
+      ..addColumns([genre, cnt])
+      ..where(tracks.missingAt.isNull() & tracks.genre.equals('').not())
+      ..groupBy([genre])
+      ..orderBy([OrderingTerm.desc(cnt)]);
+    return q.watch().map(
+          (rows) => rows
+              .map((r) => GenreGroup(
+                    genre: r.read(genre) ?? '',
+                    albumCount: r.read(cnt) ?? 0,
+                  ))
+              .toList(),
+        );
+  }
+
+  /// 某流派的专辑聚合（组内取该流派的曲目行参与分组）。
+  Stream<List<AlbumGroup>> watchGenreAlbums(String genre) {
+    final album = tracks.album;
+    final artist = tracks.artist;
+    final albumNorm = tracks.albumNorm;
+    final cnt = tracks.id.count();
+    final dur = tracks.durationMs.sum();
+    final q = selectOnly(tracks)
+      ..addColumns([album, artist, albumNorm, cnt, dur])
+      ..where(tracks.missingAt.isNull() & tracks.genre.equals(genre))
+      ..groupBy([albumNorm])
+      ..orderBy([OrderingTerm.asc(albumNorm)]);
+    return q.watch().map(
+          (rows) => rows
+              .map((r) => AlbumGroup(
+                    album: r.read(album) ?? '',
+                    artist: r.read(artist) ?? '',
+                    trackCount: r.read(cnt) ?? 0,
+                    totalDurationMs: r.read(dur) ?? 0,
+                  ))
+              .toList(),
+        );
+  }
+
+  // ── 常听面（PlayHistory 聚合；播放次数为准） ─────────────────────────
+
+  /// 常听专辑（按累计播放次数排序；未播过的不出现）。
+  Stream<List<AlbumGroup>> watchTopAlbums({int limit = 12}) {
+    final album = tracks.album;
+    final artist = tracks.artist;
+    final albumNorm = tracks.albumNorm;
+    final cnt = tracks.id.count();
+    final dur = tracks.durationMs.sum();
+    final plays = playHistory.id.count();
+    final query = selectOnly(tracks)
+      ..addColumns([album, artist, albumNorm, cnt, dur, plays])
+      ..join([
+        innerJoin(playHistory, playHistory.trackId.equalsExp(tracks.id)),
+      ])
+      ..where(tracks.missingAt.isNull())
+      ..groupBy([albumNorm])
+      ..orderBy([OrderingTerm.desc(plays)])
+      ..limit(limit);
+    return query.watch().map(
+          (rows) => rows
+              .map((r) => AlbumGroup(
+                    album: r.read(album) ?? '',
+                    artist: r.read(artist) ?? '',
+                    trackCount: r.read(cnt) ?? 0,
+                    totalDurationMs: r.read(dur) ?? 0,
+                  ))
+              .toList(),
+        );
+  }
+
+  // ── 元数据补全面（反向重建：时长锚定 + 在线匹配） ────────────────────
+
+  /// 待补全曲目（歌手缺失且未补全过），最旧优先。
+  Stream<List<Track>> watchNeedsEnrichment({int limit = 25}) {
+    return (select(tracks)
+          ..where((t) =>
+              t.needsMeta &
+              t.missingAt.isNull() &
+              t.enrichedAt.isNull())
+          ..orderBy([(u) => OrderingTerm.asc(u.addedAt)])
+          ..limit(limit))
+        .watch()
+        .map((rows) => rows.map(_map).toList());
+  }
+
+  /// 补全写回：歌名/歌手/补全时刻（仅在原值缺失或为文件名特征时采纳）。
+  Future<void> applyEnrichment(
+      {required int id, required String title, required String artist}) {
+    return (update(tracks)..where((t) => t.id.equals(id))).write(
+      TracksCompanion(
+        title: Value(normKey(title)),
+        artist: Value(artist),
+        artistNorm: Value(normKey(artist)),
+        needsMeta: const Value(false),
+        enrichedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   // ── 搜索面（FTS 五列前缀 AND；rank 排序） ────────────────────────────
 
   Stream<List<Track>> watchSearchResults(String query) {
@@ -172,7 +281,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     }
     return customSelect(
       'SELECT t.id AS t_id, t.root_id, t.rel_path, t.path, t.title, t.artist, '
-      't.album, t.duration_ms, t.size_bytes, t.content_hash, t.audio_format, '
+      't.album, t.genre, t.duration_ms, t.size_bytes, t.content_hash, t.audio_format, '
       't.track_no, t.cover_path, t.added_at, t.missing_at '
       'FROM track_index f JOIN tracks t ON t.id = f.track_id '
       'WHERE track_index MATCH ? AND t.missing_at IS NULL '
@@ -189,6 +298,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
                 title: r.read<String>('title'),
                 artist: r.read<String>('artist'),
                 album: r.read<String>('album'),
+                genre: r.read<String>('genre'),
                 durationMs: r.read<int>('duration_ms'),
                 sizeBytes: r.read<int>('size_bytes'),
                 contentHash: r.read<String>('content_hash'),
@@ -196,6 +306,8 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
                 trackNo: r.read<int>('track_no'),
                 coverPath: r.readNullable<String>('cover_path'),
                 addedAt: r.read<DateTime>('added_at'),
+                needsMeta: false,
+                enrichedAt: null,
                 missing: r.readNullable<DateTime>('missing_at') != null,
               ))
           .toList();
@@ -252,6 +364,8 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
           artistNorm: normKey(u.artist),
           album: u.album,
           albumNorm: normKey(u.album),
+          genre: Value(u.genre),
+          needsMeta: Value(u.needsMeta),
           trackNo: Value(u.trackNo),
           durationMs: Value(u.durationMs),
           sizeBytes: Value(u.sizeBytes),
@@ -346,6 +460,8 @@ class TrackUpsert {
     required this.title,
     required this.artist,
     required this.album,
+    required this.genre,
+    required this.needsMeta,
     required this.trackNo,
     required this.durationMs,
     required this.sizeBytes,
@@ -359,6 +475,8 @@ class TrackUpsert {
   final String title;
   final String artist;
   final String album;
+  final String genre;
+  final bool needsMeta;
   final int trackNo;
   final int durationMs;
   final int sizeBytes;

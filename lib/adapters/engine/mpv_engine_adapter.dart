@@ -13,6 +13,7 @@ import 'dart:io';
 
 import 'package:mpv_audio_kit/mpv_audio_kit.dart';
 
+import '../../domain/entities/playback.dart';
 import '../../domain/errors.dart';
 import '../../domain/ports/engine_port.dart';
 
@@ -29,6 +30,7 @@ class MpvEngineAdapter implements EnginePort {
   Duration _lastTick = Duration.zero;
   EngineState _state = EngineState.idle;
   int _cursor = 0;
+  RepeatMode _repeat = RepeatMode.off;
 
   final _events = StreamController<EngineEvent>.broadcast();
   final _subs = <StreamSubscription<dynamic>>[];
@@ -195,6 +197,7 @@ class MpvEngineAdapter implements EnginePort {
     _emit(EngineStateChanged(EngineState.loading));
     await p.openAll([for (final it in queue) _mediaOf(it)],
         play: true, index: startIndex);
+    await setRepeatMode(_repeat);
     await _publishSessionOnce(p, queue, startIndex);
   }
 
@@ -206,6 +209,7 @@ class MpvEngineAdapter implements EnginePort {
     _emit(EngineStateChanged(EngineState.loading));
     await p.openAll([for (final it in queue) _mediaOf(it)],
         play: false, index: startIndex);
+    await setRepeatMode(_repeat);
     final ready = await _waitLoaded(p, startIndex);
     if (ready && positionMs > 0) {
       await p.seek(Duration(milliseconds: positionMs), relative: false);
@@ -251,6 +255,28 @@ class MpvEngineAdapter implements EnginePort {
 
   @override
   Future<void> setVolume(double volume) => _p.setVolume(volume);
+
+  @override
+  Future<void> setRepeatMode(RepeatMode mode) async {
+    _repeat = mode;
+    final p = _p;
+    try {
+      switch (mode) {
+        case RepeatMode.off:
+          await p.sendRawCommand(['set', 'loop-file', 'no']);
+          await p.sendRawCommand(['set', 'loop-playlist', 'no']);
+        case RepeatMode.all:
+          await p.sendRawCommand(['set', 'loop-playlist', 'inf']);
+          await p.sendRawCommand(['set', 'loop-file', 'no']);
+        case RepeatMode.one:
+          await p.sendRawCommand(['set', 'loop-playlist', 'no']);
+          await p.sendRawCommand(['set', 'loop-file', 'inf']);
+      }
+    } on Object catch (e, st) {
+      Error.throwWithStackTrace(
+          EngineError(detail: 'setRepeatMode($mode) 失败: $e'), st);
+    }
+  }
 
   @override
   Future<void> insertNext(QueueItem item) async {

@@ -34,6 +34,9 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   Future<void> seekTo(int ms) => _service.seekTo(ms);
   Future<void> setVolume(double v) => _service.setVolume(v);
   Future<void> toggleShuffle() => _service.toggleShuffle();
+  Future<void> setRepeatMode(RepeatMode m) => _service.setRepeatMode(m);
+  void setSleepTimer(int? minutes) => _service.setSleepTimer(minutes);
+  void cancelSleepTimer() => _service.cancelSleepTimer();
   Future<void> playNext(Track t) => _service.playNext(t);
   Future<void> removeFromQueue(int i) => _service.removeFromQueue(i);
   Future<void> clearQueue() => _service.clearQueue();

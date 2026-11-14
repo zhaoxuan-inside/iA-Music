@@ -16,6 +16,7 @@ final class EngineError extends ContractError {
   const EngineError({required super.detail});
 }
 
+
 /// 元数据解析错误（单文件损坏等，调用方按件兜底）。
 final class MetadataError extends ContractError {
   const MetadataError({required super.detail});

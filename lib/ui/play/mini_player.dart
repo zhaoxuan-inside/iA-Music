@@ -1,129 +1,130 @@
-/// 迷你播放条：宽屏通栏 / 移动悬浮胶囊。
+/// 迷你条：封面 + 歌名 + accent 进度线；横滑切歌；点击展开 NP。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
+import '../../domain/entities/track.dart';
 import '../../state/playback_controller.dart';
-import '../shared/common.dart';
-import '../shell/app_shell.dart';
+import '../shared/cover.dart';
 
 class MiniPlayer extends ConsumerWidget {
-  const MiniPlayer({required this.capsule, super.key});
+  const MiniPlayer({required this.onOpen, super.key});
 
-  final bool capsule;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final snap = ref.watch(playbackProvider);
-    final p = context.ia;
-    final track = snap.current;
-    if (track == null) {
+    final cur = snap.current;
+    final p = Theme.of(context).extension<IaPalette>()!;
+    final bottom = MediaQuery.of(context).padding.bottom;
+    final edge = MediaQuery.of(context).padding;
+
+    if (cur == null) {
       return const SizedBox.shrink();
     }
 
-    final content = Row(
-      children: [
-        CoverArt(track: track, size: capsule ? 42 : 46),
-        const SizedBox(width: IaSpacing.m),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Positioned(
+      left: 10 + edge.left,
+      right: 10 + edge.right,
+      bottom: 18 + (bottom > 6 ? bottom : 0),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragEnd: (d) {
+          final v = d.primaryVelocity ?? 0;
+          if (v < -120) {
+            ref.read(playbackProvider.notifier).next();
+          } else if (v > 120) {
+            ref.read(playbackProvider.notifier).previous();
+          }
+        },
+        onTap: onOpen,
+        child: Container(
+          height: IaSpacing.miniHeight,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.92),
+            border: Border.all(color: IaColors.hairlineStrong),
+          ),
+          child: Stack(
             children: [
-              Text(track.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
-                      color: p.mainText)),
-              Text(track.artistDisplay,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: p.secondaryText)),
+              // accent 进度线（贴顶）
+              Positioned(
+                left: 0,
+                top: 0,
+                child: FractionallySizedBox(
+                  widthFactor: cur.durationMs > 0
+                      ? (snap.positionMs / cur.durationMs).clamp(0.0, 1.0)
+                      : 0.0,
+                  child: Container(
+                    height: IaSpacing.progressHairline,
+                    color: p.accent,
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  const SizedBox(width: IaSpacing.m),
+                  CoverArt(track: cur, size: 38),
+                  const SizedBox(width: IaSpacing.m),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(cur.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 13.5, color: IaColors.textHi)),
+                        Text(cur.artistDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: IaColors.textLow)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => ref.read(playbackProvider.notifier).togglePlay(),
+                    icon: Icon(
+                        snap.playing
+                            ? Icons.pause
+                            : Icons.play_arrow,
+                        color: IaColors.textHi),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => ref.read(playbackProvider.notifier).next(),
+                    icon: Icon(Icons.skip_next,
+                        size: 20, color: IaColors.textMid),
+                  ),
+                  const SizedBox(width: IaSpacing.s),
+                ],
+              ),
             ],
           ),
-        ),
-        _RoundIcon(
-          icon: snap.playing ? Icons.pause : Icons.play_arrow,
-          onTap: () => ref.read(playbackProvider.notifier).togglePlay(),
-          filled: true,
-        ),
-        const SizedBox(width: IaSpacing.xs),
-        _RoundIcon(
-          icon: Icons.skip_next,
-          onTap: () => ref.read(playbackProvider.notifier).next(),
-        ),
-        if (!capsule) const SizedBox(width: IaSpacing.s),
-      ],
-    );
-
-    final inner = InkWell(
-      onTap: () => openNowPlaying(context),
-      child: capsule
-          ? Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: IaSpacing.s, vertical: IaSpacing.s),
-              child: content,
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: IaSpacing.l, vertical: IaSpacing.s),
-              child: content,
-            ),
-    );
-
-    if (!capsule) {
-      return Container(
-        decoration: BoxDecoration(
-          color: p.surface,
-          border: Border(top: BorderSide(color: p.separator)),
-        ),
-        child: inner,
-      );
-    }
-    return Material(
-      color: p.surface.withValues(alpha: 0.96),
-      elevation: 6,
-      shadowColor: Colors.black45,
-      borderRadius: BorderRadius.circular(999),
-      child: inner,
-    );
-  }
-}
-
-class _RoundIcon extends StatelessWidget {
-  const _RoundIcon({
-    required this.icon,
-    required this.onTap,
-    this.filled = false,
-  });
-
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool filled;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = context.ia;
-    return InkWell(
-      onTap: onTap,
-      customBorder: const CircleBorder(),
-      child: Container(
-        width: filled ? 36 : 34,
-        height: filled ? 36 : 34,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: filled ? p.accent : Colors.transparent,
-        ),
-        child: Icon(
-          icon,
-          size: filled ? 20 : 22,
-          color: filled ? p.onAccent : p.mainText,
         ),
       ),
     );
   }
+}
+
+/// 打开 NP 的统一入口（上滑展开 + 磁贴翻开）。
+void openNowPlaying(BuildContext context) {
+  Navigator.of(context).push(PageRouteBuilder<void>(
+    opaque: false,
+    transitionDuration: const Duration(milliseconds: 260),
+    pageBuilder: (_, _, _) => const SizedBox.shrink(),
+    transitionsBuilder: (_, anim, _, child) {
+      return SlideTransition(
+        position:
+            Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+                .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+        child: FadeTransition(opacity: anim, child: child),
+      );
+    },
+  ));
 }

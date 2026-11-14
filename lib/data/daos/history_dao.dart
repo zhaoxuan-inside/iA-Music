@@ -43,6 +43,7 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
         title: r.title,
         artist: r.artist,
         album: r.album,
+        genre: r.genre,
         durationMs: r.durationMs,
         sizeBytes: r.sizeBytes,
         contentHash: r.contentHash,

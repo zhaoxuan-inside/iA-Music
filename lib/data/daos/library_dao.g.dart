@@ -6,6 +6,7 @@ part of 'library_dao.dart';
 mixin _$LibraryDaoMixin on DatabaseAccessor<IaDatabase> {
   $RepositoryRootsTable get repositoryRoots => attachedDatabase.repositoryRoots;
   $TracksTable get tracks => attachedDatabase.tracks;
+  $PlayHistoryTable get playHistory => attachedDatabase.playHistory;
   LibraryDaoManager get managers => LibraryDaoManager(this);
 }
 
@@ -19,4 +20,6 @@ class LibraryDaoManager {
       );
   $$TracksTableTableManager get tracks =>
       $$TracksTableTableManager(_db.attachedDatabase, _db.tracks);
+  $$PlayHistoryTableTableManager get playHistory =>
+      $$PlayHistoryTableTableManager(_db.attachedDatabase, _db.playHistory);
 }

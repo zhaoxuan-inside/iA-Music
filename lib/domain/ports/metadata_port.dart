@@ -8,6 +8,7 @@ class ParsedTags {
     required this.title,
     required this.artist,
     required this.album,
+    required this.genre,
     required this.trackNo,
     required this.durationMs,
     required this.audioFormat,
@@ -16,6 +17,9 @@ class ParsedTags {
   final String title;
   final String artist;
   final String album;
+
+  /// 流派裸值（可空串——无标签即空，UI 侧隐藏流派入口）。
+  final String genre;
   final int trackNo;
   final int durationMs;
   final String audioFormat;

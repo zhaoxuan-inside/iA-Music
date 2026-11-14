@@ -1,15 +1,18 @@
-/// drift 数据库（schema v1 全新起始；库文件 ia_music_v2.db 与 v1 隔离）。
+/// drift 数据库（schema v3：v2 + tracks.needsMeta/enrichedAt；库文件 ia_music_v2.db）。
+/// 收集任务（CollectTasks）与 v3 列同批引入。
 library;
 
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import 'daos/collect_dao.dart';
 import 'daos/history_dao.dart';
 import 'daos/library_dao.dart';
 import 'daos/playlist_dao.dart';
 import 'daos/settings_dao.dart';
 import 'tables.dart';
 
+export 'daos/collect_dao.dart';
 export 'daos/history_dao.dart';
 export 'daos/library_dao.dart';
 export 'daos/playlist_dao.dart';
@@ -32,8 +35,9 @@ const String kFtsDdl =
     PlayHistory,
     LyricsMeta,
     Settings,
+    CollectTasks,
   ],
-  daos: [LibraryDao, PlaylistDao, HistoryDao, LyricsDao, SettingsDao],
+  daos: [LibraryDao, PlaylistDao, HistoryDao, CollectDao, LyricsDao, SettingsDao],
 )
 class IaDatabase extends _$IaDatabase {
   IaDatabase(super.e);
@@ -42,13 +46,28 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await customStatement(kFtsDdl);
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            // v2：tracks.genre（真实标签解析入库；无标签为空串）
+            //    + playlists.pending（GitHub 拉取歌单待提取数）
+            //    + collect_tasks（GitHub 歌单拉取/提取队列，落库）
+            await m.addColumn(tracks, tracks.genre);
+            await m.addColumn(playlists, playlists.pending);
+            await m.createTable(collectTasks);
+          }
+          if (from < 3) {
+            // v3：元数据补全（根据歌曲时长反向重建 歌名/歌手/歌词）
+            await m.addColumn(tracks, tracks.needsMeta);
+            await m.addColumn(tracks, tracks.enrichedAt);
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');

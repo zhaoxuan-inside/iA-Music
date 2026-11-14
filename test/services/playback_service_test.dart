@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ia_music/data/database.dart';
+import 'package:ia_music/domain/entities/playback.dart';
 import 'package:ia_music/domain/entities/track.dart';
 import 'package:ia_music/domain/ports/engine_port.dart';
 import 'package:ia_music/services/playback/playback_service.dart';
@@ -49,6 +50,8 @@ class FakeEngine implements EnginePort {
   @override
   Future<void> setVolume(double volume) async => lastVolume = volume;
   @override
+  Future<void> setRepeatMode(RepeatMode mode) async {}
+  @override
   Future<void> insertNext(QueueItem item) async {}
   @override
   Future<void> removeQueueIndex(int index) async {}
@@ -79,6 +82,8 @@ void main() {
           title: 'Track $i',
           artist: 'A',
           album: 'L',
+          genre: '',
+          needsMeta: false,
           trackNo: i,
           durationMs: 60000,
           sizeBytes: 10,

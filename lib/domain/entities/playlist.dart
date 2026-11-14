@@ -10,6 +10,7 @@ class Playlist {
     required this.kind,
     required this.trackCount,
     required this.createdAt,
+    this.pendingCount = 0,
   });
 
   final int id;
@@ -17,6 +18,9 @@ class Playlist {
   final PlaylistKind kind;
   final int trackCount;
   final DateTime createdAt;
+
+  /// GitHub 拉取歌单：等待提取的曲目数（0/null=无）。
+  final int pendingCount;
 
   bool get isSystem => kind == PlaylistKind.favorites;
 }

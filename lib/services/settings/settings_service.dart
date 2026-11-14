@@ -12,7 +12,9 @@ abstract final class SettingKeys {
   static const onboardingDone = 'onboarding.done';
   static const volume = 'playback.volume';
   static const shuffle = 'playback.shuffle';
+  static const repeat = 'playback.repeat'; // off | all | one
   static const session = 'playback.session'; // 会话恢复快照
+  static const accent = 'appearance.accent'; // WP 色板色值字符串
 }
 
 class SettingsService {

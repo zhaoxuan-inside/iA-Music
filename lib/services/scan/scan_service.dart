@@ -13,6 +13,7 @@ import 'package:audio_metadata_reader/audio_metadata_reader.dart' as am;
 import 'package:crypto/crypto.dart' show sha256;
 
 import '../../data/database.dart';
+import '../enrich/title_normalizer.dart';
 
 class ScanProgress {
   const ScanProgress({required this.done, required this.total, this.phase = ScanPhase.parsing});
@@ -137,6 +138,8 @@ class ScanService {
           title: out.title,
           artist: out.artist,
           album: out.album,
+          genre: out.genre,
+          needsMeta: out.needsMeta,
           trackNo: out.trackNo,
           durationMs: out.durationMs,
           sizeBytes: out.sizeBytes,
@@ -204,11 +207,13 @@ class ParseOut {
     required this.title,
     required this.artist,
     required this.album,
+    required this.genre,
     required this.trackNo,
     required this.durationMs,
     required this.sizeBytes,
     required this.hash,
     required this.audioFormat,
+    required this.needsMeta,
     this.error,
   });
 
@@ -217,6 +222,8 @@ class ParseOut {
   final String title;
   final String artist;
   final String album;
+  final String genre;
+  final bool needsMeta;
   final int trackNo;
   final int durationMs;
   final int sizeBytes;
@@ -237,15 +244,26 @@ List<ParseOut> parseChunk(String rootPath, List<String> rels) {
       final bytes = f.readAsBytesSync();
       final hash = sha256.convert(bytes).toString();
       final m = am.readMetadata(f, getImage: false);
-      final artist = (m.artist ?? '').trim();
+      var artist = (m.artist ?? '').trim();
+      if (artist.isEmpty) {
+        artist = (m.albumArtist ?? '').trim();
+      }
+      final tagTitle = (m.title ?? '').trim();
+      final fileBase = rel.substring(rel.lastIndexOf('/') + 1);
+      final norm = normalizeTitle(
+          raw: tagTitle, artistTag: artist.isNotEmpty ? artist : null, fileName: fileBase);
+      if (artist.isEmpty && norm.artist != null) {
+        artist = norm.artist!;
+      }
+      final needsMeta = artist.isEmpty || tagTitle.isEmpty;
       outs.add(ParseOut(
         relPath: rel,
         ok: true,
-        title: (m.title ?? '').trim().isEmpty
-            ? rel.substring(rel.lastIndexOf('/') + 1)
-            : (m.title ?? '').trim(),
-        artist: artist.isNotEmpty ? artist : (m.albumArtist ?? '').trim(),
+        title: norm.title,
+        artist: artist,
         album: (m.album ?? '').trim(),
+        genre: m.genres.isEmpty ? '' : m.genres.first.trim(),
+        needsMeta: needsMeta,
         trackNo: m.trackNumber ?? 0,
         durationMs: m.duration?.inMilliseconds ?? 0,
         sizeBytes: bytes.length,
@@ -261,6 +279,8 @@ List<ParseOut> parseChunk(String rootPath, List<String> rels) {
         title: '',
         artist: '',
         album: '',
+        genre: '',
+        needsMeta: false,
         trackNo: 0,
         durationMs: 0,
         sizeBytes: 0,

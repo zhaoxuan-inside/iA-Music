@@ -40,6 +40,7 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
                     : PlaylistKind.user,
                 trackCount: counts[r.id] ?? 0,
                 createdAt: r.createdAt,
+                pendingCount: r.pending,
               ))
           .toList()
         ..sort((a, b) {
@@ -116,6 +117,12 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
 
   // ── 喜欢（system_favorite 歌单是唯一事实源） ─────────────────────────
 
+  /// 喜欢电台取材：收藏夹曲目快照（非流；按当前位置序）。
+  Future<List<Track>> favoritesTracks() async {
+    final id = await ensureFavorites();
+    return watchPlaylistTracks(id).first;
+  }
+
   Future<int> ensureFavorites() async {
     final row = await (select(playlists)
           ..where((p) => p.kind.equals(PlaylistKindCol.favorites.name)))
@@ -177,6 +184,7 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
         title: r.title,
         artist: r.artist,
         album: r.album,
+        genre: r.genre,
         durationMs: r.durationMs,
         sizeBytes: r.sizeBytes,
         contentHash: r.contentHash,

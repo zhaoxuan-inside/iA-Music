@@ -3,6 +3,9 @@ library;
 
 import 'track.dart';
 
+/// 循环模式（v3 队列行为；引擎侧映射 mpv loop 属性）。
+enum RepeatMode { off, all, one }
+
 class PlaybackSnapshot {
   const PlaybackSnapshot({
     required this.queue,
@@ -14,6 +17,8 @@ class PlaybackSnapshot {
     required this.durationMs,
     required this.volume,
     required this.shuffle,
+    required this.repeat,
+    required this.sleepEndsAt,
   });
 
   const PlaybackSnapshot.initial()
@@ -27,6 +32,8 @@ class PlaybackSnapshot {
           durationMs: 0,
           volume: 100,
           shuffle: false,
+          repeat: RepeatMode.off,
+          sleepEndsAt: null,
         );
 
   final List<Track> queue;
@@ -38,6 +45,12 @@ class PlaybackSnapshot {
   final int durationMs;
   final double volume;
   final bool shuffle;
+
+  /// 循环模式（off/all/one）。
+  final RepeatMode repeat;
+
+  /// 睡眠定时到期时刻；null=未启用。
+  final DateTime? sleepEndsAt;
 
   Track? get current => (index >= 0 && index < queue.length) ? queue[index] : null;
 
@@ -51,6 +64,8 @@ class PlaybackSnapshot {
     double? volume,
     bool? shuffle,
     List<Track>? queue,
+    RepeatMode? repeat,
+    DateTime? sleepEndsAt,
   }) =>
       PlaybackSnapshot(
         queue: queue ?? this.queue,
@@ -62,5 +77,7 @@ class PlaybackSnapshot {
         durationMs: durationMs ?? this.durationMs,
         volume: volume ?? this.volume,
         shuffle: shuffle ?? this.shuffle,
+        repeat: repeat ?? this.repeat,
+        sleepEndsAt: sleepEndsAt ?? this.sleepEndsAt,
       );
 }

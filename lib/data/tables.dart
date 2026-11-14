@@ -26,6 +26,7 @@ class Tracks extends Table {
   TextColumn get artistNorm => text()();
   TextColumn get album => text()();
   TextColumn get albumNorm => text()();
+  TextColumn get genre => text().withDefault(const Constant(''))();
   IntColumn get trackNo => integer().withDefault(const Constant(0))();
   IntColumn get durationMs => integer().withDefault(const Constant(0))();
   IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
@@ -35,6 +36,10 @@ class Tracks extends Table {
   DateTimeColumn get coverCheckedAt => dateTime().nullable()();
   DateTimeColumn get missingAt => dateTime().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// 元数据补全：true=歌手/歌名待反向重建；enrichedAt=补全完成时刻。
+  BoolColumn get needsMeta => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get enrichedAt => dateTime().nullable()();
 }
 
 @DataClassName('PlaylistRow')
@@ -42,6 +47,8 @@ class Playlists extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text()();
   TextColumn get kind => textEnum<PlaylistKindCol>()();
+  /// GitHub 拉取歌单：待提取曲目数（0=无待提取）。
+  IntColumn get pending => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override

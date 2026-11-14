@@ -28,6 +28,8 @@ dependencies:
   pinyin: 3.3.0
   crypto: ^3.0.7
   mpv_audio_kit: 0.5.1 # 锁定：与 vendored libmpv 及适配器语义已验证对齐（0.5.3 变更未验证）
+  chromaprint: # FFI：AcoustID 音频指纹（vendored——pub 包 C++ 源码缺失，仓库内补全 chromaprint 1.5.1 src）
+    path: third_party/chromaprint-ffi
   permission_handler: ^11.3.1
 
 dev_dependencies:

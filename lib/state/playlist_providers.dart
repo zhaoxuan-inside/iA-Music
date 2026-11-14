@@ -1,0 +1,21 @@
+/// 歌单 providers（v2 中散落在 UI 文件，v3 收拢到状态层）。
+library;
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../data/database.dart';
+import '../domain/entities/playlist.dart';
+import '../domain/entities/track.dart';
+import 'providers.dart';
+
+final playlistListProvider = StreamProvider<List<Playlist>>(
+    (ref) => ref.watch(dbProvider).playlistDao.watchPlaylists());
+
+final playlistTracksProvider =
+    StreamProvider.family<List<Track>, int>((ref, playlistId) {
+  return ref.watch(dbProvider).playlistDao.watchPlaylistTracks(playlistId);
+});
+
+/// 历史去重列表（最近播放页用）。
+final recentHistoryProvider = StreamProvider<List<HistoryItem>>(
+    (ref) => ref.watch(dbProvider).historyDao.watchRecent(limit: 300));

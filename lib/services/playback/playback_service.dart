@@ -38,6 +38,8 @@ class PlaybackService {
 
   PlaybackSnapshot _snap = const PlaybackSnapshot.initial();
   Timer? _sessionTimer;
+  Timer? _sleepTimer;
+  double? _preSleepVolume;
   bool _inited = false;
   bool _disposed = false;
 
@@ -53,8 +55,12 @@ class PlaybackService {
     await _engine.init();
     final volume = await _settings.getDouble(SettingKeys.volume, fallback: 100);
     final shuffle = await _settings.getBool(SettingKeys.shuffle);
-    _snap = _snap.copyWith(volume: volume.clamp(0.0, 100.0), shuffle: shuffle);
+    final repeatName = await _settings.getString(SettingKeys.repeat);
+    final repeat = RepeatMode.values.asNameMap()[repeatName] ?? RepeatMode.off;
+    _snap = _snap.copyWith(
+        volume: volume.clamp(0.0, 100.0), shuffle: shuffle, repeat: repeat);
     await _engine.setVolume(_snap.volume);
+    await _engine.setRepeatMode(repeat);
     _sub = _engine.events.listen(_onEvent);
     if (resumeSession) {
       await _tryRestore();
@@ -137,6 +143,61 @@ class PlaybackService {
     _snap = _snap.copyWith(shuffle: v);
     _emit();
     await _settings.setBool(SettingKeys.shuffle, v);
+  }
+
+  /// 设置循环模式（off/all/one；引擎映射 + 持久化）。
+  Future<void> setRepeatMode(RepeatMode mode) async {
+    _snap = _snap.copyWith(repeat: mode);
+    _emit();
+    await _engine.setRepeatMode(mode);
+    await _settings.setString(SettingKeys.repeat, mode.name);
+  }
+
+  /// 睡眠定时：[minutes] 分钟后 5s 音量淡出并暂停；null=取消。
+  void setSleepTimer(int? minutes) {
+    _sleepTimer?.cancel();
+    if (minutes == null || minutes <= 0) {
+      _snap = _snap.copyWith(sleepEndsAt: null);
+      _emit();
+      return;
+    }
+    _preSleepVolume = _snap.volume;
+    final endsAt = DateTime.now().add(Duration(minutes: minutes));
+    _sleepTimer = Timer(
+        Duration(minutes: minutes),
+        () => unawaited(_fadeOutAndPause(endsAt)));
+    _snap = _snap.copyWith(sleepEndsAt: endsAt);
+    _emit();
+  }
+
+  /// 5s 线性淡出后暂停（音量恢复原值，下一次播放不哑）。
+  Future<void> _fadeOutAndPause(DateTime endsAt) async {
+    const steps = 10;
+    const stepMs = 500;
+    final from = _snap.volume;
+    for (var i = 1; i <= steps; i++) {
+      await _engine.setVolume(from * (1 - i / steps));
+      await Future<void>.delayed(const Duration(milliseconds: stepMs));
+    }
+    await pause();
+    await _engine.setVolume(from); // 恢复音量（暂停态下静音会延续到下曲）
+    _preSleepVolume = null;
+    if (_snap.sleepEndsAt == endsAt) {
+      _snap = _snap.copyWith(sleepEndsAt: null);
+      _emit();
+    }
+  }
+
+  /// 取消睡眠定时（淡出中断，音量不受影响）。
+  void cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    if (_preSleepVolume != null) {
+      unawaited(_engine.setVolume(_preSleepVolume!));
+      _preSleepVolume = null;
+    }
+    _snap = _snap.copyWith(sleepEndsAt: null);
+    _emit();
   }
 
   /// 下一首播放：插队（引擎物理 playlist + 服务镜像同位对齐）。
@@ -355,6 +416,7 @@ class PlaybackService {
     _disposed = true;
     await _saveSession();
     _sessionTimer?.cancel();
+    _sleepTimer?.cancel();
     await _sub?.cancel();
     await _engine.dispose();
     await _state.close();

@@ -50,3 +50,6 @@ app.*.map.json
 # iA-Music：构建产物与本地输出
 /output/
 packaging/*.ps1.orig
+
+# vendored chromaprint-ffi：原生构建缓存（源码入库，.cxx 不入）
+third_party/chromaprint-ffi/android/.cxx/

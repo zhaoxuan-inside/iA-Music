@@ -24,6 +24,7 @@ class MetadataReaderAdapter implements MetadataPort {
           title: (m.title ?? '').trim(),
           artist: artist.isNotEmpty ? artist : (m.albumArtist ?? '').trim(),
           album: (m.album ?? '').trim(),
+          genre: m.genres.isEmpty ? '' : m.genres.first.trim(),
           trackNo: m.trackNumber ?? 0,
           durationMs: m.duration?.inMilliseconds ?? 0,
           audioFormat: _ext(path),

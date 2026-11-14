@@ -97,6 +97,40 @@ class LrclibAdapter implements LyricTextSearchPort {
     return true;
   }
 
+  @override
+  Future<List<LrcMatch>> searchMatches(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      return const <LrcMatch>[];
+    }
+    final items = await _searchList(_get('/api/search', {'q': q}));
+    final ms = <LrcMatch>[];
+    for (final it in items) {
+      final m = _toMatch(it);
+      if (m != null) {
+        ms.add(m);
+      }
+    }
+    return ms;
+  }
+
+  LrcMatch? _toMatch(Map<String, dynamic> j) {
+    final hasLyric =
+        ((j['syncedLyrics'] as String?)?.trim().isNotEmpty ?? false) ||
+            ((j['plainLyrics'] as String?)?.trim().isNotEmpty ?? false);
+    if (!hasLyric) {
+      return null;
+    }
+    final dur = (j['duration'] as num?)?.toInt() ?? 0;
+    return LrcMatch(
+      trackName: (j['trackName'] as String?)?.trim() ?? '',
+      artistName: (j['artistName'] as String?)?.trim() ?? '',
+      durationMs: dur * 1000,
+      syncedLrc: (j['syncedLyrics'] as String?) ?? '',
+      plainLrc: (j['plainLyrics'] as String?) ?? '',
+    );
+  }
+
   LyricHit? _toHit(Map<String, dynamic> j) {
     final synced = (j['syncedLyrics'] as String?) ?? '';
     final plain = (j['plainLyrics'] as String?) ?? '';
