@@ -1,8 +1,6 @@
 /// 封面组件：文件命中用真图；未决议用确定性色块（按曲目 id 取色）。
 library;
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,8 +20,8 @@ class CoverArt extends ConsumerWidget {
         ref.watch(coverProvider((track.id, track.coverPath))).value;
     if (file != null && file.existsSync()) {
       return Image.file(file,
-          width: size,
-          height: size,
+          width: size.isFinite ? size : null,
+          height: size.isFinite ? size : null,
           fit: BoxFit.cover,
           gaplessPlayback: true,
           errorBuilder: (_, _, _) => _fallback(context, track.id, size));
@@ -35,15 +33,15 @@ class CoverArt extends ConsumerWidget {
   Widget _fallback(BuildContext context, int id, double size) {
     final h = (id * 47) % 360;
     return Container(
-      width: size,
-      height: size,
+      width: size.isFinite ? size : null,
+      height: size.isFinite ? size : null,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            HSLColor.fromAHSL(1, h.toDouble(), 0.62, 0.50).toColor(),
-            HSLColor.fromAHSL(1, ((h + 45) % 360).toDouble(), 0.72, 0.24).toColor(),
+            HSLColor.fromAHSL(1, h.toDouble(), 0.38, 0.24).toColor(),
+            HSLColor.fromAHSL(1, ((h + 40) % 360).toDouble(), 0.50, 0.08).toColor(),
           ],
         ),
       ),
@@ -51,7 +49,7 @@ class CoverArt extends ConsumerWidget {
       child: Text(
         (track.title.isNotEmpty ? track.title[0] : '?'),
         style: TextStyle(
-          fontSize: size * 0.36,
+          fontSize: size.isFinite ? size * 0.36 : 28,
           fontWeight: IaType.light,
           color: IaColors.textHi.withValues(alpha: 0.85),
         ),

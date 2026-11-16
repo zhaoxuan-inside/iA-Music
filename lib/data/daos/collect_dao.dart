@@ -51,8 +51,43 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
         .get();
   }
 
+  /// 僵尸回收：App 中途死亡留下的 running 任务重回队列。
+  /// 本队列单用户单进程——runner 开轮时不存在「合法的 running」。
+  Future<int> requeueRunning() {
+    return (update(collectTasks)
+          ..where((t) => t.status.equals(CollectStatusCol.running.name)))
+        .write(CollectTasksCompanion(
+      status: Value(CollectStatusCol.pending),
+      progress: const Value(0),
+    ));
+  }
+
   Future<int> addTask(CollectTasksCompanion entry) =>
       into(collectTasks).insert(entry, onConflict: DoNothing());
+
+  /// 入队便利（UI/服务层免构 Companion；标题空由提取引擎运行时补全）。
+  /// 重复链接（唯一键冲突）不重复入队也不抛错——返回已有任务 id，
+  /// 让调用方得以驱动一轮 runOnce（僵尸任务由此获得回收机会）。
+  Future<int> enqueue(String source, String url,
+      {String title = '', String artist = '', int? playlistId}) async {
+    try {
+      return await addTask(CollectTasksCompanion.insert(
+        source: source,
+        url: url,
+        title: title,
+        artist: artist,
+        playlistId: Value(playlistId),
+      ));
+    } on Object {
+      final existing = await (select(collectTasks)
+            ..where((t) =>
+                t.url.equals(url) &
+                t.title.equals(title) &
+                t.artist.equals(artist)))
+          .getSingleOrNull();
+      return existing?.id ?? -1;
+    }
+  }
 
   Future<void> setProgress(int id, int progress) {
     return (update(collectTasks)..where((t) => t.id.equals(id)))
@@ -66,5 +101,27 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
         filePath: filePath == null ? const Value.absent() : Value(filePath),
       ),
     );
+  }
+
+  /// 多 P 拆分：把当前任务重定向到指定分 P（URL/标题/歌手）。
+  Future<void> retarget(int id,
+      {required String url, required String title, required String artist}) {
+    return (update(collectTasks)..where((t) => t.id.equals(id))).write(
+      CollectTasksCompanion(
+        url: Value(url),
+        title: Value(title),
+        artist: Value(artist),
+      ),
+    );
+  }
+
+  /// 批量任务（如 100P 合集）里失败的任务重新排队。
+  Future<int> retryFailed() {
+    return (update(collectTasks)
+          ..where((t) => t.status.equals(CollectStatusCol.failed.name)))
+        .write(CollectTasksCompanion(
+      status: Value(CollectStatusCol.pending),
+      progress: const Value(0),
+    ));
   }
 }

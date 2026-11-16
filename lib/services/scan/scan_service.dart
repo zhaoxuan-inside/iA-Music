@@ -166,7 +166,11 @@ class ScanService {
   }
 
   /// 递归收集音频相对路径；跳过隐藏目录与符号链接环。
-  Iterable<String> _walk(Directory dir) sync* {
+  Iterable<String> _walk(Directory root) sync* {
+    yield* _walkDir(root, root.path);
+  }
+
+  Iterable<String> _walkDir(Directory dir, String rootPath) sync* {
     final entries = dir.listSync(followLinks: false);
     for (final e in entries) {
       if (e is Link) {
@@ -177,13 +181,17 @@ class ScanService {
         continue;
       }
       if (e is Directory) {
-        yield* _walk(e);
+        yield* _walkDir(e, rootPath);
       } else if (e is File) {
         final ext = e.path.contains('.')
             ? e.path.substring(e.path.lastIndexOf('.') + 1).toLowerCase()
             : '';
         if (audioExtensions.contains(ext)) {
-          yield e.path.substring(dir.path.length + 1).replaceAll('\\', '/');
+          // 必须相对「扫描根」而不是当前子目录，否则 Artist/Album/song.mp3
+          // 会被拼成 root/song.mp3，解析失败后整首被跳过。
+          yield e.path
+              .substring(rootPath.length + 1)
+              .replaceAll('\\', '/');
         }
       }
     }

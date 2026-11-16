@@ -56,6 +56,8 @@ class FakeEngine implements EnginePort {
   @override
   Future<void> removeQueueIndex(int index) async {}
   @override
+  Future<void> moveQueueIndex(int from, int to) async {}
+  @override
   Future<void> stopAll() async {}
   @override
   Future<void> updateMediaSession(MediaSessionInfo info) async {}
@@ -191,6 +193,21 @@ void main() {
     await service.playTracks(tracks, startIndex: 0);
     await service.playNext(tracks[3]);
     expect(service.snapshot.queue[1].id, tracks[3].id);
+  });
+
+  test('拖拽重排 reorderQueue：下移 / 上移 + 当前索引对齐', () async {
+    await service.playTracks(tracks, startIndex: 1); // 当前 = Track 2（idx1）
+    // 下移：Track 2 (idx1) → 移除后插到 idx2，最终仍 idx2
+    await service.reorderQueue(1, 2);
+    expect(service.snapshot.queue.map((t) => t.id).toList(),
+        [tracks[0].id, tracks[2].id, tracks[1].id, tracks[3].id]);
+    expect(service.snapshot.index, 2); // 当前曲跟随条目移动
+    // 上移：Track 4 (idx3) → 队首，当前 idx2 ≤ from 不动
+    await service.reorderQueue(3, 0);
+    expect(service.snapshot.queue.first.id, tracks[3].id);
+    expect(service.snapshot.queue.last.id, tracks[1].id);
+    expect(service.snapshot.index, 3); // from(3) 之后被移走：2 → 3
+    expect(service.snapshot.current?.id, tracks[1].id);
   });
 
   test('音量持久化', () async {

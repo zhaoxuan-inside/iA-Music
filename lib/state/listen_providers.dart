@@ -71,10 +71,27 @@ final historyProvider = StreamProvider<List<HistoryItem>>(
     (ref) => ref.watch(dbProvider).historyDao.watchRecent(limit: 100));
 
 /// 历史去重后的曲目序列（最新在前）。
-final recentPlayedTracksProvider = Provider<List<Track>>((ref) {
+/// 最近播放专辑（demo renderHistRow：历史顺序专辑去重，上限 8）。
+final recentPlayedAlbumsProvider = Provider<List<AlbumGroup>>((ref) {
   final items = ref.watch(historyProvider).value ?? const <HistoryItem>[];
-  final seen = <int>{};
-  return [for (final it in items) if (seen.add(it.track.id)) it.track];
+  final albums = ref.watch(albumsProvider).value ?? const <AlbumGroup>[];
+  final byNorm = {for (final a in albums) albumKey(a.album): a};
+  final seen = <String>{};
+  final out = <AlbumGroup>[];
+  for (final it in items) {
+    final key = albumKey(it.track.album);
+    if (!seen.add(key)) {
+      continue;
+    }
+    final a = byNorm[key];
+    if (a != null) {
+      out.add(a);
+    }
+    if (out.length >= 8) {
+      break;
+    }
+  }
+  return out;
 });
 
 /// 最近入库专辑：按曲目 addedAt 倒序给专辑组排序（最新专辑在前）。

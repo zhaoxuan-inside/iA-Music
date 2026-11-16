@@ -1,17 +1,19 @@
 /// 分类列表页（pivot 横滑：艺人|专辑|歌曲|歌单）+ 字母速查轨 + 长按菜单。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../domain/entities/track.dart';
-import '../../state/library_providers.dart';
-import '../../state/letter.dart';
-import '../../state/providers.dart';
 import '../../domain/entities/playlist.dart';
-import '../../state/playlist_providers.dart';
+import '../../domain/entities/track.dart';
+import '../../state/letter.dart';
+import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
+import '../../state/playlist_providers.dart';
+import '../../state/providers.dart';
 import '../detail/detail_page.dart';
 import '../shared/actions.dart';
 import '../shared/cover.dart';
@@ -70,15 +72,35 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 16),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
-                  const SizedBox(width: IaSpacing.s),
-                  Text('音乐',
-                      style: TextStyle(
-                          fontSize: IaType.page,
-                          fontWeight: IaType.light,
-                          color: IaColors.textHi)),
+                  const SizedBox(width: IaSpacing.xs),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '分类浏览',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: IaType.semibold,
+                          letterSpacing: IaType.kickerTracking,
+                          color: Theme.of(context)
+                              .extension<IaPalette>()!
+                              .accent,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('音乐',
+                          style: TextStyle(
+                              fontSize: IaType.hub,
+                              height: 1.05,
+                              fontWeight: IaType.light,
+                              letterSpacing: IaType.titleTracking,
+                              color: IaColors.textHi)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -103,17 +125,31 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                         onTap: () => _switchTo(t),
                         child: Padding(
                           padding: const EdgeInsets.only(right: IaSpacing.l),
-                          child: Text(titles[t]!,
-                              style: TextStyle(
-                                  fontSize: _tab == t
-                                      ? IaType.pivotCur
-                                      : IaType.pivotIdle,
-                                  fontWeight: _tab == t
-                                      ? IaType.light
-                                      : IaType.regular,
-                                  color: _tab == t
-                                      ? IaColors.textHi
-                                      : IaColors.textMid)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(titles[t]!,
+                                  style: TextStyle(
+                                      fontSize: _tab == t
+                                          ? IaType.pivotCur
+                                          : IaType.pivotIdle,
+                                      fontWeight: _tab == t
+                                          ? IaType.light
+                                          : IaType.regular,
+                                      color: _tab == t
+                                          ? IaColors.textHi
+                                          : IaColors.textMid)),
+                              const SizedBox(height: 8),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: _tab == t ? 24 : 0,
+                                height: 2,
+                                color: Theme.of(context)
+                                    .extension<IaPalette>()!
+                                    .accent,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                   ],
@@ -139,7 +175,7 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
     );
   }
 
-  GlobalKey _bumpKey(String l) => _listKey.putIfAbsent('$_tab-$l', () => GlobalKey());
+  GlobalKey _bumpKey(String l) => _listKey.putIfAbsent('$_tab-$l', GlobalKey.new);
 }
 
 /* ── 艺人列表 ─────────────────────────────────────────────────────── */
@@ -175,7 +211,7 @@ class _ArtistsList extends ConsumerWidget {
         slots.add(Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            onTap: () => Navigator.of(context).push(zuneRoute<void>(
                 builder: (_) => DetailPage(
                     type: DetailType.artist, id: artistKey(a.artist)))),
             onLongPress: () => showWpMenu(context,
@@ -190,7 +226,9 @@ class _ArtistsList extends ConsumerWidget {
                           .watchArtistTracks(artistKey(a.artist))
                           .first;
                       if (context.mounted) {
-                        ref.read(playbackProvider.notifier).playTracks(tracks, shuffle: true);
+                        unawaited(ref
+                            .read(playbackProvider.notifier)
+                            .playTracks(tracks, shuffle: true));
                       }
                     },
                   ),
@@ -259,7 +297,10 @@ class _AlbumsGrid extends ConsumerWidget {
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.m, edge.right, 140),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 18),
+          crossAxisCount: 2,
+          crossAxisSpacing: 14,
+          mainAxisSpacing: 18,
+          childAspectRatio: 0.76),
       itemCount: albums.length,
       itemBuilder: (_, i) => _AlbumTile(album: albums[i]),
     );
@@ -276,7 +317,7 @@ class _AlbumTile extends ConsumerWidget {
     final tracks = ref.watch(albumTracksProvider(albumKey(album.album))).value ?? const <Track>[];
     final first = tracks.firstOrNull;
     return InkWell(
-      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+      onTap: () => Navigator.of(context).push(zuneRoute<void>(
           builder: (_) => DetailPage(type: DetailType.album, id: albumKey(album.album)))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,20 +359,14 @@ class _SongsList extends ConsumerWidget {
       itemCount: tracks.length,
       itemBuilder: (_, i) {
         final t = tracks[i];
-        return Row(
-          children: [
-            CoverArt(track: t, size: IaSpacing.coverSmall),
-            Expanded(
-              child: SongRow(
-                track: t,
-                isPlaying: playingId == t.id,
-                isLiked: ref.watch(favoriteProvider(t.id)).value ?? false,
-                onTap: () =>
-                    ref.read(playbackProvider.notifier).playTracks(tracks, startIndex: i),
-                onLongPress: () => showTrackMenu(context, ref, t),
-              ),
-            ),
-          ],
+        return SongRow(
+          track: t,
+          leading: CoverArt(track: t, size: IaSpacing.coverSmall),
+          isPlaying: playingId == t.id,
+          isLiked: ref.watch(favoriteProvider(t.id)).value ?? false,
+          onTap: () =>
+              ref.read(playbackProvider.notifier).playTracks(tracks, startIndex: i),
+          onLongPress: () => showTrackMenu(context, ref, t),
         );
       },
     );
@@ -356,7 +391,7 @@ class _PlaylistsList extends ConsumerWidget {
         return Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            onTap: () => Navigator.of(context).push(zuneRoute<void>(
                 builder: (_) => DetailPage(
                     type: DetailType.playlist, id: p.id.toString()))),
             child: Container(

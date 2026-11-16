@@ -210,7 +210,13 @@ class PlaybackService {
     final q = List<Track>.of(_snap.queue)..insert(i + 1, track);
     _snap = _snap.copyWith(queue: q);
     _emit();
-    await _engine.insertNext(QueueItem(path: track.path, title: track.title, artist: track.artist));
+    await _engine.insertNext(QueueItem(
+        path: track.path,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        durationMs: track.durationMs,
+        coverPath: track.coverPath));
   }
 
   Future<void> removeFromQueue(int index) async {
@@ -221,6 +227,31 @@ class PlaybackService {
     _snap = _snap.copyWith(queue: q, index: index < _snap.index ? _snap.index - 1 : _snap.index);
     _emit();
     await _engine.removeQueueIndex(index);
+  }
+
+  /// 拖拽重排：[from] 条目移除后插到 [to]（onReorderItem 口径，最终索引=to）。
+  /// 队列权威在本服务：镜像列表先行，引擎 playlist-move 跟随。
+  Future<void> reorderQueue(int from, int to) async {
+    if (from < 0 || from >= _snap.queue.length) {
+      return;
+    }
+    if (to < 0 || to > _snap.queue.length || to == from) {
+      return;
+    }
+    final q = List<Track>.of(_snap.queue);
+    final moved = q.removeAt(from);
+    q.insert(to, moved);
+    var index = _snap.index;
+    if (index == from) {
+      index = to;
+    } else if (from < index && index <= to) {
+      index--;
+    } else if (to <= index && index < from) {
+      index++;
+    }
+    _snap = _snap.copyWith(queue: q, index: index);
+    _emit();
+    await _engine.moveQueueIndex(from, to);
   }
 
   Future<void> clearQueue() async {
@@ -248,6 +279,12 @@ class PlaybackService {
         _scheduleSessionSave();
       case EngineItemEnded(:final queueIndex):
         _onItemEnded(queueIndex);
+      case EngineIndexChanged(:final queueIndex):
+        if (queueIndex >= 0 && queueIndex < _snap.queue.length) {
+          _snap = _snap.copyWith(
+              index: queueIndex, positionMs: 0, ended: false);
+          unawaited(_publishMediaSession());
+        }
       case EngineFailed(:final error):
         _onEngineError(error);
       case EngineMediaCommand(:final kind, :final positionMs, :final offsetMs):
@@ -400,7 +437,13 @@ class PlaybackService {
 
   List<QueueItem> _toItems(List<Track> tracks) => [
         for (final t in tracks)
-          QueueItem(path: t.path, title: t.title, artist: t.artist),
+          QueueItem(
+              path: t.path,
+              title: t.title,
+              artist: t.artist,
+              album: t.album,
+              durationMs: t.durationMs,
+              coverPath: t.coverPath),
       ];
 
   void _emit() {

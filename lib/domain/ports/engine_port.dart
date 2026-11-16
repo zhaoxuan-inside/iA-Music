@@ -1,8 +1,6 @@
 /// EnginePort —— 播放引擎契约（P1 口径：队列/播放控制/事件流/媒体会话）。
 ///
-/// 实现注意（v1 探针实证，沿用）：
-/// * 末条目判终=completed（mpv keep-open 扣留 END_FILE）；中段切条=endFile(eof)；
-///   错误条目引擎自动推进（endFile(error)），adapter 只转发事件。
+/// 实现注意：
 /// * 事件顺序契约：StateChanged 先于派生事件；position 心跳 ≤250ms。
 library;
 
@@ -29,6 +27,12 @@ final class EnginePositionTick extends EngineEvent {
 /// 中段自然切条或末条播完（index=队列索引）。
 final class EngineItemEnded extends EngineEvent {
   const EngineItemEnded(this.queueIndex);
+  final int queueIndex;
+}
+
+/// 外部（通知栏上一首/大跨度跳转）导致的索引变化；服务直接对齐。
+final class EngineIndexChanged extends EngineEvent {
+  const EngineIndexChanged(this.queueIndex);
   final int queueIndex;
 }
 
@@ -66,11 +70,23 @@ final class MediaSessionInfo {
 
 /// 队列条目（引擎只消费的最小面）。
 class QueueItem {
-  const QueueItem({required this.path, required this.title, required this.artist});
+  const QueueItem({
+    required this.path,
+    required this.title,
+    required this.artist,
+    this.album = '',
+    this.durationMs = 0,
+    this.coverPath,
+  });
 
   final String path;
   final String title;
   final String artist;
+  final String album;
+  final int durationMs;
+
+  /// 本地封面路径（通知栏/锁屏用；可空）。
+  final String? coverPath;
 }
 
 abstract class EnginePort {
@@ -103,6 +119,11 @@ abstract class EnginePort {
 
   /// 移除队列第 [index] 条（不得为当前播放条；调用方守卫）。
   Future<void> removeQueueIndex(int index);
+
+  /// 队列条目移动：[from] 条目移除后插到 [to]（最终索引 = [to]）。
+  /// 语义同 List 的 removeAt(from)+insertAt(to)，与 Flutter
+  /// ReorderableListView 的 onReorderItem 一致。
+  Future<void> moveQueueIndex(int from, int to);
 
   /// 停止并清空引擎队列。
   Future<void> stopAll();

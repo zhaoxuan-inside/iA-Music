@@ -5,6 +5,20 @@ import 'package:flutter/material.dart';
 
 import 'design_tokens.dart';
 
+/// 去掉 Android 的拉伸光晕与回弹：Zune 的滚动是干净的、立刻停住的。
+class ZuneScrollBehavior extends MaterialScrollBehavior {
+  const ZuneScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+          BuildContext context, Widget child, ScrollableDetails details) =>
+      child;
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) =>
+      const ClampingScrollPhysics();
+}
+
 /// 构建黑胶金时代主题。[accent] 为用户选定的 WP 色板色值。
 ThemeData buildIaTheme({required Color accent}) {
   final p = IaPalette(accent: accent);
@@ -29,14 +43,42 @@ ThemeData buildIaTheme({required Color accent}) {
     brightness: Brightness.dark,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: p.canvas,
+    canvasColor: p.canvas,
     extensions: [p],
-    splashFactory: InkSparkle.splashFactory,
+    // Zune 没有 Material 水波纹：点按只让 accent 微微透出，保持画面安静。
+    splashFactory: NoSplash.splashFactory,
+    highlightColor: p.accent.withValues(alpha: 0.06),
+    hoverColor: p.accent.withValues(alpha: 0.05),
+    focusColor: p.accent.withValues(alpha: 0.08),
+    iconTheme: const IconThemeData(color: IaColors.textMid, size: 22),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       foregroundColor: IaColors.textHi,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: Colors.black,
+      modalBackgroundColor: Colors.black,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(),
+    ),
+    dialogTheme: const DialogThemeData(
+      backgroundColor: Colors.black,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(),
+    ),
+    scrollbarTheme: ScrollbarThemeData(
+      thickness: const WidgetStatePropertyAll(0),
+      thumbVisibility: const WidgetStatePropertyAll(false),
+      radius: Radius.zero,
+      thumbColor: WidgetStatePropertyAll(p.textLow),
+    ),
+    textSelectionTheme: TextSelectionThemeData(
+      cursorColor: p.accent,
+      selectionColor: p.accent.withValues(alpha: 0.28),
+      selectionHandleColor: p.accent,
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
@@ -79,8 +121,10 @@ ThemeData buildIaTheme({required Color accent}) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: p.accent,
-        foregroundColor: p.onAccent,
+        backgroundColor: Colors.transparent,
+        foregroundColor: p.accent,
+        surfaceTintColor: Colors.transparent,
+        side: BorderSide(color: p.accent),
         shape: const RoundedRectangleBorder(),
       ),
     ),

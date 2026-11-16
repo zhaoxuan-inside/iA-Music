@@ -7,6 +7,9 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../app/config/collect_config.dart';
+import 'diagnostics.dart';
+import 'enrich_controller.dart';
 import 'providers.dart';
 
 class ScanState {
@@ -15,6 +18,7 @@ class ScanState {
     this.done = 0,
     this.total = 0,
     this.lastSummary = '',
+    this.lastError,
   });
 
   final bool scanning;
@@ -22,19 +26,27 @@ class ScanState {
   final int total;
   final String lastSummary;
 
+  /// 最近一次扫描失败的真实原因（成功时置 null）。
+  final String? lastError;
+
   ScanState copyWith({
     bool? scanning,
     int? done,
     int? total,
     String? lastSummary,
+    Object? lastError = _unset,
   }) =>
       ScanState(
         scanning: scanning ?? this.scanning,
         done: done ?? this.done,
         total: total ?? this.total,
         lastSummary: lastSummary ?? this.lastSummary,
+        lastError: lastError == _unset ? this.lastError : lastError as String?,
       );
 }
+
+/// copyWith 哨兵：区分「不改 lastError」与「清空 lastError」。
+const Object _unset = Object();
 
 class ScanController extends Notifier<ScanState> {
   @override
@@ -46,19 +58,24 @@ class ScanController extends Notifier<ScanState> {
 
   Future<void> _attachWatcher() async {
     try {
-      await ref.read(rootWatcherProvider).sync();
+      await _syncWatcher();
     } on Object {
       // watcher 不可用不阻断
     }
   }
 
-  /// Android 预置目录集合（授权后可用）。
+  /// 根目录监听重挂（失败不阻断主流程；异常仅记录）。
+  Future<void> _syncWatcher() async {
+    try {
+      await ref.read(rootWatcherProvider).sync();
+    } on Object {
+      // watch 不可用（平台/挂载点限制）
+    }
+  }
+
+  /// Android 预置目录集合（授权后可用；预置列表在配置层）。
   Future<List<String>> androidPresetFolders() async {
-    const presets = [
-      '/storage/emulated/0/Music',
-      '/storage/emulated/0/Download',
-    ];
-    return [for (final p in presets) if (Directory(p).existsSync()) p];
+    return [for (final p in kPresetMusicDirs) if (Directory(p).existsSync()) p];
   }
 
   /// 请求音频读取权限（Android）。
@@ -84,11 +101,15 @@ class ScanController extends Notifier<ScanState> {
         : path;
     final existing = await db.libraryDao.allRoots();
     if (existing.any((r) => r.path == normalized)) {
+      // 已存在：立即重扫一次，保证「交互式更改」即点即生效
+      final r0 = existing.firstWhere((r) => r.path == normalized);
+      await _scanOne(r0.id, normalized);
+      await _syncWatcher();
       return 'exists';
     }
     final id = await db.libraryDao.addRoot(normalized);
-    unawaited(_scanOne(id, normalized));
-    await ref.read(rootWatcherProvider).sync();
+    await _scanOne(id, normalized);
+    await _syncWatcher();
     return 'ok';
   }
 
@@ -115,9 +136,16 @@ class ScanController extends Notifier<ScanState> {
         scanning: false,
         lastSummary: 'ins=${summary.inserted} upd=${summary.updated} '
             'miss=${summary.missing} rev=${summary.revived}',
+        lastError: null,
       );
-    } on Object {
-      state = state.copyWith(scanning: false);
+      // 扫完即补全：元数据缺失件自动入补全队列（补全进度见收集页）
+      unawaited(ref.read(enrichProvider.notifier).runOnce());
+    } on Object catch (e, st) {
+      // 不吞：真实原因入状态 + 诊断持久化（常驻「存储」页可读）
+      state = state.copyWith(
+          scanning: false, lastSummary: '扫描失败', lastError: '$e');
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('扫描', e, st));
     } finally {
       scan.onProgress = prev;
     }
@@ -127,11 +155,30 @@ class ScanController extends Notifier<ScanState> {
     if (state.scanning) {
       return; // 大扫进行中：增量件等下轮
     }
+    state = state.copyWith(scanning: true, done: 0, total: 0);
     final scan = ref.read(scanServiceProvider);
+    final prev = scan.onProgress;
+    scan.onProgress = (p) {
+      state = state.copyWith(done: p.done, total: p.total);
+    };
     try {
-      await scan.scanRoot(rootId, path);
-    } on Object {
-      // 单根失败不冒泡
+      final summary = await scan.scanRoot(rootId, path);
+      state = state.copyWith(
+        scanning: false,
+        lastSummary: 'ins=${summary.inserted} upd=${summary.updated} '
+            'miss=${summary.missing} rev=${summary.revived}',
+        lastError: null,
+      );
+      // 扫完即补全：元数据缺失件自动入补全队列
+      unawaited(ref.read(enrichProvider.notifier).runOnce());
+    } on Object catch (e, st) {
+      // 不吞：真实原因入状态 + 诊断持久化（常驻「存储」页可读）
+      state = state.copyWith(
+          scanning: false, lastSummary: '扫描失败', lastError: '$e');
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('扫描', e, st));
+    } finally {
+      scan.onProgress = prev;
     }
   }
 }

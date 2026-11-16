@@ -18,13 +18,11 @@ class GithubPage extends ConsumerStatefulWidget {
 }
 
 class _GithubPageState extends ConsumerState<GithubPage> {
-  final _urlCtrl = TextEditingController(
-      text: 'https://raw.githubusercontent.com/ia-music/playlists/main/night-drive.json');
+  final _urlCtrl = TextEditingController(); // 无预填——URL 由用户粘贴
   bool _fetching = false;
   String? _error;
   ({String name, List<GithubTrack> tracks})? _result;
   bool _importing = false;
-  int? _importedId;
 
   @override
   Widget build(BuildContext context) {
@@ -203,14 +201,13 @@ class _GithubPageState extends ConsumerState<GithubPage> {
     try {
       final service = ref.read(githubPlaylistServiceProvider);
       final dirs = await ref.read(cacheDirsProvider.future);
-      final id = await service.import(
+      await service.import(
           name: result.name, tracks: result.tracks, cacheDir: dirs.lyrics);
       // 启动真实下载（直链音频）/任务状态流转
       await ref.read(collectRunnerProvider.future).then((runner) => runner.runOnce());
       if (!mounted) {
         return;
       }
-      setState(() => _importedId = id);
       if (mounted) {
         showWpToast(context,
             title: '歌单',

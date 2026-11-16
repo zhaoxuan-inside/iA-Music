@@ -21,7 +21,6 @@ const Map<String, List<String>> _forbidden = {
     'lib/adapters/',
     'lib/data/',
     'package:drift/',
-    'package:mpv_audio_kit/',
     'package:sqlite3/',
   ],
   'lib/state/': ['lib/adapters/', 'lib/data/', 'package:drift/'],

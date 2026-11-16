@@ -2,14 +2,15 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../state/playlist_providers.dart';
-import '../../state/library_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
+import '../../domain/entities/quickplay.dart';
 import '../../state/playlist_providers.dart';
+import '../../state/quickplay_providers.dart';
 import '../detail/detail_page.dart';
+import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 import 'github/github_page.dart';
 
@@ -21,35 +22,37 @@ class PlaylistsPage extends ConsumerWidget {
     final pls = ref.watch(playlistListProvider).value ?? const <Playlist>[];
     final pending = pls.fold<int>(0, (s, p) => s + p.pendingCount);
     final total = pls.fold<int>(0, (s, p) => s + p.trackCount);
-    final edge = edgeInsets(context);
+    final pad = hubPadding(context);
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 140),
+      padding: pad,
       children: [
-        const SectionLabel('亲手整理的'),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text('歌单',
-                style: TextStyle(
-                    fontSize: IaType.page,
-                    fontWeight: IaType.light,
-                    color: IaColors.textHi)),
-            const Spacer(),
-            TextButton(
-              onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const GithubPage())),
-              child: Text('⇣ 拉取歌单',
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).extension<IaPalette>()!.accent)),
-            ),
-          ],
+        const SizedBox(height: IaSpacing.xl),
+        PageHeader(
+          kicker: '亲手整理的',
+          title: '歌单',
+          subtitle:
+              '${pls.length} 个歌单 · $total 首${pending > 0 ? ' · $pending 首待提取' : ''}',
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                    zuneRoute<void>(builder: (_) => const GithubPage())),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Text('⇣ 拉取歌单',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color:
+                              Theme.of(context).extension<IaPalette>()!.accent)),
+                ),
+              ),
+              const SearchAction(),
+            ],
+          ),
         ),
-        const SizedBox(height: IaSpacing.s),
-        Text('${pls.length} 个歌单 · $total 首${pending > 0 ? ' · $pending 首待提取' : ''}',
-            style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-        const SizedBox(height: IaSpacing.l),
+        const SizedBox(height: IaSpacing.xl),
         if (pls.isEmpty)
           const EmptyState(
               title: '还没有歌单',
@@ -59,15 +62,19 @@ class PlaylistsPage extends ConsumerWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, crossAxisSpacing: 14, mainAxisSpacing: 18),
+                crossAxisCount: 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 18,
+                childAspectRatio: 0.76),
             itemCount: pls.length,
             itemBuilder: (_, i) {
               final p = pls[i];
               final pend = p.pendingCount;
               return InkWell(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                onTap: () => Navigator.of(context).push(zuneRoute<void>(
                     builder: (_) => DetailPage(
                         type: DetailType.playlist, id: p.id.toString()))),
+                onLongPress: () => _playlistMenu(context, ref, p),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -75,30 +82,60 @@ class PlaylistsPage extends ConsumerWidget {
                       aspectRatio: 1,
                       child: Container(
                         decoration: BoxDecoration(
-                          border: Border.all(
-                              color: pend > 0
-                                  ? Theme.of(context)
-                                      .extension<IaPalette>()!
-                                      .accent
-                                  : IaColors.hairlineStrong),
+                          border: Border(
+                            left: BorderSide(
+                                color: pend > 0
+                                    ? Theme.of(context)
+                                        .extension<IaPalette>()!
+                                        .accent
+                                    : IaColors.hairlineStrong,
+                                width: pend > 0 ? 2 : 1),
+                            top: const BorderSide(color: IaColors.hairline),
+                            right: const BorderSide(color: IaColors.hairline),
+                            bottom: const BorderSide(color: IaColors.hairline),
+                          ),
                         ),
                         padding: const EdgeInsets.all(IaSpacing.l),
-                        alignment: Alignment.bottomLeft,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Stack(
                           children: [
-                            Text(p.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                            Positioned(
+                              right: -2,
+                              top: -14,
+                              child: Text(
+                                p.name.isEmpty ? '♪' : p.name[0],
                                 style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: IaType.light,
-                                    color: IaColors.textHi)),
-                            const SizedBox(height: IaSpacing.s),
-                            Text(pend > 0 ? '$pend 首待提取' : '${p.trackCount} 首',
-                                style: const TextStyle(
-                                    fontSize: 11, color: IaColors.textLow)),
+                                  fontSize: 64,
+                                  height: 1,
+                                  fontWeight: IaType.light,
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                ),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.bottomLeft,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(p.name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                          fontSize: 19,
+                                          height: 1.25,
+                                          fontWeight: IaType.light,
+                                          color: IaColors.textHi)),
+                                  const SizedBox(height: IaSpacing.s),
+                                  Text(
+                                      pend > 0
+                                          ? '$pend 首待提取'
+                                          : '${p.trackCount} 首',
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: IaColors.textLow)),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -121,5 +158,31 @@ class PlaylistsPage extends ConsumerWidget {
           ),
       ],
     );
+  }
+
+  void _playlistMenu(BuildContext context, WidgetRef ref, Playlist p) {
+    final pin = QuickplayPin(
+      kind: QuickplayKind.playlist,
+      key: p.id.toString(),
+      title: p.name,
+      subtitle: '${p.trackCount} 首',
+    );
+    final pinned = ref
+        .read(quickplayProvider)
+        .isPinned(QuickplayKind.playlist, pin.key);
+    showWpMenu(context, title: p.name, items: [
+      (
+        pinned ? '解除快速播放固定' : '固定到快速播放',
+        () async {
+          await ref.read(quickplayProvider.notifier).toggle(pin);
+        },
+      ),
+      (
+        '打开歌单',
+        () => Navigator.of(context).push(zuneRoute<void>(
+            builder: (_) => DetailPage(
+                type: DetailType.playlist, id: p.id.toString()))),
+      ),
+    ]);
   }
 }

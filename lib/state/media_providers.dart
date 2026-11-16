@@ -40,3 +40,23 @@ final trackLyricsProvider = FutureProvider.autoDispose
   }
   return pipeline.resolve(track);
 });
+
+/// 歌词动作（state 层收口）：用户调整偏移并刷新决议。
+final lyricsActionsProvider = Provider<LyricsActions>(LyricsActions.new);
+
+class LyricsActions {
+  LyricsActions(this._ref);
+
+  final Ref _ref;
+
+  /// 写入 LyricsMeta.offsetMs（>0=歌词延后播放），并触发重新决议。
+  Future<void> setOffset(int trackId, int offsetMs) async {
+    final pipeline = await _ref.read(lyricsPipelineProvider.future);
+    final track = await _ref.read(dbProvider).libraryDao.trackById(trackId);
+    if (track == null) {
+      return;
+    }
+    await pipeline.setOffset(track, offsetMs);
+    _ref.invalidate(trackLyricsProvider(trackId));
+  }
+}

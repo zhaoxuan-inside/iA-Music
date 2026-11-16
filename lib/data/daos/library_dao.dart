@@ -258,6 +258,16 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         .map((rows) => rows.map(_map).toList());
   }
 
+  /// 待补全数量（补全进度条的总数）。
+  Future<int> countNeedsEnrichment() {
+    final cnt = countAll();
+    final query = selectOnly(tracks)
+      ..addColumns([cnt])
+      ..where(tracks.needsMeta &
+          tracks.missingAt.isNull() &
+          tracks.enrichedAt.isNull());
+    return query.map((row) => row.read(cnt) ?? 0).getSingle();
+  }
   /// 补全写回：歌名/歌手/补全时刻（仅在原值缺失或为文件名特征时采纳）。
   Future<void> applyEnrichment(
       {required int id, required String title, required String artist}) {

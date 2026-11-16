@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.iamusic.ia_music"
+    namespace = "com.hardstone.iamusic"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -15,16 +15,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.iamusic.ia_music"
+        applicationId = "com.hardstone.iamusic"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        // v2 只分发 arm64（packaging/mpv 仅内置 arm64 运行库；构建须配
-        // `flutter build apk --target-platform android-arm64`）
-        ndk {
-            abiFilters.add("arm64-v8a")
-        }
     }
 
     buildTypes {
@@ -34,6 +29,8 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Universal APK: arm64-v8a + x86_64（模拟器/全设备统一验证）。
 }
 
 kotlin {

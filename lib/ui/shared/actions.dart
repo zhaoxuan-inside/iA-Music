@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
-import '../../state/providers.dart';
 // 引用面收口：只经 providers 取 DAO 实例，不 import data 层类型
 import '../../state/playback_controller.dart';
+import '../../state/providers.dart';
 import '../detail/detail_page.dart';
 import 'ui_kit.dart';
 
@@ -84,7 +84,7 @@ Future<void> showTrackMenu(
     ),
     (
       '查看专辑',
-      () => Navigator.of(context).push(MaterialPageRoute<void>(
+      () => Navigator.of(context).push(zuneRoute<void>(
             builder: (_) => DetailPage(
                 type: DetailType.album, id: albumKey(track.album)),
           )),

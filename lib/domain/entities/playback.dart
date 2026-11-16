@@ -3,7 +3,7 @@ library;
 
 import 'track.dart';
 
-/// 循环模式（v3 队列行为；引擎侧映射 mpv loop 属性）。
+/// 循环模式（v3 队列行为；引擎侧映射 Media3 LoopMode）。
 enum RepeatMode { off, all, one }
 
 class PlaybackSnapshot {

@@ -55,6 +55,9 @@ abstract final class IaColors {
 
   /// 歌词非当前行：白 40%。
   static const Color lyricIdle = Color(0x66FFFFFF);
+
+  /// 全景背景水印：白 4%（只作空气感，不参与信息层级）。
+  static const Color watermark = Color(0x0BFFFFFF);
 }
 
 /// 主题扩展：随 accent 变化的运行时调色板。
@@ -100,7 +103,9 @@ extension IaPaletteContext on BuildContext {
 
 /// 字阶（细体大标题是 Metro 的灵魂；尺寸配 IaType.w300/w400/w600 使用）。
 abstract final class IaType {
+  static const double display = 56; // 水印 / 仪式页
   static const double hero = 44; // Hub 主标题
+  static const double hub = 36; // Hub 页大标题
   static const double page = 28; // 页面大标题
   static const double pivotCur = 24; // pivot 当前项
   static const double pivotIdle = 16; // pivot 非当前项
@@ -111,6 +116,12 @@ abstract final class IaType {
   static const FontWeight light = FontWeight.w300;
   static const FontWeight regular = FontWeight.w400;
   static const FontWeight semibold = FontWeight.w600;
+
+  /// 大标题字距：略微收紧，避免细体大字松散。
+  static const double titleTracking = -0.4;
+
+  /// 小标题字距：全大写拉丁/kicker 的呼吸感。
+  static const double kickerTracking = 2.0;
 }
 
 /// 间距与尺寸。
@@ -125,6 +136,12 @@ abstract final class IaSpacing {
   static const double coverSmall = 48;
   static const double coverDetail = 120;
   static const double coverNp = 280;
+
+  /// 在播大封面：随屏宽收缩，但不超过 340。
+  static const double coverHeroMax = 340;
+
+  /// 封面倒影高度比例（黑胶时代的「桌面倒影」）。
+  static const double reflectionRatio = 0.30;
 
   /// 内容水平安全边距（曲面屏：与左右安全区取大者）。
   static const double gutter = 24;

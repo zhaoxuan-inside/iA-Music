@@ -41,6 +41,9 @@ void main() {
     test('空白折叠与空回退', () {
       expect(normalizeTitle(raw: '   夜曲   ').title, '夜曲');
       expect(normalizeTitle(raw: '【】【】').title, '未知歌曲');
+      expect(normalizeTitle(raw: '', fileName: '06.wav').title, '06');
+      expect(normalizeTitle(raw: '', fileName: '01.mp3').title, '01');
+      expect(normalizeTitle(raw: '', fileName: '01 - 晴天.mp3').title, '晴天');
     });
   });
 }

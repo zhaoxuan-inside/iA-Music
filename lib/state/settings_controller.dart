@@ -77,7 +77,7 @@ class SettingsController extends Notifier<SettingsState> {
 
   Future<void> setAccent(Color color) async {
     state = state.copyWith(accent: color);
-    await _settings.setString(SettingKeys.accent, '#${(color.value & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}');
+    await _settings.setString(SettingKeys.accent, '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}');
   }
 
   Future<void> setLocale(String mode) async {
@@ -88,6 +88,12 @@ class SettingsController extends Notifier<SettingsState> {
   Future<void> completeOnboarding() async {
     state = state.copyWith(onboardingDone: true);
     await _settings.setBool(SettingKeys.onboardingDone, true);
+  }
+
+  /// 重播开箱仪式：清守卫位，下次冷启动回到 OnboardingPage。
+  Future<void> resetOnboarding() async {
+    state = state.copyWith(onboardingDone: false);
+    await _settings.setBool(SettingKeys.onboardingDone, false);
   }
 }
 

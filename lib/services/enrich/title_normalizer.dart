@@ -81,11 +81,11 @@ NormalizedTitle normalizeTitle(
       .replaceAll(RegExp('【[^】]*】'), '')
       .replaceAllMapped(RegExp(r'\[[^\]]*\]'), (m) {
         final inner = m.group(0)!.substring(1, m.group(0)!.length - 1).toLowerCase();
-        return _mediaKeywords.any((k) => inner.contains(k)) ? '' : m.group(0)!;
+        return _mediaKeywords.any(inner.contains) ? '' : m.group(0)!;
       })
       .replaceAllMapped(RegExp(r'\([^)]*\)'), (m) {
         final inner = m.group(0)!.substring(1, m.group(0)!.length - 1).toLowerCase();
-        return _mediaKeywords.any((k) => inner.contains(k)) ? '' : m.group(0)!;
+        return _mediaKeywords.any(inner.contains) ? '' : m.group(0)!;
       });
 
   // 尾部残留分隔符与空白折叠
@@ -100,7 +100,11 @@ NormalizedTitle normalizeTitle(
     if (dot > 0) {
       base = base.substring(0, dot);
     }
-    source = base.replaceFirst(RegExp(r'^\s*\d{1,3}\s*[-._)\]]?\s*'), '').trim();
+    final stripped =
+        base.replaceFirst(RegExp(r'^\s*\d{1,3}\s*[-._)\]]?\s*'), '').trim();
+    // 纯数字文件名（01.wav/06.mp3）去掉曲号后会空；
+    // 此时保留原数字，别把可用信息变成「未知歌曲」。
+    source = stripped.isEmpty ? base.trim() : stripped;
   }
   if (source.isEmpty) {
     source = '未知歌曲';

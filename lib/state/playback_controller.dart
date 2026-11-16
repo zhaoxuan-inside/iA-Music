@@ -39,6 +39,7 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   void cancelSleepTimer() => _service.cancelSleepTimer();
   Future<void> playNext(Track t) => _service.playNext(t);
   Future<void> removeFromQueue(int i) => _service.removeFromQueue(i);
+  Future<void> reorderQueue(int from, int to) => _service.reorderQueue(from, to);
   Future<void> clearQueue() => _service.clearQueue();
 }
 

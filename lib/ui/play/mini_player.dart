@@ -1,11 +1,10 @@
-/// 迷你条：封面 + 歌名 + accent 进度线；横滑切歌；点击展开 NP。
+/// 迷你条：吸底整宽黑条 + accent 细进度线；横滑切歌；点击展开 NP。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../domain/entities/track.dart';
 import '../../state/playback_controller.dart';
 import '../shared/cover.dart';
 
@@ -19,17 +18,17 @@ class MiniPlayer extends ConsumerWidget {
     final snap = ref.watch(playbackProvider);
     final cur = snap.current;
     final p = Theme.of(context).extension<IaPalette>()!;
-    final bottom = MediaQuery.of(context).padding.bottom;
-    final edge = MediaQuery.of(context).padding;
+    final mq = MediaQuery.of(context);
+    final bottom = mq.padding.bottom > 6 ? mq.padding.bottom : 0.0;
 
     if (cur == null) {
       return const SizedBox.shrink();
     }
 
     return Positioned(
-      left: 10 + edge.left,
-      right: 10 + edge.right,
-      bottom: 18 + (bottom > 6 ? bottom : 0),
+      left: 0,
+      right: 0,
+      bottom: 0,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onHorizontalDragEnd: (d) {
@@ -42,11 +41,12 @@ class MiniPlayer extends ConsumerWidget {
         },
         onTap: onOpen,
         child: Container(
-          height: IaSpacing.miniHeight,
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.92),
-            border: Border.all(color: IaColors.hairlineStrong),
+            color: Colors.black.withValues(alpha: 0.94),
+            border: const Border(
+                top: BorderSide(color: IaColors.hairlineStrong)),
           ),
+          padding: EdgeInsets.only(bottom: bottom),
           child: Stack(
             children: [
               // accent 进度线（贴顶）
@@ -63,46 +63,49 @@ class MiniPlayer extends ConsumerWidget {
                   ),
                 ),
               ),
-              Row(
-                children: [
-                  const SizedBox(width: IaSpacing.m),
-                  CoverArt(track: cur, size: 38),
-                  const SizedBox(width: IaSpacing.m),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(cur.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 13.5, color: IaColors.textHi)),
-                        Text(cur.artistDisplay,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 11, color: IaColors.textLow)),
-                      ],
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                    mq.padding.left + IaSpacing.m,
+                    IaSpacing.s,
+                    mq.padding.right + IaSpacing.xs,
+                    IaSpacing.s),
+                child: Row(
+                  children: [
+                    CoverArt(track: cur, size: 40),
+                    const SizedBox(width: IaSpacing.m),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(cur.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 13.5, color: IaColors.textHi)),
+                          const SizedBox(height: 2),
+                          Text(cur.artistDisplay,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, color: IaColors.textLow)),
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => ref.read(playbackProvider.notifier).togglePlay(),
-                    icon: Icon(
-                        snap.playing
-                            ? Icons.pause
-                            : Icons.play_arrow,
-                        color: IaColors.textHi),
-                  ),
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => ref.read(playbackProvider.notifier).next(),
-                    icon: Icon(Icons.skip_next,
-                        size: 20, color: IaColors.textMid),
-                  ),
-                  const SizedBox(width: IaSpacing.s),
-                ],
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () =>
+                          ref.read(playbackProvider.notifier).togglePlay(),
+                      icon: Icon(
+                          snap.playing ? Icons.pause : Icons.play_arrow,
+                          size: 22,
+                          color: IaColors.textHi),
+                    ),
+                    const Icon(Icons.keyboard_arrow_up,
+                        size: 20, color: IaColors.textLow),
+                    const SizedBox(width: IaSpacing.xs),
+                  ],
+                ),
               ),
             ],
           ),
@@ -110,21 +113,4 @@ class MiniPlayer extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// 打开 NP 的统一入口（上滑展开 + 磁贴翻开）。
-void openNowPlaying(BuildContext context) {
-  Navigator.of(context).push(PageRouteBuilder<void>(
-    opaque: false,
-    transitionDuration: const Duration(milliseconds: 260),
-    pageBuilder: (_, _, _) => const SizedBox.shrink(),
-    transitionsBuilder: (_, anim, _, child) {
-      return SlideTransition(
-        position:
-            Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-                .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-        child: FadeTransition(opacity: anim, child: child),
-      );
-    },
-  ));
 }

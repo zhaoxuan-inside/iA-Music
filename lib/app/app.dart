@@ -48,6 +48,7 @@ class _IaAppState extends ConsumerState<IaApp> {
       theme: buildIaTheme(accent: settings.accent),
       darkTheme: buildIaTheme(accent: settings.accent),
       themeMode: ThemeMode.dark,
+      scrollBehavior: const ZuneScrollBehavior(),
       locale: locale,
       localizationsDelegates: [
         S.delegate,

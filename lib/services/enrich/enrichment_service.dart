@@ -15,8 +15,8 @@ import 'package:drift/drift.dart';
 
 import '../../data/database.dart';
 import '../../domain/entities/track.dart';
-import '../../domain/ports/lyrics_port.dart';
 import '../../domain/ports/fingerprint_port.dart';
+import '../../domain/ports/lyrics_port.dart';
 import '../acoustid/acoustid_client.dart';
 import 'query_nlp.dart';
 
@@ -41,10 +41,16 @@ class EnrichmentService {
   LibraryDao get _library => _db.libraryDao;
 
   /// 处理一轮待补全曲目（顺序；每首独立成败）。返回采纳成功条数。
-  Future<int> enrichPending({int limit = 20}) async {
+  /// [onProgress] 上报 (当前曲, 已处理, 待处理)，供 UI 进度展示。
+  Future<int> enrichPending(
+      {int limit = 20,
+      void Function(String currentTitle, int done, int total)? onProgress}) async {
     final pending = await _library.watchNeedsEnrichment(limit: limit).first;
     var ok = 0;
+    var done = 0;
     for (final t in pending) {
+      done++;
+      onProgress?.call(t.title, done, pending.length);
       try {
         if (await _enrichOne(t)) {
           ok++;

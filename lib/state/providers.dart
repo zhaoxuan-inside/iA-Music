@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../adapters/covers/cover_fetch_adapter.dart';
-import '../adapters/engine/mpv_engine_adapter.dart';
+import '../adapters/engine/just_audio_engine_adapter.dart';
 import '../adapters/lyrics/lrclib_adapter.dart';
 import '../adapters/metadata/metadata_reader_adapter.dart';
 import '../data/database.dart';
@@ -35,7 +35,7 @@ final metadataPortProvider =
     Provider<MetadataPort>((ref) => const MetadataReaderAdapter());
 
 final engineProvider = Provider<EnginePort>((ref) {
-  final engine = MpvEngineAdapter();
+  final engine = JustAudioEngineAdapter();
   ref.onDispose(engine.dispose);
   return engine;
 });
@@ -65,10 +65,14 @@ class CacheDirs {
 
 final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
   final support = await getApplicationSupportDirectory();
-  return CacheDirs(
+  // 目录要显式创建：Dart 的文件写入不自动建父目录，缺目录时写入会失败。
+  final dirs = CacheDirs(
     covers: '${support.path}${Platform.pathSeparator}covers',
     lyrics: '${support.path}${Platform.pathSeparator}lyrics',
   );
+  await Directory(dirs.covers).create(recursive: true);
+  await Directory(dirs.lyrics).create(recursive: true);
+  return dirs;
 });
 
 final coverChainProvider = FutureProvider<CoverChain>((ref) async {

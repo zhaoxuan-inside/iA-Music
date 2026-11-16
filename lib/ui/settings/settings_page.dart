@@ -4,9 +4,11 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
+import '../../services/collect/platform_store.dart';
+import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
-import '../../state/listen_providers.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
 import 'subpages.dart';
@@ -16,49 +18,62 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final pad = hubPadding(context);
     final st = ref.watch(settingsProvider);
-    final edge = edgeInsets(context);
+    final accentName = kWpPalette
+        .where((w) => w.value.toARGB32() == st.accent.toARGB32())
+        .map((w) => w.name)
+        .firstOrNull;
+    final trackCount = ref.watch(trackCountProvider).value ?? 0;
+    final biliIn = ref.watch(platformLoginProvider(PlatformId.bilibili)).value ?? false;
+    final ytIn = ref.watch(platformLoginProvider(PlatformId.youtube)).value ?? false;
+    final loggedCount = (biliIn ? 1 : 0) + (ytIn ? 1 : 0);
+    final queueCount = ref.watch(collectTasksProvider).value?.length ?? 0;
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 140),
+      padding: pad,
       children: [
         const SizedBox(height: IaSpacing.xl),
-        const SectionLabel('应用'),
-        const SizedBox(height: IaSpacing.s),
-        Text('设置',
-            style: TextStyle(
-                fontSize: IaType.page,
-                fontWeight: IaType.light,
-                color: IaColors.textHi)),
-        const SizedBox(height: IaSpacing.s),
-        const Text('个性化 · 存储与收集 · 关于',
-            style: TextStyle(fontSize: 12, color: IaColors.textLow)),
-        const SizedBox(height: IaSpacing.m),
+        const PageHeader(
+          kicker: '应用',
+          title: '设置',
+          subtitle: '个性化 · 存储与收集 · 关于',
+        ),
+        const SizedBox(height: IaSpacing.xl),
         BigRow(
           title: '主题色',
-          subtitle: 'WP 经典色板',
-          onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+          subtitle: '当前：${accentName ?? '自定义'}',
+          onTap: () => Navigator.of(context).push(zuneRoute<void>(
               builder: (_) => const ThemeSubPage())),
         ),
         BigRow(
           title: '存储',
-          subtitle: '${ref.watch(trackCountProvider).value ?? 0} 首',
+          subtitle: '目录 · $trackCount 首',
           onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const StorageSubPage())),
+              zuneRoute<void>(builder: (_) => const StorageSubPage())),
         ),
         BigRow(
           title: '收集',
-          subtitle: '登录平台 · 链接提取 · 进度',
+          subtitle: '登录 · 站内搜索 · 已登录 $loggedCount/2 · 队列 $queueCount 项',
           onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const CollectSubPage())),
+              zuneRoute<void>(builder: (_) => const CollectSubPage())),
+        ),
+        BigRow(
+          title: '提取链接',
+          subtitle: 'B 站 / YouTube / 直链音频 · 粘贴即提取',
+          onTap: () => Navigator.of(context).push(
+              zuneRoute<void>(builder: (_) => const LinkExtractPage())),
         ),
         BigRow(
           title: '关于',
           subtitle: '语言 · 开箱仪式',
           onTap: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const AboutSubPage())),
+              zuneRoute<void>(builder: (_) => const AboutSubPage())),
         ),
         const SizedBox(height: IaSpacing.xl),
+        Text(kAppVersionLabel,
+            style: const TextStyle(fontSize: 11, color: IaColors.textLow)),
+        const SizedBox(height: IaSpacing.xs),
         const Text(
           '设置 · 左缘右滑返回',
           style: TextStyle(fontSize: 11, color: IaColors.textLow),
@@ -75,10 +90,9 @@ class ThemeSubPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = ref.watch(settingsProvider);
-    final p = Theme.of(context).extension<IaPalette>()!;
     final edge = edgeInsets(context);
     final current = kWpPalette
-        .where((w) => w.value.value == st.accent.value)
+        .where((w) => w.value.toARGB32() == st.accent.toARGB32())
         .map((w) => w.name)
         .firstOrNull;
 
@@ -91,20 +105,18 @@ class ThemeSubPage extends ConsumerWidget {
             Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 16),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
             ),
-            const SizedBox(height: IaSpacing.m),
-            Text('主题色',
-                style: TextStyle(
-                    fontSize: IaType.page,
-                    fontWeight: IaType.light,
-                    color: IaColors.textHi)),
-            const SizedBox(height: IaSpacing.m),
-            const Text('WP 经典色板 · 点一下，全 App 立即变色',
-                style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+            const SizedBox(height: IaSpacing.s),
+            const PageHeader(
+              kicker: '个性化',
+              title: '主题色',
+              subtitle: 'WP 经典色板 · 点一下，全 App 立即变色',
+            ),
             const SizedBox(height: IaSpacing.xl),
             Wrap(
               spacing: 16,
@@ -115,17 +127,18 @@ class ThemeSubPage extends ConsumerWidget {
                     onTap: () => ref.read(settingsProvider.notifier).setAccent(w.value),
                     borderRadius: BorderRadius.circular(999),
                     child: Container(
-                      width: 52,
-                      height: 52,
+                      width: 54,
+                      height: 54,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: w.value,
-                        border: st.accent.value == w.value.value
+                        border: st.accent.toARGB32() == w.value.toARGB32()
                             ? Border.all(color: IaColors.textHi, width: 2)
-                            : null,
+                            : Border.all(
+                                color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       alignment: Alignment.center,
-                      child: st.accent.value == w.value.value
+                      child: st.accent.toARGB32() == w.value.toARGB32()
                           ? const Icon(Icons.check,
                               size: 20, color: IaColors.onAccent)
                           : null,
@@ -133,7 +146,7 @@ class ThemeSubPage extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(height: IaSpacing.l),
+            const SizedBox(height: IaSpacing.xl),
             Text('当前：${current ?? '自定义'}',
                 style: const TextStyle(fontSize: 12.5, color: IaColors.textLow)),
           ],
@@ -143,105 +156,4 @@ class ThemeSubPage extends ConsumerWidget {
   }
 }
 
-/// 收集子页（A 层登录 + B 层链接提取 + 提取与补全进度入口）。
-class CollectSubPage extends ConsumerWidget {
-  const CollectSubPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = Theme.of(context).extension<IaPalette>()!;
-    final edge = edgeInsets(context);
-    final queueN =
-        0; // 提取队列在 v3 首版为占位（真实提取引擎在二期接入）；进度页仍可打开
-
-    return Scaffold(
-      backgroundColor: IaColors.canvas,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: IaSpacing.m),
-            Text('收集',
-                style: TextStyle(
-                    fontSize: IaType.page,
-                    fontWeight: IaType.light,
-                    color: IaColors.textHi)),
-            const SizedBox(height: IaSpacing.m),
-            const Text('所有音乐统一收入同一个目录、同一个曲库，不分来源。',
-                style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('A 层 · 深度支持（登录 + 站内搜索 + 批量提取）'),
-            const SizedBox(height: IaSpacing.m),
-            for (final platform in const ['B 站', 'YouTube'])
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.m, vertical: IaSpacing.l),
-                decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: IaColors.hairline))),
-                child: Row(
-                  children: [
-                    Text(platform,
-                        style: const TextStyle(
-                            fontSize: IaType.list, color: IaColors.textHi)),
-                    const Spacer(),
-                    Text('二期接入',
-                        style:
-                            TextStyle(fontSize: 12, color: IaColors.textLow)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('B 层 · 任意链接提取'),
-            const SizedBox(height: IaSpacing.m),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: IaSpacing.m, vertical: IaSpacing.s),
-              decoration: BoxDecoration(
-                  border: Border.all(color: IaColors.hairlineStrong)),
-              child: TextField(
-                style: const TextStyle(fontSize: 13, color: IaColors.textHi),
-                decoration: const InputDecoration(
-                  hintText: '粘贴任意视频/音频链接…（二期接入）',
-                  border: InputBorder.none,
-                  isDense: true,
-                ),
-                onChanged: (_) {},
-              ),
-            ),
-            const SizedBox(height: IaSpacing.s),
-            const Text('底层走 yt-dlp · 覆盖数百个站点 · 字幕自动转歌词（二期）',
-                style: TextStyle(fontSize: 11, color: IaColors.textLow)),
-            const SizedBox(height: IaSpacing.xl),
-            Container(
-              decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: IaColors.hairline))),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('提取与补全进度',
-                    style: TextStyle(fontSize: IaType.list, color: IaColors.textHi)),
-                subtitle: Text('$queueN 项进行中（占位）',
-                    style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-                trailing: const Icon(Icons.chevron_right, color: IaColors.textLow),
-                onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const ExtractPage())),
-              ),
-            ),
-            Text('占位说明',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: p.textLow,
-                    decoration: TextDecoration.none)),
-          ],
-        ),
-      ),
-    );
-  }
-}
+/// 收集子页见 subpages.dart（登录 / 链接提取 / 进度的唯一实现）。

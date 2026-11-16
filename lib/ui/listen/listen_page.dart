@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
+import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 
 class ListenPage extends ConsumerWidget {
@@ -33,7 +34,7 @@ class ListenPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final edge = edgeInsets(context);
+    final pad = hubPadding(context);
     final items = <(String, String, VoidCallback)>[
       (
         '随缘听歌',
@@ -68,19 +69,22 @@ class ListenPage extends ConsumerWidget {
     ];
 
     return ListView(
-      padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 140),
+      padding: pad,
       children: [
         const SizedBox(height: IaSpacing.xl),
-        const SectionLabel('听法'),
-        const SizedBox(height: IaSpacing.m),
-        Text('怎么听',
-            style: TextStyle(
-                fontSize: IaType.page,
-                fontWeight: IaType.light,
-                color: IaColors.textHi)),
-        const SizedBox(height: IaSpacing.m),
-        for (final (n, d, act) in items)
-          BigRow(title: n, subtitle: d, onTap: act),
+        const PageHeader(
+          kicker: '今天怎么听',
+          title: '听法',
+          subtitle: '会话从这里开始 · 长按任意歌曲可加入队列或歌单',
+          trailing: SearchAction(),
+        ),
+        const SizedBox(height: IaSpacing.xl),
+        for (var i = 0; i < items.length; i++)
+          BigRow(
+            title: items[i].$1,
+            subtitle: items[i].$2,
+            onTap: items[i].$3,
+          ),
         const SizedBox(height: IaSpacing.xl),
         const Text(
           '负一屏 · 左滑回正在播放',

@@ -1,5 +1,5 @@
 /// 音频指纹端口——真·内容识别（不依赖任何文字线索）。
-/// 实现：mpv 解码（任意格式）→ chromaprint FFI 计算指纹。
+/// 实现：Android MediaCodec 解码 → chromaprint FFI 计算指纹。
 library;
 
 class AudioFingerprint {
