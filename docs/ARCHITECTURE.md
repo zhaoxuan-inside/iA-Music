@@ -11,7 +11,7 @@ lib/
   domain/    实体 + Port 接口 + sealed ContractError。纯 Dart，禁 import Flutter。
   data/      drift schema + 分域 DAO + repository。唯一持久层。
   services/  领域服务。可依赖 domain + data + Port；禁依赖 adapters/ui/flutter。
-  adapters/  Port 的真实现（mpv/http/安全存储）。只被 app/ 与 state/ 装配。
+  adapters/  Port 的真实现（Media3/HTTP/安全存储）。只被 app/ 与 state/ 装配。
   state/     Riverpod providers——服务与 UI 状态的唯一通道。
   ui/        页面与组件。只准 import state + domain（+ l10n/theme）。
 ```
@@ -58,5 +58,5 @@ Flutter 与 l10n。
   （`packaging/build.ps1` 一键）。
 - sqlite3：仓库内置源码自编（`native/sqlite3/sqlite3.c`，hooks user_defines；
   测试宿主的 Windows 构建同走源码编译）。
-- mpv：运行库随仓库（`packaging/mpv/`，见 SOURCE.md）。
+- 播放：AndroidX Media3/ExoPlayer（just_audio + audio_service），全 ABI，无自编译播放器。
 - 原生二进制入库需在 PR 说明里给出理由与 SHA-256。
