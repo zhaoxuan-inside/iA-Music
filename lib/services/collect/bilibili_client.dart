@@ -127,7 +127,9 @@ class BilibiliClient implements BiliCollectApi {
   /// ── 登录 ─────────────────────────────────────────────────────────
 
   Future<BiliQrCode> generateQr() async {
-    final json = await _getJson('$passportBase${cfg.KBili.qrGeneratePath}');
+    // passport 域无需 cookie/buvid：跳过指纹获取，二维码生成不被额外请求拖慢
+    final json = await _getJson('$passportBase${cfg.KBili.qrGeneratePath}',
+        withBuvid: false);
     final d = json['data'] as Map<String, dynamic>;
     return BiliQrCode(url: d['url'] as String, qrcodeKey: d['qrcode_key'] as String);
   }
@@ -139,7 +141,8 @@ class BilibiliClient implements BiliCollectApi {
   /// ① data.cookies（旧口径，兜底）② data.url 回跳参数 ③ Set-Cookie 响应头（权威）。
   Future<BiliQrPoll> pollQr(String qrcodeKey) async {
     final (json, setCookies) = await _getJsonWithHeaders(
-        '$passportBase${cfg.KBili.qrPollPath}?qrcode_key=$qrcodeKey');
+        '$passportBase${cfg.KBili.qrPollPath}?qrcode_key=$qrcodeKey',
+        withBuvid: false);
     final d = json['data'] as Map<String, dynamic>;
     final stateCode = d['code'] as int? ?? -1;
     if (stateCode == cfg.KBili.pollExpired) {
@@ -500,18 +503,29 @@ class BilibiliClient implements BiliCollectApi {
   /// 匿名设备指纹缓存（buvid3/buvid4）。
   Map<String, String>? _buvid;
 
+  /// buvid 获取失败时间（负缓存）：网络不通时避免每个请求都白等一轮。
+  DateTime? _buvidFailedAt;
+
   /// 匿名设备指纹（finger/spi）：api 域无 buvid 常触发 -412，
   /// 登录与未登录请求统一补齐（进程内缓存；失败静默不阻断主链路）。
   Future<Map<String, String>?> anonymousBuvid() async {
     if (_buvid != null) {
       return _buvid;
     }
+    // 负缓存：60s 内失败过就不再试，避免网络不通时每个请求都白等
+    if (_buvidFailedAt != null &&
+        DateTime.now().difference(_buvidFailedAt!) <
+            const Duration(seconds: 60)) {
+      return null;
+    }
     try {
-      final req =
-          await _client.openUrl('GET', Uri.parse('$apiBase${cfg.KBili.fingerSpiPath}'));
-      final res = await req.close();
+      final req = await _client
+          .openUrl('GET', Uri.parse('$apiBase${cfg.KBili.fingerSpiPath}'))
+          .timeout(const Duration(seconds: 5));
+      final res = await req.close().timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
-        final body = await res.transform(utf8.decoder).join();
+        final body =
+            await res.transform(utf8.decoder).join().timeout(const Duration(seconds: 5));
         final d = (jsonDecode(body) as Map<String, dynamic>)['data']
             as Map<String, dynamic>?;
         final b3 = d?['b_3'] as String?;
@@ -521,9 +535,16 @@ class BilibiliClient implements BiliCollectApi {
         }
       }
     } on Object {
+      _buvidFailedAt = DateTime.now();
       // 拿不到 buvid：继续无 cookie 请求，由调用方按错误处理
     }
     return _buvid;
+  }
+
+  /// 仅登录态 cookie（不触发 buvid 获取）——passport 域用。
+  Future<String?> _storedCookie() async {
+    final stored = await _store.cookies(PlatformId.bilibili);
+    return (stored == null || stored.isEmpty) ? null : stored;
   }
 
   /// 汇出本次请求的 Cookie 头：登录态 + 缺失的 buvid。
@@ -543,13 +564,13 @@ class BilibiliClient implements BiliCollectApi {
   }
 
   Future<(Map<String, dynamic>, List<String>)> _getJsonWithHeaders(String url,
-      {bool requireReferer = false}) async {
+      {bool requireReferer = false, bool withBuvid = true}) async {
     final req = await _client.openUrl('GET', Uri.parse(url));
     req.headers.set(HttpHeaders.userAgentHeader, cfg.KBili.userAgent);
     if (requireReferer) {
       req.headers.set(HttpHeaders.refererHeader, cfg.KBili.referer);
     }
-    final cookie = await _effectiveCookie();
+    final cookie = withBuvid ? await _effectiveCookie() : await _storedCookie();
     if (cookie != null) {
       req.headers.set(HttpHeaders.cookieHeader, cookie);
     }
@@ -565,8 +586,10 @@ class BilibiliClient implements BiliCollectApi {
   }
 
   Future<Map<String, dynamic>> _getJson(String url,
-          {bool requireReferer = false}) async =>
-      (await _getJsonWithHeaders(url, requireReferer: requireReferer)).$1;
+          {bool requireReferer = false, bool withBuvid = true}) async =>
+      (await _getJsonWithHeaders(url,
+              requireReferer: requireReferer, withBuvid: withBuvid))
+          .$1;
 
   Future<String> _getText(String url, {bool requireReferer = false}) async {
     final req = await _client.openUrl('GET', Uri.parse(url));

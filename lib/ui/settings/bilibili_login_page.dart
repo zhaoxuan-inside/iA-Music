@@ -52,7 +52,10 @@ class _BilibiliLoginPageState extends ConsumerState<BilibiliLoginPage> {
       _remainSec = cfg.KBili.qrLifetime.inSeconds;
     });
     try {
-      final qr = await ref.read(bilibiliClientProvider).generateQr();
+      final qr = await ref
+          .read(bilibiliClientProvider)
+          .generateQr()
+          .timeout(const Duration(seconds: 12));
       if (!mounted) {
         return;
       }
@@ -61,9 +64,16 @@ class _BilibiliLoginPageState extends ConsumerState<BilibiliLoginPage> {
       _timer?.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
       _startPolling();
+    } on TimeoutException {
+      if (mounted) {
+        setState(() => _error = '网络连接超时——请检查网络后重试');
+      }
     } on Object catch (e) {
       if (mounted) {
-        setState(() => _error = '二维码生成失败：$e');
+        final s = e.toString();
+        setState(() => _error = (s.contains('timed out') || s.contains('超时'))
+            ? '网络连接超时——请检查网络后重试'
+            : '二维码生成失败：$e');
       }
     }
   }
