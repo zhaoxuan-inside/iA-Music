@@ -4,9 +4,11 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/track.dart';
+import 'wp_motion.dart';
 
 /// Zune 页面路由：WP「turnstile」翻入转场（demo .scr.enter）。
 ///
@@ -41,7 +43,6 @@ PageRouteBuilder<T> zuneRoute<T>({required WidgetBuilder builder}) =>
       },
     );
 
-
 /// 曲面屏安全边距：内容水平边距 = max(基准, 左右曲面安全区)。
 /// 顶部喂状态栏（透明 edge-to-edge），底部交给各页自行处理导航条。
 EdgeInsets edgeInsets(BuildContext context, {double base = IaSpacing.gutter}) {
@@ -66,7 +67,11 @@ double topInset(BuildContext context) => MediaQuery.of(context).padding.top;
 EdgeInsets hubPadding(BuildContext context) {
   final e = edgeInsets(context);
   return EdgeInsets.fromLTRB(
-      e.left, topInset(context) + IaSpacing.l, e.right, 140);
+    e.left,
+    topInset(context) + IaSpacing.l,
+    e.right,
+    140,
+  );
 }
 
 /// 小节标签（accent 小字 + 宽字距）。
@@ -92,6 +97,9 @@ class SectionLabel extends StatelessWidget {
 /// 页头：kicker（accent 全大写）+ 细体大标题 + 副题 + accent 短横。
 ///
 /// Hub 七屏与子页统一使用它，让每一次横滑都落在同一条排版基线上。
+/// **高度恒定**：kicker 行 / 标题槽 / 副题槽都是定高槽位——标题不会被
+/// 内容顶高，多页之间的头部永远一样高（配合 [HubPage] 固定在页顶，
+/// 不随内容滚动）。
 class PageHeader extends StatelessWidget {
   const PageHeader({
     required this.kicker,
@@ -107,8 +115,11 @@ class PageHeader extends StatelessWidget {
   final String? subtitle;
   final Widget? trailing;
 
-  /// true = Hub 主标题（44 Light）；false = 页面标题（34 Light）。
+  /// true = Hub 主标题（44 Light）；false = 页面标题（36 Light）。
   final bool hero;
+
+  /// 固定页头总高（所有页一致；hero 与否只改字号不改槽位）。
+  static const double height = 139;
 
   @override
   Widget build(BuildContext context) {
@@ -116,47 +127,68 @@ class PageHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                kicker.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: IaType.semibold,
-                  letterSpacing: IaType.kickerTracking,
-                  color: p.accent,
+        // kicker 行：定高 40（与右上角 IconButton 同高，其余页仍等高）
+        SizedBox(
+          height: 40,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  kicker.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: IaType.semibold,
+                    letterSpacing: IaType.kickerTracking,
+                    color: p.accent,
+                  ),
                 ),
               ),
-            ),
-            ?trailing,
-          ],
+              if (trailing != null)
+                Align(alignment: Alignment.centerRight, child: trailing),
+            ],
+          ),
         ),
         const SizedBox(height: 10),
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: hero ? IaType.hero : IaType.hub,
-            height: 1.02,
-            fontWeight: IaType.light,
-            letterSpacing: IaType.titleTracking,
-            color: IaColors.textHi,
-          ),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 9),
-          Text(
-            subtitle!,
-            style: const TextStyle(
-              fontSize: 12,
-              height: 1.45,
-              color: IaColors.textLow,
+        // 标题槽：定高（hero 与普通标题同槽，保证各页头部一样高）
+        SizedBox(
+          height: 45,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: hero ? IaType.hero : IaType.hub,
+                height: 1.02,
+                fontWeight: IaType.light,
+                letterSpacing: IaType.titleTracking,
+                color: IaColors.textHi,
+              ),
             ),
           ),
-        ],
+        ),
+        const SizedBox(height: 9),
+        // 副题槽：定高占位（无副题也保留，保证基线一致）
+        SizedBox(
+          height: 18,
+          child: subtitle == null
+              ? null
+              : Align(
+                  alignment: Alignment.topLeft,
+                  child: Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.45,
+                      color: IaColors.textLow,
+                    ),
+                  ),
+                ),
+        ),
         const SizedBox(height: 15),
         Container(width: 32, height: 2, color: p.accent),
       ],
@@ -164,14 +196,53 @@ class PageHeader extends StatelessWidget {
   }
 }
 
+/// Hub 页固定骨架：**固定页头**（不随内容滚动、高度恒定）+ 内容列表。
+///
+/// 内容区自适应全宽；列表左右吃曲面安全区，底部给迷你条留位。
+/// 条目按序 Turnstile Feather 翻入（WP8 pivot 页入场招牌，见 wp_motion.dart）。
+class HubPage extends StatelessWidget {
+  const HubPage({required this.header, required this.children, super.key});
+
+  final PageHeader header;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = edgeInsets(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            edge.left,
+            topInset(context) + IaSpacing.l,
+            edge.right,
+            0,
+          ),
+          child: header,
+        ),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.fromLTRB(
+              edge.left,
+              IaSpacing.xl,
+              edge.right,
+              140,
+            ),
+            children: [
+              for (var i = 0; i < children.length; i++)
+                FeatherIn(index: i, child: children[i]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// 分区头：accent 小节标签 + 弱计数 + 右侧操作。
 class SectionHead extends StatelessWidget {
-  const SectionHead({
-    required this.label,
-    this.meta,
-    this.trailing,
-    super.key,
-  });
+  const SectionHead({required this.label, this.meta, this.trailing, super.key});
 
   final String label;
   final String? meta;
@@ -223,10 +294,13 @@ class ZuneChip extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(
-            horizontal: IaSpacing.m, vertical: IaSpacing.s),
+          horizontal: IaSpacing.m,
+          vertical: IaSpacing.s,
+        ),
         decoration: BoxDecoration(
           border: Border.all(
-              color: active ? p.accent : IaColors.hairlineStrong),
+            color: active ? p.accent : IaColors.hairlineStrong,
+          ),
         ),
         child: Text(
           label,
@@ -258,39 +332,53 @@ class BigRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 17),
-          decoration:
-              const BoxDecoration(border: Border(bottom: BorderSide(color: IaColors.hairline))),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
+      child: TiltOnPress(
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 17),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: IaColors.hairline)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
                         style: TextStyle(
-                            fontSize: 22,
-                            height: 1.15,
-                            fontWeight: IaType.light,
-                            color: IaColors.textHi)),
-                    if (subtitle != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 5),
-                        child: Text(subtitle!,
+                          fontSize: 22,
+                          height: 1.15,
+                          fontWeight: IaType.light,
+                          color: IaColors.textHi,
+                        ),
+                      ),
+                      if (subtitle != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Text(
+                            subtitle!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontSize: 11.5, color: IaColors.textLow)),
-                      ),
-                  ],
+                              fontSize: 11.5,
+                              color: IaColors.textLow,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: IaSpacing.m),
-              const Icon(Icons.chevron_right, size: 18, color: IaColors.textLow),
-            ],
+                const SizedBox(width: IaSpacing.m),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: IaColors.textLow,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -325,55 +413,74 @@ class SongRow extends StatelessWidget {
     final dur = '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: IaSpacing.m, vertical: IaSpacing.m),
-          decoration:
-              const BoxDecoration(border: Border(bottom: BorderSide(color: IaColors.hairline))),
-          child: Row(
-            children: [
-              if (leading != null) ...[
-                leading!,
-                const SizedBox(width: IaSpacing.m),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Expanded(
-                        child: Text(track.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+      child: TiltOnPress(
+        child: InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: IaSpacing.m,
+              vertical: IaSpacing.m,
+            ),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: IaColors.hairline)),
+            ),
+            child: Row(
+              children: [
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: IaSpacing.m),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              track.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
                                 fontSize: IaType.list,
                                 color: isPlaying ? p.accent : IaColors.textHi,
-                                fontWeight:
-                                    isPlaying ? IaType.semibold : IaType.regular)),
+                                fontWeight: isPlaying
+                                    ? IaType.semibold
+                                    : IaType.regular,
+                              ),
+                            ),
+                          ),
+                          if (isLiked)
+                            Padding(
+                              padding: const EdgeInsets.only(left: IaSpacing.s),
+                              child: Text(
+                                '♥',
+                                style: TextStyle(fontSize: 12, color: p.accent),
+                              ),
+                            ),
+                        ],
                       ),
-                      if (isLiked)
-                        Padding(
-                          padding: const EdgeInsets.only(left: IaSpacing.s),
-                          child: Text('♥', style: TextStyle(fontSize: 12, color: p.accent)),
-                        ),
-                    ]),
-                    const SizedBox(height: IaSpacing.xs),
-                    Text('${track.artistDisplay} · ${track.albumDisplay}',
+                      const SizedBox(height: IaSpacing.xs),
+                      Text(
+                        '${track.artistDisplay} · ${track.albumDisplay}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:
-                            const TextStyle(fontSize: 12, color: IaColors.textLow)),
-                  ],
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: IaColors.textLow,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: IaSpacing.m),
-              Text(dur,
-                  style:
-                      const TextStyle(fontSize: 12, color: IaColors.textLow)),
-            ],
+                const SizedBox(width: IaSpacing.m),
+                Text(
+                  dur,
+                  style: const TextStyle(fontSize: 12, color: IaColors.textLow),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -381,8 +488,15 @@ class SongRow extends StatelessWidget {
   }
 }
 
-/// 右缘字母导航轨（拖动定位到分组；回调返回字母）。
-class LetterRail extends StatelessWidget {
+/// 右缘字母速查轨——复刻 Windows 11 跳转栏（jump bar）逻辑：
+///
+/// * **按下即定位**：手指落点对应字母立即生效（跳组 + 中央大字母弹出），
+///   轨上该字母高亮放大，第一下就有振动确认；
+/// * **拖动实时刷屏**：列表跟随手指即时跳组（无缓动等待），每越过一个
+///   字母触发一次 `selectionClick` 振动，与 Win11 滑过刻度一致；
+/// * **松手即停**：大字母消失、列表停在该组；横向滑出轨道仍按纵向位置
+///   连续定位（ gesture 状态保留，手指不脱靶）。
+class LetterRail extends StatefulWidget {
   const LetterRail({
     required this.letters,
     required this.onPick,
@@ -395,30 +509,81 @@ class LetterRail extends StatelessWidget {
   final VoidCallback? onEnd;
 
   @override
+  State<LetterRail> createState() => _LetterRailState();
+}
+
+class _LetterRailState extends State<LetterRail> {
+  int _active = -1;
+  bool _pressed = false;
+
+  void _locate(Offset local, {bool force = false}) {
+    if (widget.letters.isEmpty) {
+      return;
+    }
+    final box = context.findRenderObject()! as RenderBox;
+    final y = local.dy.clamp(0.0, box.size.height - 1);
+    final i = (y / box.size.height * widget.letters.length).floor().clamp(
+      0,
+      widget.letters.length - 1,
+    );
+    if (force || i != _active) {
+      if (i != _active) {
+        HapticFeedback.selectionClick(); // 越过一个字母 = 一次刻度振动
+      }
+      setState(() => _active = i);
+      widget.onPick(widget.letters[i]);
+    }
+  }
+
+  void _press(Offset local) {
+    if (!_pressed) {
+      _pressed = true;
+      _active = -1; // 新一次按压：即使落在同一字母也要跳一次
+    }
+    _locate(local, force: true);
+  }
+
+  void _finish() {
+    if (!_pressed) {
+      return;
+    }
+    _pressed = false;
+    if (_active != -1) {
+      HapticFeedback.lightImpact(); // 松手确认
+      setState(() => _active = -1);
+    }
+    widget.onEnd?.call();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).extension<IaPalette>()!.accent;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onVerticalDragUpdate: (d) {
-        final box = context.findRenderObject()! as RenderBox;
-        final y = d.localPosition.dy.clamp(0.0, box.size.height - 1);
-        final i = (y / box.size.height * letters.length).floor();
-        onPick(letters[i.clamp(0, letters.length - 1)]);
-      },
-      onVerticalDragEnd: (_) => onEnd?.call(),
-      onTapUp: (d) {
-        final box = context.findRenderObject()! as RenderBox;
-        final i = (d.localPosition.dy / box.size.height * letters.length).floor();
-        onPick(letters[i.clamp(0, letters.length - 1)]);
-      },
+      // 按下 / 拖动共用一套定位逻辑：触点在哪组，列表就在哪组
+      onVerticalDragDown: (d) => _press(d.localPosition),
+      onVerticalDragUpdate: (d) => _locate(d.localPosition),
+      onVerticalDragEnd: (_) => _finish(),
+      onVerticalDragCancel: _finish,
+      onTapDown: (d) => _press(d.localPosition),
+      onTapUp: (_) => _finish(),
+      onTapCancel: _finish,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          for (final l in letters)
+          for (var i = 0; i < widget.letters.length; i++)
             SizedBox(
-              height: 15,
-              child: Text(l,
-                  style: const TextStyle(
-                      fontSize: IaSpacing.railLetter, color: IaColors.textMid)),
+              height: 16,
+              child: Center(
+                child: Text(
+                  widget.letters[i],
+                  style: TextStyle(
+                    fontSize: i == _active ? 13 : IaSpacing.railLetter,
+                    fontWeight: i == _active ? IaType.semibold : IaType.regular,
+                    color: i == _active ? accent : IaColors.textMid,
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -439,21 +604,30 @@ Future<void> showWpMenu(
     barrierColor: Colors.black.withValues(alpha: 0.55),
     shape: const RoundedRectangleBorder(),
     builder: (sheetContext) => Container(
-      decoration: BoxDecoration(border: Border(top: BorderSide(color: p.accent, width: 2))),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: p.accent, width: 2)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding:
-                const EdgeInsets.fromLTRB(IaSpacing.xl, IaSpacing.l, IaSpacing.xl, IaSpacing.s),
+            padding: const EdgeInsets.fromLTRB(
+              IaSpacing.xl,
+              IaSpacing.l,
+              IaSpacing.xl,
+              IaSpacing.s,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(title,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: IaType.semibold,
-                      letterSpacing: 1.2,
-                      color: p.accent)),
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: IaType.semibold,
+                  letterSpacing: 1.2,
+                  color: p.accent,
+                ),
+              ),
             ),
           ),
           for (final (label, action) in items)
@@ -465,14 +639,20 @@ Future<void> showWpMenu(
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.xl, vertical: IaSpacing.l),
+                  horizontal: IaSpacing.xl,
+                  vertical: IaSpacing.l,
+                ),
                 decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: IaColors.hairline))),
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: IaType.menu,
-                        fontWeight: IaType.light,
-                        color: IaColors.textHi)),
+                  border: Border(bottom: BorderSide(color: IaColors.hairline)),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: IaType.menu,
+                    fontWeight: IaType.light,
+                    color: IaColors.textHi,
+                  ),
+                ),
               ),
             ),
           const SizedBox(height: IaSpacing.xl),
@@ -487,8 +667,12 @@ Future<void> showWpMenu(
 ///
 /// 普通通知约 2.6s 自动收回；[isError] 时红色标识、**不自动收回**，
 /// 点按任意处关闭，完整展示错误内容（长文换行）。
-void showWpToast(BuildContext context,
-    {required String title, required String message, bool isError = false}) {
+void showWpToast(
+  BuildContext context, {
+  required String title,
+  required String message,
+  bool isError = false,
+}) {
   if (!context.mounted) {
     return;
   }
@@ -498,7 +682,10 @@ void showWpToast(BuildContext context,
   // 保证 toast 永远从状态栏下方开始，不盖住状态栏。
   final topInset = MediaQueryData.fromView(View.of(context)).viewPadding.top;
   final overlay = Overlay.of(context, rootOverlay: true);
-  final ctrl = AnimationController(vsync: overlay, duration: const Duration(milliseconds: 300));
+  final ctrl = AnimationController(
+    vsync: overlay,
+    duration: const Duration(milliseconds: 300),
+  );
   final anim = CurvedAnimation(parent: ctrl, curve: Curves.easeOutCubic);
   late final OverlayEntry entry;
   var closed = false;
@@ -523,47 +710,65 @@ void showWpToast(BuildContext context,
       right: 0,
       child: ClipRect(
         child: SlideTransition(
-          position:
-              Tween<Offset>(begin: const Offset(0, -1), end: Offset.zero).animate(anim),
+          position: Tween<Offset>(
+            begin: const Offset(0, -1),
+            end: Offset.zero,
+          ).animate(anim),
           child: Material(
-          color: Colors.black.withValues(alpha: 0.96),
-          child: InkWell(
-            onTap: isError ? close : null, // 错误条点按关闭
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border(
+            color: Colors.black.withValues(alpha: 0.96),
+            child: InkWell(
+              onTap: isError ? close : null, // 错误条点按关闭
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border(
                     bottom: BorderSide(
-                        color: isError ? IaColors.error : IaColors.hairline)),
-              ),
-              padding:
-                  const EdgeInsets.fromLTRB(IaSpacing.xl, IaSpacing.l, IaSpacing.xl, IaSpacing.l),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title,
+                      color: isError ? IaColors.error : IaColors.hairline,
+                    ),
+                  ),
+                ),
+                padding: const EdgeInsets.fromLTRB(
+                  IaSpacing.xl,
+                  IaSpacing.l,
+                  IaSpacing.xl,
+                  IaSpacing.l,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
                       style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: IaType.semibold,
-                          letterSpacing: 1.2,
-                          color: isError ? IaColors.error : p.accent)),
-                  const SizedBox(height: IaSpacing.xs),
-                  Text(message,
-                      style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: IaType.light,
-                          color: isError ? IaColors.error : IaColors.textHi)),
-                  if (isError) ...[
+                        fontSize: 11,
+                        fontWeight: IaType.semibold,
+                        letterSpacing: 1.2,
+                        color: isError ? IaColors.error : p.accent,
+                      ),
+                    ),
                     const SizedBox(height: IaSpacing.xs),
-                    const Text('点按关闭',
-                        style:
-                            TextStyle(fontSize: 10.5, color: IaColors.textLow)),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: IaType.light,
+                        color: isError ? IaColors.error : IaColors.textHi,
+                      ),
+                    ),
+                    if (isError) ...[
+                      const SizedBox(height: IaSpacing.xs),
+                      const Text(
+                        '点按关闭',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: IaColors.textLow,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     ),
   );
@@ -600,17 +805,24 @@ class EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: TextStyle(
-                    fontSize: IaType.page,
-                    fontWeight: IaType.light,
-                    color: IaColors.textHi)),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: IaType.page,
+                fontWeight: IaType.light,
+                color: IaColors.textHi,
+              ),
+            ),
             if (subtitle != null)
               Padding(
                 padding: const EdgeInsets.only(top: IaSpacing.m),
-                child: Text(subtitle!,
-                    style:
-                        const TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+                child: Text(
+                  subtitle!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: IaColors.textLow,
+                  ),
+                ),
               ),
           ],
         ),

@@ -116,3 +116,11 @@ class GenreGroup {
   final String genre;
   final int albumCount;
 }
+
+/// 常听单曲聚合行（曲目 + 累计播放次数）。
+class TrackPlays {
+  const TrackPlays({required this.track, required this.plays});
+
+  final Track track;
+  final int plays;
+}

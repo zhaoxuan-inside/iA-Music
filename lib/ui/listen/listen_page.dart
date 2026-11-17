@@ -34,7 +34,6 @@ class ListenPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pad = hubPadding(context);
     final items = <(String, String, VoidCallback)>[
       (
         '随缘听歌',
@@ -50,7 +49,7 @@ class ListenPage extends ConsumerWidget {
       ),
       (
         '常听电台',
-        '播放次数 Top6 专辑并集',
+        '播放次数 Top12 单曲',
         () => _start(ref, context, () => ref.read(listenLibraryProvider).top(), true,
             '常听电台'),
       ),
@@ -68,17 +67,14 @@ class ListenPage extends ConsumerWidget {
       ),
     ];
 
-    return ListView(
-      padding: pad,
+    return HubPage(
+      header: const PageHeader(
+        kicker: '今天怎么听',
+        title: '听法',
+        subtitle: '会话从这里开始 · 长按任意歌曲可加入队列或歌单',
+        trailing: SearchAction(),
+      ),
       children: [
-        const SizedBox(height: IaSpacing.xl),
-        const PageHeader(
-          kicker: '今天怎么听',
-          title: '听法',
-          subtitle: '会话从这里开始 · 长按任意歌曲可加入队列或歌单',
-          trailing: SearchAction(),
-        ),
-        const SizedBox(height: IaSpacing.xl),
         for (var i = 0; i < items.length; i++)
           BigRow(
             title: items[i].$1,

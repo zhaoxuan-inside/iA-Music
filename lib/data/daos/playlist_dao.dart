@@ -18,37 +18,40 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
 
   // ── 歌单面 ──────────────────────────────────────────────────────────
 
+  /// 歌单流（含实时曲目数）。
+  ///
+  /// 必须同时 watch `playlists` 与 `playlist_tracks` 两张表——曲数来自
+  /// 子查询，只盯歌单表的话，加歌不会触发重发，UI 上就永远显示 0 首。
   Stream<List<Playlist>> watchPlaylists() {
-    return select(playlists).watch().asyncMap((rows) async {
-      final cnt = playlistTracks.id.count();
-      final countQuery = selectOnly(playlistTracks)
-        ..addColumns([playlistTracks.playlistId, cnt])
-        ..groupBy([playlistTracks.playlistId]);
-      final counts = <int, int>{};
-      for (final row in await countQuery.get()) {
-        final pid = row.read(playlistTracks.playlistId);
-        if (pid != null) {
-          counts[pid] = row.read(cnt) ?? 0;
+    return customSelect(
+      'SELECT p.id AS p_id, p.name AS p_name, p.kind AS p_kind, '
+      'p.pending AS p_pending, p.cover_path AS p_cover_path, '
+      'p.created_at AS p_created_at, '
+      '(SELECT COUNT(*) FROM playlist_tracks pt WHERE pt.playlist_id = p.id) AS p_count '
+      'FROM playlists p',
+      readsFrom: {playlists, playlistTracks},
+    ).watch().map((rows) {
+      final out = [
+        for (final r in rows)
+          Playlist(
+            id: r.read<int>('p_id'),
+            name: r.read<String>('p_name'),
+            kind: r.read<String>('p_kind') == PlaylistKindCol.favorites.name
+                ? PlaylistKind.favorites
+                : PlaylistKind.user,
+            trackCount: r.read<int>('p_count'),
+            createdAt: r.read<DateTime>('p_created_at'),
+            pendingCount: r.read<int>('p_pending'),
+            coverPath: r.readNullable<String>('p_cover_path'),
+          ),
+      ];
+      out.sort((a, b) {
+        if (a.isSystem != b.isSystem) {
+          return a.isSystem ? -1 : 1;
         }
-      }
-      return rows
-          .map((r) => Playlist(
-                id: r.id,
-                name: r.name,
-                kind: r.kind == PlaylistKindCol.favorites
-                    ? PlaylistKind.favorites
-                    : PlaylistKind.user,
-                trackCount: counts[r.id] ?? 0,
-                createdAt: r.createdAt,
-                pendingCount: r.pending,
-              ))
-          .toList()
-        ..sort((a, b) {
-          if (a.isSystem != b.isSystem) {
-            return a.isSystem ? -1 : 1;
-          }
-          return a.createdAt.compareTo(b.createdAt);
-        });
+        return a.createdAt.compareTo(b.createdAt);
+      });
+      return out;
     });
   }
 
@@ -68,6 +71,12 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
   Future<void> renamePlaylist(int id, String name) {
     return (update(playlists)..where((p) => p.id.equals(id)))
         .write(PlaylistsCompanion(name: Value(name)));
+  }
+
+  /// 设置/清除歌单封面（图片文件路径；null=清除，回到首曲封面/字块）。
+  Future<void> setPlaylistCover(int id, String? coverPath) {
+    return (update(playlists)..where((p) => p.id.equals(id)))
+        .write(PlaylistsCompanion(coverPath: Value(coverPath)));
   }
 
   Future<void> deletePlaylist(int id) {

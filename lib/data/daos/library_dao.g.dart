@@ -7,6 +7,9 @@ mixin _$LibraryDaoMixin on DatabaseAccessor<IaDatabase> {
   $RepositoryRootsTable get repositoryRoots => attachedDatabase.repositoryRoots;
   $TracksTable get tracks => attachedDatabase.tracks;
   $PlayHistoryTable get playHistory => attachedDatabase.playHistory;
+  $PlaylistsTable get playlists => attachedDatabase.playlists;
+  $PlaylistTracksTable get playlistTracks => attachedDatabase.playlistTracks;
+  $LyricsMetaTable get lyricsMeta => attachedDatabase.lyricsMeta;
   LibraryDaoManager get managers => LibraryDaoManager(this);
 }
 
@@ -22,4 +25,13 @@ class LibraryDaoManager {
       $$TracksTableTableManager(_db.attachedDatabase, _db.tracks);
   $$PlayHistoryTableTableManager get playHistory =>
       $$PlayHistoryTableTableManager(_db.attachedDatabase, _db.playHistory);
+  $$PlaylistsTableTableManager get playlists =>
+      $$PlaylistsTableTableManager(_db.attachedDatabase, _db.playlists);
+  $$PlaylistTracksTableTableManager get playlistTracks =>
+      $$PlaylistTracksTableTableManager(
+        _db.attachedDatabase,
+        _db.playlistTracks,
+      );
+  $$LyricsMetaTableTableManager get lyricsMeta =>
+      $$LyricsMetaTableTableManager(_db.attachedDatabase, _db.lyricsMeta);
 }

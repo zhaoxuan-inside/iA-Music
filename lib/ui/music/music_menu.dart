@@ -25,19 +25,15 @@ class MusicMenuPage extends ConsumerWidget {
     final albums = ref.watch(albumsProvider).value ?? const <AlbumGroup>[];
     final songs = ref.watch(trackCountProvider).value ?? 0;
     final playlists = ref.watch(playlistListProvider).value ?? const [];
-    final pad = hubPadding(context);
 
-    return ListView(
-      padding: pad,
+    return HubPage(
+      header: const PageHeader(
+        kicker: '分类浏览',
+        title: '音乐',
+        subtitle: '艺人 / 专辑 / 歌曲 / 歌单 · 搜索在下方',
+        trailing: SearchAction(),
+      ),
       children: [
-        const SizedBox(height: IaSpacing.xl),
-        const PageHeader(
-          kicker: '分类浏览',
-          title: '音乐',
-          subtitle: '艺人 / 专辑 / 歌曲 / 歌单 · 搜索在下方',
-          trailing: SearchAction(),
-        ),
-        const SizedBox(height: IaSpacing.xl),
         BigRow(
           title: '艺人',
           subtitle: '${artists.length} 位',

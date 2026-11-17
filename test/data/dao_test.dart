@@ -1,6 +1,7 @@
 /// 曲库/歌单/历史 DAO 测试——内存真 SQLite + FTS 全链路。
 library;
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ia_music/data/database.dart';
@@ -121,6 +122,42 @@ void main() {
       await dao.deletePlaylist(id);
       expect((await dao.watchPlaylists().first).where((p) => p.id == id), isEmpty);
     });
+
+    test('加歌后曲目数即时刷新（playlist_tracks 变更要触发歌单流重发）', () async {
+      final dao = db.playlistDao;
+      final r = await root('/music');
+      await db.libraryDao
+          .upsertScannedBatch([upsert(r, 'a.mp3'), upsert(r, 'b.mp3')]);
+      final tracks = await db.libraryDao.availableTracks();
+      final id = await dao.createPlaylist('通勤');
+
+      final counts = <int>[];
+      final sub = dao.watchPlaylists().listen((ls) =>
+          counts.add(ls.where((p) => p.id == id).firstOrNull?.trackCount ?? -1));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(await dao.addTrack(id, tracks[0].id), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(await dao.addTrack(id, tracks[1].id), isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final lists = await dao.watchPlaylists().first;
+      expect(lists.where((p) => p.id == id).single.trackCount, 2,
+          reason: '歌单卡片显示的曲数必须是加歌后的实时值');
+      await sub.cancel();
+    });
+
+    test('歌单封面路径写回', () async {
+      final dao = db.playlistDao;
+      final id = await dao.createPlaylist('封面');
+      await dao.setPlaylistCover(id, '/data/files/pl_cover.jpg');
+      final p = (await dao.watchPlaylists().first).where((x) => x.id == id).single;
+      expect(p.coverPath, '/data/files/pl_cover.jpg');
+      await dao.setPlaylistCover(id, null);
+      expect(
+          (await dao.watchPlaylists().first).where((x) => x.id == id).single.coverPath,
+          isNull);
+    });
   });
 
   group('历史与歌词元数据', () {
@@ -136,6 +173,52 @@ void main() {
 
       await db.historyDao.clearAll();
       expect(await db.historyDao.watchRecent().first, isEmpty);
+    });
+
+    test('watchTopTracks 单曲粒度聚合播放次数', () async {
+      final dao = db.libraryDao;
+      final r = await root('/music');
+      await dao.upsertScannedBatch([
+        upsert(r, 's1.mp3', title: 'S1', album: ''),
+        upsert(r, 's2.mp3', title: 'S2', album: ''),
+        upsert(r, 's3.mp3', title: 'S3', album: ''),
+      ]);
+      final tracks = await dao.availableTracks();
+      final byTitle = {for (final t in tracks) t.title: t};
+
+      // s1 播 3 次、s2 播 1 次、s3 不播
+      for (var i = 0; i < 3; i++) {
+        await db.historyDao.record(byTitle['S1']!.id, completed: true);
+      }
+      await db.historyDao.record(byTitle['S2']!.id, completed: false);
+
+      final top = await dao.watchTopTracks(limit: 12).first;
+      expect(top, hasLength(2), reason: '未播过的歌不进常听');
+      expect(top.first.track.id, byTitle['S1']!.id);
+      expect(top.first.plays, 3);
+      expect(top[1].plays, 1);
+    });
+
+    test('purgeTrack 清引用行 + 主行（FK 开启不炸）', () async {
+      final dao = db.libraryDao;
+      final r = await root('/music');
+      await dao.upsertScannedBatch([upsert(r, 'p.mp3', title: 'Px')]);
+      final t = (await dao.availableTracks()).single;
+
+      final plId = await db.playlistDao.createPlaylist('清理');
+      await db.playlistDao.addTrack(plId, t.id);
+      await db.playlistDao.setFavorite(t.id, true);
+      await db.historyDao.record(t.id, completed: true);
+      await db.lyricsDao
+          .upsert(t.id, LyricsMetaCompanion.insert(kind: Value('none')));
+
+      await dao.purgeTrack(t.id);
+
+      expect(await dao.availableTracks(), isEmpty);
+      expect(await dao.watchSearchResults('Px').first, isEmpty);
+      expect(await db.historyDao.watchRecent().first, isEmpty);
+      final pls = await db.playlistDao.watchPlaylists().first;
+      expect(pls.where((p) => p.id == plId).single.trackCount, 0);
     });
   });
 }

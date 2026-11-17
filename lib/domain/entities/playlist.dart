@@ -11,6 +11,7 @@ class Playlist {
     required this.trackCount,
     required this.createdAt,
     this.pendingCount = 0,
+    this.coverPath,
   });
 
   final int id;
@@ -21,6 +22,9 @@ class Playlist {
 
   /// GitHub 拉取歌单：等待提取的曲目数（0/null=无）。
   final int pendingCount;
+
+  /// 自定义歌单封面（应用沙箱内图片路径；null=未设置）。
+  final String? coverPath;
 
   bool get isSystem => kind == PlaylistKind.favorites;
 }

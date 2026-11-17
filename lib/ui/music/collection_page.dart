@@ -128,17 +128,22 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(titles[t]!,
-                                  style: TextStyle(
-                                      fontSize: _tab == t
-                                          ? IaType.pivotCur
-                                          : IaType.pivotIdle,
-                                      fontWeight: _tab == t
-                                          ? IaType.light
-                                          : IaType.regular,
-                                      color: _tab == t
-                                          ? IaColors.textHi
-                                          : IaColors.textMid)),
+                              // DESIGN「Pivot 横滑」：当前项 Light 放大过渡。
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 200),
+                                curve: Curves.easeOutCubic,
+                                style: TextStyle(
+                                    fontSize: _tab == t
+                                        ? IaType.pivotCur
+                                        : IaType.pivotIdle,
+                                    fontWeight: _tab == t
+                                        ? IaType.light
+                                        : IaType.regular,
+                                    color: _tab == t
+                                        ? IaColors.textHi
+                                        : IaColors.textMid),
+                                child: Text(titles[t]!),
+                              ),
                               const SizedBox(height: 8),
                               AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),

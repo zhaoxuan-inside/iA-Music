@@ -22,21 +22,23 @@ import '../shared/ui_kit.dart';
 
 /// 打开沉浸播放页：从底部上浮 + 淡入（Zune 磁贴升起）。
 Future<void> openNowPlaying(BuildContext context) {
-  return Navigator.of(context).push(PageRouteBuilder<void>(
-    transitionDuration: const Duration(milliseconds: 300),
-    reverseTransitionDuration: const Duration(milliseconds: 240),
-    pageBuilder: (_, _, _) => const NowPlayingPage(),
-    transitionsBuilder: (_, anim, _, child) {
-      final t = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.06),
-          end: Offset.zero,
-        ).animate(t),
-        child: FadeTransition(opacity: t, child: child),
-      );
-    },
-  ));
+  return Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 300),
+      reverseTransitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (_, _, _) => const NowPlayingPage(),
+      transitionsBuilder: (_, anim, _, child) {
+        final t = CurvedAnimation(parent: anim, curve: Curves.easeOutCubic);
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.06),
+            end: Offset.zero,
+          ).animate(t),
+          child: FadeTransition(opacity: t, child: child),
+        );
+      },
+    ),
+  );
 }
 
 class NowPlayingPage extends ConsumerStatefulWidget {
@@ -131,19 +133,19 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
                       1 => const _LyricsPane(key: ValueKey('lyr')),
                       2 => const _QueuePane(key: ValueKey('q')),
                       _ => _PlayPane(
-                          key: const ValueKey('play'),
-                          snap: snap,
-                          cur: cur,
-                          edge: edge,
-                          dragValue: _dragValue,
-                          onSeek: (v) => setState(() => _dragValue = v),
-                          onSeekEnd: (v) {
-                            ref
-                                .read(playbackProvider.notifier)
-                                .seekTo((v * snap.durationMs).round());
-                            setState(() => _dragValue = null);
-                          },
-                        ),
+                        key: const ValueKey('play'),
+                        snap: snap,
+                        cur: cur,
+                        edge: edge,
+                        dragValue: _dragValue,
+                        onSeek: (v) => setState(() => _dragValue = v),
+                        onSeekEnd: (v) {
+                          ref
+                              .read(playbackProvider.notifier)
+                              .seekTo((v * snap.durationMs).round());
+                          setState(() => _dragValue = null);
+                        },
+                      ),
                     },
                   ),
                 ),
@@ -203,18 +205,23 @@ class _NpHeader extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          _NowPlayingPageState._panes[i],
+                        // DESIGN「Pivot 横滑」：当前项 Light 放大过渡。
+                        AnimatedDefaultTextStyle(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
                           style: TextStyle(
-                            fontSize:
-                                pane == i ? IaType.page : IaType.pivotIdle,
+                            fontSize: pane == i
+                                ? IaType.page
+                                : IaType.pivotIdle,
                             height: 1,
-                            fontWeight:
-                                pane == i ? IaType.light : IaType.regular,
+                            fontWeight: pane == i
+                                ? IaType.light
+                                : IaType.regular,
                             color: pane == i
                                 ? IaColors.textHi
                                 : IaColors.textMid,
                           ),
+                          child: Text(_NowPlayingPageState._panes[i]),
                         ),
                         const SizedBox(height: 9),
                         AnimatedContainer(
@@ -271,9 +278,10 @@ class _PlayPane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final pos = (dragValue ??
-            (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
-        .clamp(0.0, 1.0);
+    final pos =
+        (dragValue ??
+                (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
+            .clamp(0.0, 1.0);
     final cover = math.min(
       MediaQuery.sizeOf(context).width - edge.horizontal - 12,
       IaSpacing.coverHeroMax,
@@ -293,33 +301,55 @@ class _PlayPane extends ConsumerWidget {
             switchOutCurve: Curves.easeInCubic,
             child: GestureDetector(
               key: ValueKey('art-${cur.id}'),
-              onTap: () => ref
-                  .read(playbackProvider.notifier)
-                  .togglePlay(),
+              onTap: () => ref.read(playbackProvider.notifier).togglePlay(),
               child: AlbumArt(track: cur, size: cover, reflection: true),
             ),
           ),
           const SizedBox(height: 26),
-          Text(
-            cur.title,
-            maxLines: 2,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 26,
-              height: 1.18,
-              fontWeight: IaType.light,
-              letterSpacing: IaType.titleTracking,
-              color: IaColors.textHi,
+          // 切歌：标题/歌手整体上滑淡入（WP8 Now Playing 的文字过渡）。
+          AnimatedSwitcher(
+            duration: IaMotion.trackSlide,
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 0.4),
+                  end: Offset.zero,
+                ).animate(anim),
+                child: child,
+              ),
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            '${cur.artistDisplay} · ${cur.albumDisplay}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 12.5, color: IaColors.textMid),
+            child: Column(
+              key: ValueKey('meta-${cur.id}'),
+              children: [
+                Text(
+                  cur.title,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    height: 1.18,
+                    fontWeight: IaType.light,
+                    letterSpacing: IaType.titleTracking,
+                    color: IaColors.textHi,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  '${cur.artistDisplay} · ${cur.albumDisplay}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: IaColors.textMid,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 22),
           ZuneSeekBar(
@@ -331,13 +361,15 @@ class _PlayPane extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: Row(
               children: [
-                Text(_fmt(snap.positionMs),
-                    style:
-                        const TextStyle(fontSize: 11, color: IaColors.textLow)),
+                Text(
+                  _fmt(snap.positionMs),
+                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+                ),
                 const Spacer(),
-                Text(_fmt(snap.durationMs),
-                    style:
-                        const TextStyle(fontSize: 11, color: IaColors.textLow)),
+                Text(
+                  _fmt(snap.durationMs),
+                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+                ),
               ],
             ),
           ),
@@ -348,18 +380,22 @@ class _PlayPane extends ConsumerWidget {
               IconButton(
                 onPressed: () =>
                     ref.read(playbackProvider.notifier).toggleShuffle(),
-                icon: Icon(Icons.shuffle,
-                    size: 20,
-                    color: snap.shuffle ? p.accent : IaColors.textMid),
+                icon: Icon(
+                  Icons.shuffle,
+                  size: 20,
+                  color: snap.shuffle ? p.accent : IaColors.textMid,
+                ),
               ),
               IconButton(
                 onPressed: () => ref.read(playbackProvider.notifier).previous(),
-                icon: const Icon(Icons.skip_previous,
-                    size: 34, color: IaColors.textHi),
+                icon: const Icon(
+                  Icons.skip_previous,
+                  size: 34,
+                  color: IaColors.textHi,
+                ),
               ),
               InkWell(
-                onTap: () =>
-                    ref.read(playbackProvider.notifier).togglePlay(),
+                onTap: () => ref.read(playbackProvider.notifier).togglePlay(),
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
                   width: 72,
@@ -377,16 +413,19 @@ class _PlayPane extends ConsumerWidget {
               ),
               IconButton(
                 onPressed: () => ref.read(playbackProvider.notifier).next(),
-                icon:
-                    const Icon(Icons.skip_next, size: 34, color: IaColors.textHi),
+                icon: const Icon(
+                  Icons.skip_next,
+                  size: 34,
+                  color: IaColors.textHi,
+                ),
               ),
               IconButton(
                 onPressed: () async {
                   final nextMode = snap.repeat == RepeatMode.off
                       ? RepeatMode.all
                       : snap.repeat == RepeatMode.all
-                          ? RepeatMode.one
-                          : RepeatMode.off;
+                      ? RepeatMode.one
+                      : RepeatMode.off;
                   await ref
                       .read(playbackProvider.notifier)
                       .setRepeatMode(nextMode);
@@ -396,8 +435,9 @@ class _PlayPane extends ConsumerWidget {
                       ? Icons.repeat_one
                       : Icons.repeat,
                   size: 20,
-                  color:
-                      snap.repeat != RepeatMode.off ? p.accent : IaColors.textMid,
+                  color: snap.repeat != RepeatMode.off
+                      ? p.accent
+                      : IaColors.textMid,
                 ),
               ),
             ],
@@ -431,7 +471,9 @@ class _PlayPane extends ConsumerWidget {
                       ? '睡眠定时 · 至 ${snap.sleepEndsAt!.hour}:${snap.sleepEndsAt!.minute.toString().padLeft(2, '0')}'
                       : '睡眠定时',
                   style: const TextStyle(
-                      fontSize: 12.5, color: IaColors.textMid),
+                    fontSize: 12.5,
+                    color: IaColors.textMid,
+                  ),
                 ),
               ),
             ],
@@ -461,18 +503,22 @@ class _PlayPane extends ConsumerWidget {
   /// 睡眠定时：WP 菜单（15 / 30 / 60 分钟 / 取消）。
   void _sleepMenu(BuildContext context, WidgetRef ref) {
     final snap = ref.read(playbackProvider);
-    showWpMenu(context, title: '睡眠定时', items: [
-      for (final min in const [15, 30, 60])
-        (
-          '$min 分钟（淡出）',
-          () => ref.read(playbackProvider.notifier).setSleepTimer(min),
-        ),
-      if (snap.sleepEndsAt != null)
-        (
-          '取消定时',
-          () => ref.read(playbackProvider.notifier).cancelSleepTimer(),
-        ),
-    ]);
+    showWpMenu(
+      context,
+      title: '睡眠定时',
+      items: [
+        for (final min in const [15, 30, 60])
+          (
+            '$min 分钟（淡出）',
+            () => ref.read(playbackProvider.notifier).setSleepTimer(min),
+          ),
+        if (snap.sleepEndsAt != null)
+          (
+            '取消定时',
+            () => ref.read(playbackProvider.notifier).cancelSleepTimer(),
+          ),
+      ],
+    );
   }
 
   String _fmt(int ms) {
@@ -519,15 +565,20 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('无词',
-                  style: TextStyle(
-                      fontSize: IaType.display,
-                      fontWeight: IaType.light,
-                      letterSpacing: IaType.titleTracking,
-                      color: IaColors.textLow)),
+              Text(
+                '无词',
+                style: TextStyle(
+                  fontSize: IaType.display,
+                  fontWeight: IaType.light,
+                  letterSpacing: IaType.titleTracking,
+                  color: IaColors.textLow,
+                ),
+              ),
               const SizedBox(height: IaSpacing.m),
-              const Text('这首歌还没有歌词 —— 之后可在设置中补全',
-                  style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+              const Text(
+                '这首歌还没有歌词 —— 之后可在设置中补全',
+                style: TextStyle(fontSize: 12, color: IaColors.textLow),
+              ),
             ],
           ),
         ),
@@ -547,9 +598,11 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
         const extent = 46.0;
         final target = (line * extent - _scroll.position.viewportDimension / 3)
             .clamp(0.0, _scroll.position.maxScrollExtent);
-        _scroll.animateTo(target,
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic);
+        _scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+        );
       });
     }
 
@@ -571,8 +624,7 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
             ).createShader(bounds),
             child: ListView.builder(
               controller: _scroll,
-              padding: EdgeInsets.fromLTRB(
-                  edge.left, 64, edge.right, 40),
+              padding: EdgeInsets.fromLTRB(edge.left, 64, edge.right, 40),
               itemCount: doc.lines.length,
               itemExtent: 46,
               itemBuilder: (_, i) {
@@ -589,10 +641,8 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize:
-                            active ? IaType.pivotCur : IaType.list,
-                        fontWeight:
-                            active ? IaType.light : IaType.regular,
+                        fontSize: active ? IaType.pivotCur : IaType.list,
+                        fontWeight: active ? IaType.light : IaType.regular,
                         letterSpacing: active ? 0.2 : 0,
                         color: active ? p.accent : IaColors.lyricIdle,
                       ),
@@ -605,7 +655,10 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
         ),
         Padding(
           padding: EdgeInsets.only(
-              left: edge.left, right: edge.right, bottom: IaSpacing.m),
+            left: edge.left,
+            right: edge.right,
+            bottom: IaSpacing.m,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -633,14 +686,23 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
 
   /// 歌词偏移 WP 菜单（PRODUCT：长按调偏移）。
   void _offsetMenu(BuildContext context, int trackId, int offset) {
-    showWpMenu(context, title: '歌词偏移', items: [
-      ('偏移 −0.5s',
-          () => ref.read(lyricsActionsProvider).setOffset(trackId, offset - 500)),
-      ('重置（0）',
-          () => ref.read(lyricsActionsProvider).setOffset(trackId, 0)),
-      ('偏移 +0.5s',
-          () => ref.read(lyricsActionsProvider).setOffset(trackId, offset + 500)),
-    ]);
+    showWpMenu(
+      context,
+      title: '歌词偏移',
+      items: [
+        (
+          '偏移 −0.5s',
+          () =>
+              ref.read(lyricsActionsProvider).setOffset(trackId, offset - 500),
+        ),
+        ('重置（0）', () => ref.read(lyricsActionsProvider).setOffset(trackId, 0)),
+        (
+          '偏移 +0.5s',
+          () =>
+              ref.read(lyricsActionsProvider).setOffset(trackId, offset + 500),
+        ),
+      ],
+    );
   }
 }
 
@@ -657,11 +719,15 @@ class _QueuePane extends ConsumerWidget {
 
     if (snap.queue.isEmpty) {
       return const Center(
-          child: Text('队列为空',
-              style: TextStyle(
-                  fontSize: IaType.menu,
-                  fontWeight: IaType.light,
-                  color: IaColors.textLow)));
+        child: Text(
+          '队列为空',
+          style: TextStyle(
+            fontSize: IaType.menu,
+            fontWeight: IaType.light,
+            color: IaColors.textLow,
+          ),
+        ),
+      );
     }
 
     return ReorderableListView.builder(
@@ -671,15 +737,17 @@ class _QueuePane extends ConsumerWidget {
         padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.m, edge.right, 0),
         child: Row(
           children: [
-            Text('队列 · ${snap.queue.length} 首',
-                style: const TextStyle(fontSize: 12.5, color: IaColors.textMid)),
+            Text(
+              '队列 · ${snap.queue.length} 首',
+              style: const TextStyle(fontSize: 12.5, color: IaColors.textMid),
+            ),
             const Spacer(),
             TextButton(
-              onPressed: () =>
-                  ref.read(playbackProvider.notifier).clearQueue(),
-              child: const Text('清空',
-                  style:
-                      TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+              onPressed: () => ref.read(playbackProvider.notifier).clearQueue(),
+              child: const Text(
+                '清空',
+                style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
+              ),
             ),
           ],
         ),
@@ -692,7 +760,8 @@ class _QueuePane extends ConsumerWidget {
         color: Colors.black,
         child: DecoratedBox(
           decoration: BoxDecoration(
-              border: Border(left: BorderSide(color: p.accent, width: 2))),
+            border: Border(left: BorderSide(color: p.accent, width: 2)),
+          ),
           child: child,
         ),
       ),
@@ -710,10 +779,12 @@ class _QueuePane extends ConsumerWidget {
                   .playTracks(snap.queue, startIndex: i),
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.s, vertical: 9),
+                  horizontal: IaSpacing.s,
+                  vertical: 9,
+                ),
                 decoration: const BoxDecoration(
-                    border:
-                        Border(bottom: BorderSide(color: IaColors.hairline))),
+                  border: Border(bottom: BorderSide(color: IaColors.hairline)),
+                ),
                 child: Row(
                   children: [
                     SizedBox(
@@ -722,8 +793,9 @@ class _QueuePane extends ConsumerWidget {
                         active ? '♪' : '${i + 1}'.padLeft(2, '0'),
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                            fontSize: 11,
-                            color: active ? p.accent : IaColors.textLow),
+                          fontSize: 11,
+                          color: active ? p.accent : IaColors.textLow,
+                        ),
                       ),
                     ),
                     const SizedBox(width: IaSpacing.m),
@@ -733,26 +805,35 @@ class _QueuePane extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(t.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: IaType.list,
-                                  color:
-                                      active ? p.accent : IaColors.textHi)),
+                          Text(
+                            t.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: IaType.list,
+                              color: active ? p.accent : IaColors.textHi,
+                            ),
+                          ),
                           const SizedBox(height: 2),
-                          Text(t.artistDisplay,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11, color: IaColors.textLow)),
+                          Text(
+                            t.artistDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: IaColors.textLow,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.close,
-                          size: 15, color: IaColors.textLow),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 15,
+                        color: IaColors.textLow,
+                      ),
                       onPressed: () => ref
                           .read(playbackProvider.notifier)
                           .removeFromQueue(i),

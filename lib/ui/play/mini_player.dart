@@ -1,4 +1,5 @@
 /// 迷你条：吸底整宽黑条 + accent 细进度线；横滑切歌；点击展开 NP。
+/// 长歌名走 WP8 音乐播放器的走马灯；切歌时标题/歌手上滑过渡。
 library;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../state/playback_controller.dart';
 import '../shared/cover.dart';
+import '../shared/wp_motion.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({required this.onOpen, super.key});
@@ -44,7 +46,8 @@ class MiniPlayer extends ConsumerWidget {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.94),
             border: const Border(
-                top: BorderSide(color: IaColors.hairlineStrong)),
+              top: BorderSide(color: IaColors.hairlineStrong),
+            ),
           ),
           padding: EdgeInsets.only(bottom: bottom),
           child: Stack(
@@ -65,31 +68,55 @@ class MiniPlayer extends ConsumerWidget {
               ),
               Padding(
                 padding: EdgeInsets.fromLTRB(
-                    mq.padding.left + IaSpacing.m,
-                    IaSpacing.s,
-                    mq.padding.right + IaSpacing.xs,
-                    IaSpacing.s),
+                  mq.padding.left + IaSpacing.m,
+                  IaSpacing.s,
+                  mq.padding.right + IaSpacing.xs,
+                  IaSpacing.s,
+                ),
                 child: Row(
                   children: [
                     CoverArt(track: cur, size: 40),
                     const SizedBox(width: IaSpacing.m),
                     Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(cur.title,
+                      child: AnimatedSwitcher(
+                        duration: IaMotion.trackSlide,
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.5),
+                              end: Offset.zero,
+                            ).animate(anim),
+                            child: child,
+                          ),
+                        ),
+                        child: Column(
+                          key: ValueKey('mini-${cur.id}'),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // WP8 走马灯：长歌名匀速横滚
+                            MarqueeText(
+                              cur.title,
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                color: IaColors.textHi,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              cur.artistDisplay,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  fontSize: 13.5, color: IaColors.textHi)),
-                          const SizedBox(height: 2),
-                          Text(cur.artistDisplay,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 11, color: IaColors.textLow)),
-                        ],
+                                fontSize: 11,
+                                color: IaColors.textLow,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     IconButton(
@@ -97,12 +124,16 @@ class MiniPlayer extends ConsumerWidget {
                       onPressed: () =>
                           ref.read(playbackProvider.notifier).togglePlay(),
                       icon: Icon(
-                          snap.playing ? Icons.pause : Icons.play_arrow,
-                          size: 22,
-                          color: IaColors.textHi),
+                        snap.playing ? Icons.pause : Icons.play_arrow,
+                        size: 22,
+                        color: IaColors.textHi,
+                      ),
                     ),
-                    const Icon(Icons.keyboard_arrow_up,
-                        size: 20, color: IaColors.textLow),
+                    const Icon(
+                      Icons.keyboard_arrow_up,
+                      size: 20,
+                      color: IaColors.textLow,
+                    ),
                     const SizedBox(width: IaSpacing.xs),
                   ],
                 ),

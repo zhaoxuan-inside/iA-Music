@@ -4,6 +4,8 @@
 /// 头部使用「封面 + 倒影 + 环境光」，把详情页从一张列表变成一张唱片内页。
 library;
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -14,7 +16,9 @@ import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
+import '../../state/providers.dart';
 import '../../state/quickplay_providers.dart';
+import '../playlists/playlist_edit.dart';
 import '../search/search_page.dart';
 import '../shared/actions.dart';
 import '../shared/ambient.dart';
@@ -40,6 +44,7 @@ class DetailPage extends ConsumerWidget {
     Widget? extra;
     var likeTarget = '';
     var typeLabel = '专辑';
+    String? plCover;
 
     switch (type) {
       case DetailType.album:
@@ -69,6 +74,7 @@ class DetailPage extends ConsumerWidget {
         subtitle = '${pl?.trackCount ?? 0} 首';
         likeTarget = 'playlist:$id';
         typeLabel = '歌单';
+        plCover = pl?.coverPath;
         break;
       case DetailType.genre:
         final albums = ref.watch(genreAlbumsProvider(id)).value ?? const <AlbumGroup>[];
@@ -135,6 +141,21 @@ class DetailPage extends ConsumerWidget {
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
               actions: [
+                if (type == DetailType.playlist)
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: '编辑歌单',
+                    icon: const Icon(Icons.edit_outlined, size: 19,
+                        color: IaColors.textHi),
+                    onPressed: () {
+                      final pl = ref.watch(playlistListProvider).value
+                          ?.where((x) => x.id == int.tryParse(id))
+                          .firstOrNull;
+                      if (pl != null) {
+                        showPlaylistEditMenu(context, ref, pl);
+                      }
+                    },
+                  ),
                 if (qpKind != null)
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -182,6 +203,7 @@ class DetailPage extends ConsumerWidget {
                       trackCount: tracks.length,
                       total: total,
                       track: first,
+                      coverPath: plCover,
                     ),
                     const SizedBox(height: IaSpacing.xl),
                     if (extra != null)
@@ -207,8 +229,10 @@ class DetailPage extends ConsumerWidget {
                           onTap: () => ref
                               .read(playbackProvider.notifier)
                               .playTracks(tracks, startIndex: i),
-                          onLongPress: () =>
-                              showTrackMenu(context, ref, tracks[i]),
+                          onLongPress: () => type == DetailType.playlist
+                              ? _playlistTrackMenu(
+                                  context, ref, int.tryParse(id) ?? 0, tracks[i])
+                              : showTrackMenu(context, ref, tracks[i]),
                         ),
                     ],
                   ],
@@ -241,6 +265,37 @@ class DetailPage extends ConsumerWidget {
     showWpToast(context, title: '喜欢', message: '专辑级收藏在歌单「我喜欢的音乐」中按曲生效');
   }
 
+  /// 歌单条目长按菜单：移出歌单 / 插播 / 查看专辑。
+  void _playlistTrackMenu(
+      BuildContext context, WidgetRef ref, int playlistId, Track track) {
+    showWpMenu(context, title: track.title, items: [
+      (
+        '移出歌单',
+        () async {
+          await ref
+              .read(dbProvider)
+              .playlistDao
+              .removeTrack(playlistId, track.id);
+          if (context.mounted) {
+            showWpToast(context,
+                title: '歌单', message: '已移出「${track.title}」');
+          }
+        },
+      ),
+      (
+        '插播：下一首播放',
+        () => ref.read(dbActionsProvider).playNext(track),
+      ),
+      (
+        '查看专辑',
+        () => Navigator.of(context).push(zuneRoute<void>(
+              builder: (_) => DetailPage(
+                  type: DetailType.album, id: albumKey(track.album)),
+            )),
+      ),
+    ]);
+  }
+
   String _fmtTotal(int ms) {
     final min = (ms / 60000).round();
     if (min < 60) {
@@ -250,7 +305,7 @@ class DetailPage extends ConsumerWidget {
   }
 }
 
-/// 头部：大封面 + 倒影 + 类型 kicker + 细体大标题。
+/// 头部：大封面（歌单可用自定义封面）+ 倒影 + 类型 kicker + 细体大标题。
 class _Hero extends StatelessWidget {
   const _Hero({
     required this.typeLabel,
@@ -259,6 +314,7 @@ class _Hero extends StatelessWidget {
     required this.trackCount,
     required this.total,
     required this.track,
+    this.coverPath,
   });
 
   final String typeLabel;
@@ -267,14 +323,29 @@ class _Hero extends StatelessWidget {
   final int trackCount;
   final String total;
   final Track? track;
+  final String? coverPath;
+
+  /// 封面图失效兜底：发丝色块。
+  Widget _fallbackArt(BuildContext context) =>
+      Container(width: 148, height: 148, color: IaColors.hairline);
 
   @override
   Widget build(BuildContext context) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final art = track == null
-        ? null
-        : AlbumArt(
-            track: track!, size: 148, reflection: true);
+    final hasCover =
+        coverPath != null && coverPath!.isNotEmpty && File(coverPath!).existsSync();
+    final art = hasCover
+        ? ClipRect(
+            child: Image.file(File(coverPath!),
+                width: 148,
+                height: 148,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                errorBuilder: (_, _, _) => _fallbackArt(context)))
+        : track == null
+            ? null
+            : AlbumArt(
+                track: track!, size: 148, reflection: true);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,

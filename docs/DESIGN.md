@@ -84,15 +84,24 @@ Zune洋红 #F1006E（默认）   洋红 #D80073   经典蓝 #1BA1E2   青绿 #00
 | 场景 | 规格 |
 |---|---|
 | 页面跳转（磁贴翻开 Flip） | 整页绕横轴 rotateX 62° 翻入/翻出（origin 50% 62%），360ms easeOutCubic；被点磁贴自身绕纵轴翻开 88°，300ms |
+| 进页逐条翻入（Turnstile Feather） | **WP8 pivot 招牌**（Silverlight Toolkit `TurnstileFeatherEffect`）：列表/网格条目绕纵轴 84° 依次翻入 + 淡入，420ms easeOutCubic，条目错峰 45ms（≤11 条参与，只播一次；滚动出的新条目不重播）。Hub 八屏内容区与曲库/最近添加/常听历史/歌单/快速播放的条目生效 |
+| 快速播放磁贴翻面（Live Tile Flip） | **WP8 Music+Videos Hub 马赛克磁贴**：磁贴周期性绕纵轴 3D 翻面 900ms easeInOutCubic；全局时钟 2.5s 一拍，每块磁贴按标题种子取 3~5 拍周期与相位，永不同步；背面 = 黑底 + 首字水印 + 「点按播放 · 长按固定/解除」。时钟只在生产开启（测试静默） |
+| 长标题走马灯 | **WP 音乐播放器 ticker**：迷你条歌名单行溢出时 62px/s 匀速横滚，起始停 0.9s、回卷前停 1.5s 循环；不溢出即普通文本 |
+| 按压 Tilt | **Silverlight Toolkit tilt**：按下 0.972 缩放 140ms easeOutCubic，抬起回弹；纯黑画布无水波的等位手感。大字行/歌曲行/快速播放磁贴生效 |
+| 切歌文字过渡 | 迷你条 / 屏1 / NP 的标题与歌手随切歌 220ms 上滑淡入淡出；封面交叉淡入见下两行 |
 | 列表项 → 详情（连续） | 被点项飞升至详情页标题位，250ms |
 | Hub 横滑（视差） | 背景巨字 0.34x、页标题 0.62x、竖分割线 0.5x；内容 1:1 |
-| Pivot 横滑 | 内容 1:1，头部当前项 Light 放大过渡，accent 下划线 200ms |
+| Pivot 横滑 | 内容 1:1，头部当前项 Light 放大过渡（AnimatedDefaultTextStyle 200ms），accent 下划线 200ms |
 | 封面切换（环境光） | 620ms 失焦色雾交叉淡入；大封面 260ms 交叉淡入 |
 | 整页横滑切歌 | 200ms，封面交叉淡入 |
 | 迷你条 → NP | 上滑展开 260ms（6% 位移 + 淡入） |
 | 长按菜单 | 底部升起 200ms + 后景压暗 40% |
 | 操作反馈 | 即时可视操作（喜欢/随机/循环等）只以控件状态 + 弹跳动画确认，不弹文字通知 |
 | 睡眠定时淡出 | 音量 5s 线性淡出 |
+
+> 动效令牌全部收敛在 `design_tokens.dart` 的 `IaMotion`；组件实现在 `lib/ui/shared/wp_motion.dart`。
+> 调研参照：WP8 内置应用与 Music+Videos Hub 的 Turnstile Feather / Live Tile Flip /
+> Tilt（Silverlight for Windows Phone Toolkit），Xbox Music 8.1 的「滑动封面切歌」。
 
 ## 六、交互法则（WP 血统，与视觉同等重要）
 

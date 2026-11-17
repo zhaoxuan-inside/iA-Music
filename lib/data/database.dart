@@ -1,4 +1,4 @@
-/// drift 数据库（schema v3：v2 + tracks.needsMeta/enrichedAt；库文件 ia_music_v2.db）。
+/// drift 数据库（schema v4：v3 + playlists.coverPath；库文件 ia_music_v2.db）。
 /// 收集任务（CollectTasks）与 v3 列同批引入。
 library;
 
@@ -46,7 +46,7 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -67,6 +67,10 @@ class IaDatabase extends _$IaDatabase {
             // v3：元数据补全（根据歌曲时长反向重建 歌名/歌手/歌词）
             await m.addColumn(tracks, tracks.needsMeta);
             await m.addColumn(tracks, tracks.enrichedAt);
+          }
+          if (from < 4) {
+            // v4：歌单自定义封面
+            await m.addColumn(playlists, playlists.coverPath);
           }
         },
         beforeOpen: (details) async {

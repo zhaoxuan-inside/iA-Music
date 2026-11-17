@@ -1,4 +1,7 @@
 /// 曲库屏（Hub 屏2）：全部歌曲按歌名字母排序，右缘字母导航轨。
+///
+/// 页头固定（不随内容滚动、高度恒定）；字母轨为 Win11 跳转栏逻辑：
+/// 按下即跳 + 拖动实时刷屏 + 每越一个字母振动（LetterRail 内置）。
 library;
 
 import 'package:flutter/material.dart';
@@ -15,6 +18,7 @@ import '../shared/actions.dart';
 import '../shared/cover.dart';
 import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
+import '../shared/wp_motion.dart';
 
 /// 展平槽位：字母组头 / 歌曲行。
 sealed class _Slot {
@@ -48,13 +52,27 @@ class _SongsPageState extends ConsumerState<SongsPage> {
   final _groupKeys = <String, GlobalKey>{};
   String? _bigLetter;
 
+  /// 拖动刷屏：即时跳组（Win11 跳转栏无缓动等待）。
+  void _jumpTo(String letter, {bool animated = false}) {
+    final gk = _groupKeys[letter];
+    final ctx = gk?.currentContext;
+    if (ctx == null) {
+      return;
+    }
+    Scrollable.ensureVisible(
+      ctx,
+      duration: Duration(milliseconds: animated ? 220 : 0),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final tracks = ref.watch(tracksProvider(TrackSort.title)).value ?? const <Track>[];
+    final tracks =
+        ref.watch(tracksProvider(TrackSort.title)).value ?? const <Track>[];
     final playingId = ref.watch(playbackProvider.select((s) => s.current?.id));
     final edge = edgeInsets(context);
-    final pad = hubPadding(context);
 
     final groups = <String, List<Track>>{};
     for (final t in tracks) {
@@ -71,113 +89,136 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     }
     slots.add(const _MusicPageEntry());
 
+    final header = PageHeader(
+      kicker: '音乐仓库',
+      title: '曲库',
+      subtitle: '${tracks.length} 首 · 按歌名字母排序 · 分类浏览见音乐页',
+      trailing: const SearchAction(),
+    );
+
     if (tracks.isEmpty) {
       // 真实空态：未配置目录/未扫描时给出可见出路，不再是一片黑
-      return ListView(
-        padding: hubPadding(context),
+      return HubPage(
+        header: header,
         children: [
           const SizedBox(height: IaSpacing.xl),
-          const PageHeader(
-            kicker: '音乐仓库',
-            title: '曲库',
-            subtitle: '全部歌曲按歌名字母排序',
-            trailing: SearchAction(),
-          ),
-          const SizedBox(height: IaSpacing.xxl),
-          const EmptyState(
-              title: '曲库还是空的',
-              subtitle: '先在「设置 · 存储」添加音乐目录并扫描'),
+          const EmptyState(title: '曲库还是空的', subtitle: '先在「设置 · 存储」添加音乐目录并扫描'),
           const SizedBox(height: IaSpacing.l),
           OutlinedButton(
-            onPressed: () => Navigator.of(context).push(
-                zuneRoute<void>(builder: (_) => const StorageSubPage())),
-            child: const Text('去添加音乐目录',
-                style: TextStyle(fontSize: 13, color: IaColors.textHi)),
+            onPressed: () => Navigator.of(context)
+                .push(zuneRoute<void>(builder: (_) => const StorageSubPage())),
+            child: const Text(
+              '去添加音乐目录',
+              style: TextStyle(fontSize: 13, color: IaColors.textHi),
+            ),
           ),
         ],
       );
     }
 
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ListView.builder(
-          padding: pad,
-          itemCount: slots.length + 1,
-          itemBuilder: (context, i) {
-            if (i == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: IaSpacing.s),
-                child: PageHeader(
-                  kicker: '音乐仓库',
-                  title: '曲库',
-                  subtitle:
-                      '${tracks.length} 首 · 按歌名字母排序 · 分类浏览见音乐页',
-                  trailing: const SearchAction(),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            edge.left,
+            topInset(context) + IaSpacing.l,
+            edge.right,
+            0,
+          ),
+          child: header,
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              ListView.builder(
+                padding: EdgeInsets.fromLTRB(
+                  edge.left,
+                  IaSpacing.xl,
+                  edge.right,
+                  140,
                 ),
-              );
-            }
-            final slot = slots[i - 1];
-            final child = switch (slot) {
-              _Header(:final letter) => Container(
-                  key: _groupKeys.putIfAbsent(letter, GlobalKey.new),
-                  padding: const EdgeInsets.only(top: IaSpacing.l, bottom: IaSpacing.s),
-                  child: Text(letter,
-                      style: TextStyle(
+                itemCount: slots.length,
+                itemBuilder: (context, i) {
+                  final slot = slots[i];
+                  final child = switch (slot) {
+                    _Header(:final letter) => Container(
+                      key: _groupKeys.putIfAbsent(letter, GlobalKey.new),
+                      padding: const EdgeInsets.only(
+                        top: IaSpacing.l,
+                        bottom: IaSpacing.s,
+                      ),
+                      child: Text(
+                        letter,
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: IaType.semibold,
                           letterSpacing: 1.2,
-                          color: p.accent)),
+                          color: p.accent,
+                        ),
+                      ),
+                    ),
+                    _Song(:final track, :final flatIndex) => SongRow(
+                      track: track,
+                      leading: CoverArt(
+                        track: track,
+                        size: IaSpacing.coverSmall,
+                      ),
+                      isPlaying: playingId == track.id,
+                      isLiked:
+                          ref.watch(favoriteProvider(track.id)).value ?? false,
+                      onTap: () => ref
+                          .read(playbackProvider.notifier)
+                          .playTracks(tracks, startIndex: flatIndex),
+                      onLongPress: () => showTrackMenu(context, ref, track),
+                    ),
+                    _MusicPageEntry() => Padding(
+                      padding: const EdgeInsets.only(top: IaSpacing.l),
+                      child: BigRow(
+                        title: '音乐页 · 全部艺人 / 专辑 / 歌单',
+                        onTap: () => Navigator.of(context).push(
+                          zuneRoute<void>(
+                            builder: (_) => const MusicMenuPage(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  };
+                  // 进页一瞬的 Turnstile Feather；长列表滚动出的条目不重播。
+                  return FeatherIn(index: i, child: child);
+                },
+              ),
+              Positioned(
+                right: edge.right > IaSpacing.gutter ? 4 : 2,
+                // 固定页头（topInset + l + PageHeader.height）之下起轨
+                top: topInset(context) + IaSpacing.l + PageHeader.height + 8,
+                bottom: 150,
+                width: 22,
+                child: LetterRail(
+                  letters: letters,
+                  onPick: (l) {
+                    setState(() => _bigLetter = l);
+                    _jumpTo(l);
+                  },
+                  onEnd: () => setState(() => _bigLetter = null),
                 ),
-              _Song(:final track, :final flatIndex) => SongRow(
-                  track: track,
-                  leading:
-                      CoverArt(track: track, size: IaSpacing.coverSmall),
-                  isPlaying: playingId == track.id,
-                  isLiked:
-                      ref.watch(favoriteProvider(track.id)).value ?? false,
-                  onTap: () => ref
-                      .read(playbackProvider.notifier)
-                      .playTracks(tracks, startIndex: flatIndex),
-                  onLongPress: () => showTrackMenu(context, ref, track),
-                ),
-              _MusicPageEntry() => Padding(
-                  padding: const EdgeInsets.only(top: IaSpacing.l),
-                  child: BigRow(
-                    title: '音乐页 · 全部艺人 / 专辑 / 歌单',
-                    onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                        builder: (_) => const MusicMenuPage())),
+              ),
+              if (_bigLetter != null)
+                IgnorePointer(
+                  child: Center(
+                    child: Text(
+                      _bigLetter!,
+                      style: TextStyle(
+                        fontSize: 72,
+                        fontWeight: IaType.light,
+                        color: p.accent,
+                      ),
+                    ),
                   ),
                 ),
-            };
-            return child;
-          },
-        ),
-        Positioned(
-          right: edge.right > IaSpacing.gutter ? 4 : 2,
-          top: topInset(context) + 176,
-          bottom: 150,
-          width: 20,
-          child: LetterRail(
-            letters: letters,
-            onPick: (l) {
-              setState(() => _bigLetter = l);
-              final gk = _groupKeys[l];
-              if (gk?.currentContext != null) {
-                Scrollable.ensureVisible(gk!.currentContext!,
-                    duration: const Duration(milliseconds: 220));
-              }
-            },
-            onEnd: () => setState(() => _bigLetter = null),
+            ],
           ),
         ),
-        if (_bigLetter != null)
-          IgnorePointer(
-            child: Center(
-              child: Text(_bigLetter!,
-                  style: TextStyle(
-                      fontSize: 64, fontWeight: IaType.light, color: p.accent)),
-            ),
-          ),
       ],
     );
   }

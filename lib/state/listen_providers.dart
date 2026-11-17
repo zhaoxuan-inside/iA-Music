@@ -23,14 +23,10 @@ class ListenLibrary {
   /// 喜欢电台取材：收藏夹曲目快照。
   Future<List<Track>> favorites() => _playlistDao.favoritesTracks();
 
-  /// 常听电台取材：常听专辑（PlayHistory 次数 Top6）的曲目并集。
+  /// 常听电台取材：播放次数 Top12 单曲（单曲粒度，专辑缺失不折叠）。
   Future<List<Track>> top() async {
-    final albums = await _db.libraryDao.watchTopAlbums(limit: 6).first;
-    final out = <Track>[];
-    for (final al in albums) {
-      out.addAll(await _db.libraryDao.watchAlbumTracks(albumKey(al.album)).first);
-    }
-    return out;
+    final tops = await _db.libraryDao.watchTopTracks(limit: 12).first;
+    return [for (final t in tops) t.track];
   }
 
   /// 最近添加取材：按 addedAt 倒序的全部曲目。
@@ -56,9 +52,9 @@ final genresProvider = StreamProvider<List<GenreGroup>>(
 final genreAlbumsProvider = StreamProvider.family<List<AlbumGroup>, String>(
     (ref, genre) => ref.watch(dbProvider).libraryDao.watchGenreAlbums(genre));
 
-/// 常听专辑（PlayHistory 播放次数聚合；未播过为空）。
-final topAlbumsProvider = StreamProvider<List<AlbumGroup>>(
-    (ref) => ref.watch(dbProvider).libraryDao.watchTopAlbums(limit: 12));
+/// 常听单曲（PlayHistory 播放次数聚合；未播过为空）。
+final topTracksProvider = StreamProvider<List<TrackPlays>>(
+    (ref) => ref.watch(dbProvider).libraryDao.watchTopTracks(limit: 12));
 
 /// FTS 拼音检索（标题/艺人/专辑/拼音全拼/首字母）。
 final ftsSearchProvider =
@@ -70,28 +66,15 @@ final ftsSearchProvider =
 final historyProvider = StreamProvider<List<HistoryItem>>(
     (ref) => ref.watch(dbProvider).historyDao.watchRecent(limit: 100));
 
-/// 历史去重后的曲目序列（最新在前）。
-/// 最近播放专辑（demo renderHistRow：历史顺序专辑去重，上限 8）。
-final recentPlayedAlbumsProvider = Provider<List<AlbumGroup>>((ref) {
+/// 最近播放单曲（历史去重，最新在前；上限 12）。
+/// 单曲粒度：无专辑元数据的收集曲不再被折叠成一个「未知专辑」磁贴。
+final recentPlayedTracksProvider = Provider<List<Track>>((ref) {
   final items = ref.watch(historyProvider).value ?? const <HistoryItem>[];
-  final albums = ref.watch(albumsProvider).value ?? const <AlbumGroup>[];
-  final byNorm = {for (final a in albums) albumKey(a.album): a};
-  final seen = <String>{};
-  final out = <AlbumGroup>[];
-  for (final it in items) {
-    final key = albumKey(it.track.album);
-    if (!seen.add(key)) {
-      continue;
-    }
-    final a = byNorm[key];
-    if (a != null) {
-      out.add(a);
-    }
-    if (out.length >= 8) {
-      break;
-    }
-  }
-  return out;
+  final seen = <int>{};
+  return [
+    for (final it in items)
+      if (seen.add(it.track.id)) it.track,
+  ].take(12).toList();
 });
 
 /// 最近入库专辑：按曲目 addedAt 倒序给专辑组排序（最新专辑在前）。

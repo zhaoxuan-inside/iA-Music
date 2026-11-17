@@ -31,17 +31,14 @@ class PlayingPage extends ConsumerWidget {
     final edge = edgeInsets(context);
     final count = ref.watch(trackCountProvider).value ?? 0;
 
-    return ListView(
-      padding: hubPadding(context),
+    return HubPage(
+      header: const PageHeader(
+        kicker: 'I A  M U S I C',
+        title: '音乐',
+        hero: true,
+        trailing: SearchAction(),
+      ),
       children: [
-        const SizedBox(height: IaSpacing.xl),
-        const PageHeader(
-          kicker: 'I A  M U S I C',
-          title: '音乐',
-          hero: true,
-          trailing: SearchAction(),
-        ),
-        const SizedBox(height: IaSpacing.xl),
         if (cur != null)
           _NowHero(snap: snap, cur: cur, edge: edge)
         else
@@ -57,11 +54,7 @@ class PlayingPage extends ConsumerWidget {
 
 /// 在播大磁贴：封面 / 倒影 / 标题 / 细线进度 / 播放键。
 class _NowHero extends ConsumerStatefulWidget {
-  const _NowHero({
-    required this.snap,
-    required this.cur,
-    required this.edge,
-  });
+  const _NowHero({required this.snap, required this.cur, required this.edge});
 
   final PlaybackSnapshot snap;
   final Track cur;
@@ -83,9 +76,10 @@ class _NowHeroState extends ConsumerState<_NowHero> {
       MediaQuery.sizeOf(context).width - widget.edge.horizontal - 16,
       IaSpacing.coverHeroMax,
     );
-    final pos = (_drag ??
-            (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
-        .clamp(0.0, 1.0);
+    final pos =
+        (_drag ??
+                (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
+            .clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +87,18 @@ class _NowHeroState extends ConsumerState<_NowHero> {
         Center(
           child: GestureDetector(
             onTap: () => openNowPlaying(context),
-            child: AlbumArt(track: cur, size: cover, reflection: true),
+            // DESIGN「封面切换」：大封面 260ms 交叉淡入。
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: AlbumArt(
+                key: ValueKey('hub-art-${cur.id}'),
+                track: cur,
+                size: cover,
+                reflection: true,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 26),
@@ -101,30 +106,48 @@ class _NowHeroState extends ConsumerState<_NowHero> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    cur.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      height: 1.14,
-                      fontWeight: IaType.light,
-                      letterSpacing: IaType.titleTracking,
-                      color: IaColors.textHi,
+              child: AnimatedSwitcher(
+                duration: IaMotion.trackSlide,
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.5),
+                      end: Offset.zero,
+                    ).animate(anim),
+                    child: child,
+                  ),
+                ),
+                child: Column(
+                  key: ValueKey('hub-meta-${cur.id}'),
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      cur.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        height: 1.14,
+                        fontWeight: IaType.light,
+                        letterSpacing: IaType.titleTracking,
+                        color: IaColors.textHi,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    '${cur.artistDisplay} · ${cur.albumDisplay}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 12.5, color: IaColors.textMid),
-                  ),
-                ],
+                    const SizedBox(height: 7),
+                    Text(
+                      '${cur.artistDisplay} · ${cur.albumDisplay}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: IaColors.textMid,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: IaSpacing.l),
@@ -150,9 +173,7 @@ class _NowHeroState extends ConsumerState<_NowHero> {
         const SizedBox(height: 18),
         ZuneSeekBar(
           value: pos,
-          onSeek: snap.durationMs > 0
-              ? (v) => setState(() => _drag = v)
-              : null,
+          onSeek: snap.durationMs > 0 ? (v) => setState(() => _drag = v) : null,
           onSeekEnd: snap.durationMs > 0
               ? (v) {
                   ref
@@ -164,11 +185,15 @@ class _NowHeroState extends ConsumerState<_NowHero> {
         ),
         Row(
           children: [
-            Text(_fmt(snap.positionMs),
-                style: const TextStyle(fontSize: 11, color: IaColors.textLow)),
+            Text(
+              _fmt(snap.positionMs),
+              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+            ),
             const Spacer(),
-            Text(_fmt(snap.durationMs),
-                style: const TextStyle(fontSize: 11, color: IaColors.textLow)),
+            Text(
+              _fmt(snap.durationMs),
+              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -177,20 +202,28 @@ class _NowHeroState extends ConsumerState<_NowHero> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => ref.read(playbackProvider.notifier).previous(),
-              icon: const Icon(Icons.skip_previous,
-                  size: 22, color: IaColors.textMid),
+              icon: const Icon(
+                Icons.skip_previous,
+                size: 22,
+                color: IaColors.textMid,
+              ),
             ),
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => ref.read(playbackProvider.notifier).next(),
-              icon: const Icon(Icons.skip_next,
-                  size: 22, color: IaColors.textMid),
+              icon: const Icon(
+                Icons.skip_next,
+                size: 22,
+                color: IaColors.textMid,
+              ),
             ),
             const Spacer(),
             TextButton(
               onPressed: () => openNowPlaying(context),
-              child: const Text('打开播放页  ›',
-                  style: TextStyle(fontSize: 12, color: IaColors.textMid)),
+              child: const Text(
+                '打开播放页  ›',
+                style: TextStyle(fontSize: 12, color: IaColors.textMid),
+              ),
             ),
           ],
         ),
@@ -269,22 +302,30 @@ class _RandomTile extends ConsumerWidget {
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    IaSpacing.xl, IaSpacing.xl, IaSpacing.xl, IaSpacing.l),
+                  IaSpacing.xl,
+                  IaSpacing.xl,
+                  IaSpacing.xl,
+                  IaSpacing.l,
+                ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('随缘听歌',
-                        style: TextStyle(
-                            fontSize: 38,
-                            height: 1,
-                            fontWeight: IaType.light,
-                            letterSpacing: IaType.titleTracking,
-                            color: IaColors.textHi)),
+                    Text(
+                      '随缘听歌',
+                      style: TextStyle(
+                        fontSize: 38,
+                        height: 1,
+                        fontWeight: IaType.light,
+                        letterSpacing: IaType.titleTracking,
+                        color: IaColors.textHi,
+                      ),
+                    ),
                     const SizedBox(height: IaSpacing.s),
-                    const Text('全曲库随机 · 一点就开 ▶',
-                        style:
-                            TextStyle(fontSize: 12, color: IaColors.textLow)),
+                    const Text(
+                      '全曲库随机 · 一点就开 ▶',
+                      style: TextStyle(fontSize: 12, color: IaColors.textLow),
+                    ),
                   ],
                 ),
               ),
@@ -318,8 +359,10 @@ class _RecentStrip extends ConsumerWidget {
     final albums =
         ref.watch(recentAddedAlbumsProvider).value ?? const <AlbumGroup>[];
     if (albums.isEmpty) {
-      return const Text('曲库还是空的——先去收集音乐',
-          style: TextStyle(fontSize: 12, color: IaColors.textLow));
+      return const Text(
+        '曲库还是空的——先去收集音乐',
+        style: TextStyle(fontSize: 12, color: IaColors.textLow),
+      );
     }
     return SizedBox(
       height: 186,
@@ -336,17 +379,22 @@ class _RecentStrip extends ConsumerWidget {
               children: [
                 _AlbumCover(album: a, size: 138),
                 const SizedBox(height: IaSpacing.s),
-                Text(a.album,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 12.5, color: IaColors.textHi)),
+                Text(
+                  a.album,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: IaColors.textHi,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(a.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 11, color: IaColors.textLow)),
+                Text(
+                  a.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+                ),
               ],
             ),
           );
@@ -367,14 +415,15 @@ class _AlbumCover extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracks =
         ref.watch(albumTracksProvider(albumKey(album.album))).value ??
-            const <Track>[];
+        const <Track>[];
     final first = tracks.firstOrNull;
     if (first == null) {
       if (size.isFinite) {
         return SizedBox(
-            width: size,
-            height: size,
-            child: const ColoredBox(color: IaColors.hairline));
+          width: size,
+          height: size,
+          child: const ColoredBox(color: IaColors.hairline),
+        );
       }
       return const ColoredBox(color: IaColors.hairline);
     }

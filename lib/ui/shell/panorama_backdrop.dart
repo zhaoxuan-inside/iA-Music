@@ -89,7 +89,7 @@ class PanoramaBackdrop extends StatelessWidget {
                   top: top + 40,
                   bottom: 120,
                   child: Transform.translate(
-                    offset: Offset(w * 0.86 - page * w * 0.43, 0),
+                    offset: Offset(w - page * w * 0.5, 0),
                     child: Container(
                       width: 1,
                       color: Colors.white.withValues(alpha: 0.035),

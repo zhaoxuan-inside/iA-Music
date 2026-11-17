@@ -1,7 +1,7 @@
-/// Hub 全景壳：水平 PageView 七屏（负一屏听法 ← 屏1 在播 → … → 设置）+
-/// 右缘 peek + 迷你条吸底 + NP 展开。
+/// Hub 全景壳：水平 PageView 八屏（负一屏听法 ← 屏1 在播 → … → 设置）+
+/// 迷你条吸底 + NP 展开。
 ///
-/// 曲面屏适配：每屏内容经 SafeArea + edgeInsets（左右曲面安全区取大者）；
+/// 屏宽自适应：viewportFraction = 1.0，每屏吃满屏宽（内容再吃曲面安全区）；
 /// 迷你条/字母轨按安全区偏移。
 library;
 
@@ -43,7 +43,7 @@ class HubShell extends ConsumerStatefulWidget {
 
 class _HubShellState extends ConsumerState<HubShell> {
   late final PageController _pc = PageController(
-      initialPage: HubScreen.quickplay.index, viewportFraction: 0.86);
+      initialPage: HubScreen.quickplay.index, viewportFraction: 1.0);
 
   /// 背景巨字与 HubScreen 一一对应。
   static const _titles = [

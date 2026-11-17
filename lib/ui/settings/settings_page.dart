@@ -18,7 +18,6 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pad = hubPadding(context);
     final st = ref.watch(settingsProvider);
     final accentName = kWpPalette
         .where((w) => w.value.toARGB32() == st.accent.toARGB32())
@@ -30,16 +29,13 @@ class SettingsPage extends ConsumerWidget {
     final loggedCount = (biliIn ? 1 : 0) + (ytIn ? 1 : 0);
     final queueCount = ref.watch(collectTasksProvider).value?.length ?? 0;
 
-    return ListView(
-      padding: pad,
+    return HubPage(
+      header: const PageHeader(
+        kicker: '应用',
+        title: '设置',
+        subtitle: '个性化 · 存储与收集 · 关于',
+      ),
       children: [
-        const SizedBox(height: IaSpacing.xl),
-        const PageHeader(
-          kicker: '应用',
-          title: '设置',
-          subtitle: '个性化 · 存储与收集 · 关于',
-        ),
-        const SizedBox(height: IaSpacing.xl),
         BigRow(
           title: '主题色',
           subtitle: '当前：${accentName ?? '自定义'}',

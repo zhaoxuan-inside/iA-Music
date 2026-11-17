@@ -6,9 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'adapters/engine/audio_bootstrap.dart';
 import 'app/app.dart';
 import 'state/diagnostics.dart';
+import 'ui/shared/wp_motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // WP8 Live Tile 翻面时钟只在生产开启（测试环境静默，无挂起定时器）。
+  tileFlipsEnabled = true;
 
   // 先出界面：后台播放初始化在个别环境下会长时间不返回，
   // 任何 await 都不能挡在 runApp 之前（否则会卡在启动图）。

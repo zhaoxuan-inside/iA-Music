@@ -154,3 +154,54 @@ abstract final class IaSpacing {
   static const double radiusS = 2;
   static const double railLetter = 9.5;
 }
+
+/// 动效令牌——Windows Phone 8 默认音乐播放器（Music+Videos Hub / Xbox Music）
+/// 的四个招牌动效（调研见 docs/DESIGN.md 动效表）：
+///
+/// 1. **Turnstile Feather**：pivot 页列表条目绕纵轴依次翻入（Silverlight
+///    Toolkit `TurnstileFeatherEffect`：`RotationY` + 每条递增 BeginTime）；
+/// 2. **Live Tile Flip**：磁贴周期性 3D 翻面（Music+Videos Hub 马赛克磁贴）；
+/// 3. **走马灯**：长标题匀速横滚（WP 音乐播放页/迷你条的 ticker）；
+/// 4. **Tilt**：按压轻微缩放反馈（黑底无水波纹的等位手感）。
+abstract final class IaMotion {
+  // ── Turnstile Feather ──
+  /// 单条翻入时长。
+  static const Duration feather = Duration(milliseconds: 420);
+
+  /// 条目间错峰步长。
+  static const Duration featherStep = Duration(milliseconds: 45);
+
+  /// 参与错峰的条目上限（此后并为一拍，长列表滚动不重播）。
+  static const int featherMaxItems = 11;
+
+  /// 绕纵轴（Y）起始角（度）。
+  static const double featherAngle = 84;
+
+  // ── Live Tile Flip ──
+  /// 全局翻面时钟节拍；每块磁贴按各自相位在若干拍后翻一次。
+  static const Duration tileTick = Duration(milliseconds: 2500);
+
+  /// 单次翻面时长。
+  static const Duration tileFlip = Duration(milliseconds: 900);
+
+  // ── 走马灯 ──
+  /// 横滚速度（px/s）。
+  static const double marqueeSpeed = 62;
+
+  /// 起始停顿（看清当前文本再开始滚）。
+  static const Duration marqueeLead = Duration(milliseconds: 900);
+
+  /// 尾部停顿（回到起点前喘口气）。
+  static const Duration marqueeHold = Duration(milliseconds: 1500);
+
+  // ── Tilt ──
+  /// 按压缩放时长。
+  static const Duration tilt = Duration(milliseconds: 140);
+
+  /// 按下时的缩放。
+  static const double tiltScale = 0.972;
+
+  // ── 切歌文字过渡 ──
+  /// 标题/歌手随切歌上滑淡入淡出。
+  static const Duration trackSlide = Duration(milliseconds: 220);
+}

@@ -10,7 +10,13 @@ import '../tables.dart';
 
 part 'library_dao.g.dart';
 
-@DriftAccessor(tables: [RepositoryRoots, Tracks, PlayHistory])
+@DriftAccessor(tables: [
+  RepositoryRoots,
+  Tracks,
+  PlayHistory,
+  PlaylistTracks,
+  LyricsMeta,
+])
 class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   LibraryDao(super.db);
 
@@ -33,6 +39,28 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         needsMeta: r.needsMeta,
         enrichedAt: r.enrichedAt,
         missing: r.missingAt != null,
+      );
+
+  /// customSelect 行 → Track（t.* 全列直取）。
+  Track _trackFromRow(QueryRow r) => Track(
+        id: r.read<int>('id'),
+        rootId: r.read<int>('root_id'),
+        relPath: r.read<String>('rel_path'),
+        path: r.read<String>('path'),
+        title: r.read<String>('title'),
+        artist: r.read<String>('artist'),
+        album: r.read<String>('album'),
+        genre: r.read<String>('genre'),
+        durationMs: r.read<int>('duration_ms'),
+        sizeBytes: r.read<int>('size_bytes'),
+        contentHash: r.read<String>('content_hash'),
+        audioFormat: r.read<String>('audio_format'),
+        trackNo: r.read<int>('track_no'),
+        coverPath: r.readNullable<String>('cover_path'),
+        addedAt: r.read<DateTime>('added_at'),
+        needsMeta: r.read<bool>('needs_meta'),
+        enrichedAt: r.readNullable<DateTime>('enriched_at'),
+        missing: r.readNullable<DateTime>('missing_at') != null,
       );
 
   // ── 查询面 ──────────────────────────────────────────────────────────
@@ -241,6 +269,38 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
                   ))
               .toList(),
         );
+  }
+
+  /// 常听单曲（按累计播放次数排序；未播过的不出现）。
+  ///
+  /// 单曲粒度：无专辑元数据的收集曲不会被折叠进同一个「未知专辑」磁贴，
+  /// 「常听与历史」页因此总能如实反映播放次数。
+  Stream<List<TrackPlays>> watchTopTracks({int limit = 12}) {
+    return customSelect(
+      'SELECT t.*, COUNT(h.id) AS plays FROM tracks t '
+      'JOIN play_history h ON h.track_id = t.id '
+      'WHERE t.missing_at IS NULL '
+      'GROUP BY t.id ORDER BY plays DESC LIMIT ?',
+      variables: [Variable.withInt(limit)],
+      readsFrom: {tracks, playHistory},
+    ).watch().map((rows) => [
+          for (final r in rows)
+            TrackPlays(track: _trackFromRow(r), plays: r.read<int>('plays')),
+        ]);
+  }
+
+  // ── 删除面（曲库内移除一首；文件删除由调用方处理） ────────────────────
+
+  /// 彻底移除一首曲目：FTS / 歌单条目 / 播放历史 / 歌词元数据 / 主行。
+  /// 外键已开启（beforeOpen PRAGMA），先清引用行再删主行。
+  Future<void> purgeTrack(int id) {
+    return transaction(() async {
+      await _deleteFts(id);
+      await (delete(playlistTracks)..where((pt) => pt.trackId.equals(id))).go();
+      await (delete(playHistory)..where((h) => h.trackId.equals(id))).go();
+      await (delete(lyricsMeta)..where((m) => m.trackId.equals(id))).go();
+      await (delete(tracks)..where((t) => t.id.equals(id))).go();
+    });
   }
 
   // ── 元数据补全面（反向重建：时长锚定 + 在线匹配） ────────────────────

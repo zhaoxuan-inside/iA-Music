@@ -1482,6 +1482,17 @@ class $PlaylistsTable extends Playlists
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _coverPathMeta = const VerificationMeta(
+    'coverPath',
+  );
+  @override
+  late final GeneratedColumn<String> coverPath = GeneratedColumn<String>(
+    'cover_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1495,7 +1506,14 @@ class $PlaylistsTable extends Playlists
     defaultValue: currentDateAndTime,
   );
   @override
-  List<GeneratedColumn> get $columns => [id, name, kind, pending, createdAt];
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    kind,
+    pending,
+    coverPath,
+    createdAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1523,6 +1541,12 @@ class $PlaylistsTable extends Playlists
       context.handle(
         _pendingMeta,
         pending.isAcceptableOrUnknown(data['pending']!, _pendingMeta),
+      );
+    }
+    if (data.containsKey('cover_path')) {
+      context.handle(
+        _coverPathMeta,
+        coverPath.isAcceptableOrUnknown(data['cover_path']!, _coverPathMeta),
       );
     }
     if (data.containsKey('created_at')) {
@@ -1562,6 +1586,10 @@ class $PlaylistsTable extends Playlists
         DriftSqlType.int,
         data['${effectivePrefix}pending'],
       )!,
+      coverPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cover_path'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1585,12 +1613,16 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
 
   /// GitHub 拉取歌单：待提取曲目数（0=无待提取）。
   final int pending;
+
+  /// 自定义歌单封面图片（应用沙箱内路径；null=用首曲封面/字块）。
+  final String? coverPath;
   final DateTime createdAt;
   const PlaylistRow({
     required this.id,
     required this.name,
     required this.kind,
     required this.pending,
+    this.coverPath,
     required this.createdAt,
   });
   @override
@@ -1604,6 +1636,9 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       );
     }
     map['pending'] = Variable<int>(pending);
+    if (!nullToAbsent || coverPath != null) {
+      map['cover_path'] = Variable<String>(coverPath);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1614,6 +1649,9 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       name: Value(name),
       kind: Value(kind),
       pending: Value(pending),
+      coverPath: coverPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(coverPath),
       createdAt: Value(createdAt),
     );
   }
@@ -1630,6 +1668,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
         serializer.fromJson<String>(json['kind']),
       ),
       pending: serializer.fromJson<int>(json['pending']),
+      coverPath: serializer.fromJson<String?>(json['coverPath']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -1643,6 +1682,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
         $PlaylistsTable.$converterkind.toJson(kind),
       ),
       'pending': serializer.toJson<int>(pending),
+      'coverPath': serializer.toJson<String?>(coverPath),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -1652,12 +1692,14 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
     String? name,
     PlaylistKindCol? kind,
     int? pending,
+    Value<String?> coverPath = const Value.absent(),
     DateTime? createdAt,
   }) => PlaylistRow(
     id: id ?? this.id,
     name: name ?? this.name,
     kind: kind ?? this.kind,
     pending: pending ?? this.pending,
+    coverPath: coverPath.present ? coverPath.value : this.coverPath,
     createdAt: createdAt ?? this.createdAt,
   );
   PlaylistRow copyWithCompanion(PlaylistsCompanion data) {
@@ -1666,6 +1708,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
       name: data.name.present ? data.name.value : this.name,
       kind: data.kind.present ? data.kind.value : this.kind,
       pending: data.pending.present ? data.pending.value : this.pending,
+      coverPath: data.coverPath.present ? data.coverPath.value : this.coverPath,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -1677,13 +1720,15 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
           ..write('name: $name, ')
           ..write('kind: $kind, ')
           ..write('pending: $pending, ')
+          ..write('coverPath: $coverPath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, kind, pending, createdAt);
+  int get hashCode =>
+      Object.hash(id, name, kind, pending, coverPath, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1692,6 +1737,7 @@ class PlaylistRow extends DataClass implements Insertable<PlaylistRow> {
           other.name == this.name &&
           other.kind == this.kind &&
           other.pending == this.pending &&
+          other.coverPath == this.coverPath &&
           other.createdAt == this.createdAt);
 }
 
@@ -1700,12 +1746,14 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
   final Value<String> name;
   final Value<PlaylistKindCol> kind;
   final Value<int> pending;
+  final Value<String?> coverPath;
   final Value<DateTime> createdAt;
   const PlaylistsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.kind = const Value.absent(),
     this.pending = const Value.absent(),
+    this.coverPath = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   PlaylistsCompanion.insert({
@@ -1713,6 +1761,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     required String name,
     required PlaylistKindCol kind,
     this.pending = const Value.absent(),
+    this.coverPath = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : name = Value(name),
        kind = Value(kind);
@@ -1721,6 +1770,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     Expression<String>? name,
     Expression<String>? kind,
     Expression<int>? pending,
+    Expression<String>? coverPath,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -1728,6 +1778,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
       if (name != null) 'name': name,
       if (kind != null) 'kind': kind,
       if (pending != null) 'pending': pending,
+      if (coverPath != null) 'cover_path': coverPath,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -1737,6 +1788,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     Value<String>? name,
     Value<PlaylistKindCol>? kind,
     Value<int>? pending,
+    Value<String?>? coverPath,
     Value<DateTime>? createdAt,
   }) {
     return PlaylistsCompanion(
@@ -1744,6 +1796,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
       name: name ?? this.name,
       kind: kind ?? this.kind,
       pending: pending ?? this.pending,
+      coverPath: coverPath ?? this.coverPath,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -1765,6 +1818,9 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
     if (pending.present) {
       map['pending'] = Variable<int>(pending.value);
     }
+    if (coverPath.present) {
+      map['cover_path'] = Variable<String>(coverPath.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -1778,6 +1834,7 @@ class PlaylistsCompanion extends UpdateCompanion<PlaylistRow> {
           ..write('name: $name, ')
           ..write('kind: $kind, ')
           ..write('pending: $pending, ')
+          ..write('coverPath: $coverPath, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -4980,6 +5037,7 @@ typedef $$PlaylistsTableCreateCompanionBuilder = PlaylistsCompanion Function({
   required String name,
   required PlaylistKindCol kind,
   Value<int> pending,
+  Value<String?> coverPath,
   Value<DateTime> createdAt,
 });
 typedef $$PlaylistsTableUpdateCompanionBuilder = PlaylistsCompanion Function({
@@ -4987,6 +5045,7 @@ typedef $$PlaylistsTableUpdateCompanionBuilder = PlaylistsCompanion Function({
   Value<String> name,
   Value<PlaylistKindCol> kind,
   Value<int> pending,
+  Value<String?> coverPath,
   Value<DateTime> createdAt,
 });
 
@@ -5040,6 +5099,11 @@ class $$PlaylistsTableFilterComposer
 
   ColumnFilters<int> get pending => $composableBuilder(
     column: $table.pending,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get coverPath => $composableBuilder(
+    column: $table.coverPath,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5103,6 +5167,11 @@ class $$PlaylistsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get coverPath => $composableBuilder(
+    column: $table.coverPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5129,6 +5198,9 @@ class $$PlaylistsTableAnnotationComposer
 
   GeneratedColumn<int> get pending =>
       $composableBuilder(column: $table.pending, builder: (column) => column);
+
+  GeneratedColumn<String> get coverPath =>
+      $composableBuilder(column: $table.coverPath, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5191,12 +5263,14 @@ class $$PlaylistsTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<PlaylistKindCol> kind = const Value.absent(),
                 Value<int> pending = const Value.absent(),
+                Value<String?> coverPath = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PlaylistsCompanion(
                 id: id,
                 name: name,
                 kind: kind,
                 pending: pending,
+                coverPath: coverPath,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -5205,12 +5279,14 @@ class $$PlaylistsTableTableManager
                 required String name,
                 required PlaylistKindCol kind,
                 Value<int> pending = const Value.absent(),
+                Value<String?> coverPath = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => PlaylistsCompanion.insert(
                 id: id,
                 name: name,
                 kind: kind,
                 pending: pending,
+                coverPath: coverPath,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

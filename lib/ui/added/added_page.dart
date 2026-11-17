@@ -15,6 +15,7 @@ import '../detail/detail_page.dart';
 import '../shared/cover.dart';
 import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
+import '../shared/wp_motion.dart';
 
 class AddedPage extends ConsumerWidget {
   const AddedPage({super.key});
@@ -23,19 +24,15 @@ class AddedPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final albums = ref.watch(recentAddedAlbumsProvider).value ?? const <AlbumGroup>[];
     final trackCount = ref.watch(trackCountProvider).value ?? 0;
-    final pad = hubPadding(context);
 
-    return ListView(
-      padding: pad,
+    return HubPage(
+      header: PageHeader(
+        kicker: '库里的新鲜事',
+        title: '最近添加',
+        subtitle: '$trackCount 首 · ${albums.length} 张专辑',
+        trailing: const SearchAction(),
+      ),
       children: [
-        const SizedBox(height: IaSpacing.xl),
-        PageHeader(
-          kicker: '库里的新鲜事',
-          title: '最近添加',
-          subtitle: '$trackCount 首 · ${albums.length} 张专辑',
-          trailing: const SearchAction(),
-        ),
-        const SizedBox(height: IaSpacing.xl),
         if (albums.isEmpty)
           const EmptyState(title: '还没有音乐', subtitle: '在「设置 · 收集」扫描音乐目录后出现在这里')
         else
@@ -50,30 +47,33 @@ class AddedPage extends ConsumerWidget {
             itemCount: albums.length,
             itemBuilder: (_, i) {
               final a = albums[i];
-              return InkWell(
-                onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                    builder: (_) =>
-                        DetailPage(type: DetailType.album, id: albumKey(a.album)))),
-                onLongPress: () => _albumMenu(context, ref, a),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AspectRatio(
-                      aspectRatio: 1,
-                      child: _FirstCover(albumNorm: albumKey(a.album)),
-                    ),
-                    const SizedBox(height: IaSpacing.s),
-                    Text(a.album,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: IaColors.textHi)),
-                    Text(a.artist,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 11, color: IaColors.textLow)),
-                  ],
+              return FeatherIn(
+                index: i,
+                child: InkWell(
+                  onTap: () => Navigator.of(context).push(zuneRoute<void>(
+                      builder: (_) =>
+                          DetailPage(type: DetailType.album, id: albumKey(a.album)))),
+                  onLongPress: () => _albumMenu(context, ref, a),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: _FirstCover(albumNorm: albumKey(a.album)),
+                      ),
+                      const SizedBox(height: IaSpacing.s),
+                      Text(a.album,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12.5, color: IaColors.textHi)),
+                      Text(a.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11, color: IaColors.textLow)),
+                    ],
+                  ),
                 ),
               );
             },

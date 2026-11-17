@@ -49,6 +49,8 @@ class Playlists extends Table {
   TextColumn get kind => textEnum<PlaylistKindCol>()();
   /// GitHub 拉取歌单：待提取曲目数（0=无待提取）。
   IntColumn get pending => integer().withDefault(const Constant(0))();
+  /// 自定义歌单封面图片（应用沙箱内路径；null=用首曲封面/字块）。
+  TextColumn get coverPath => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
