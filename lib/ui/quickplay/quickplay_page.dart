@@ -56,13 +56,6 @@ class QuickplayPage extends ConsumerWidget {
       ),
       children: [
         if (tiles.isEmpty) const _QuickplayEmpty() else _Mosaic(pins: tiles),
-        const SizedBox(height: IaSpacing.xl),
-        BigRow(
-          title: '从链接提取',
-          subtitle: 'B 站 / YouTube / 直链音频 · 粘贴即入队',
-          onTap: () => Navigator.of(context)
-              .push(zuneRoute<void>(builder: (_) => const LinkExtractPage())),
-        ),
         const SizedBox(height: IaSpacing.m),
         const Text(
           '点按播放 · 长按固定 / 解除固定',

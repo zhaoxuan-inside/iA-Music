@@ -386,7 +386,7 @@ class _PlaylistsList extends ConsumerWidget {
     final pls = ref.watch(playlistListProvider).value ?? const <Playlist>[];
     final edge = edgeInsets(context);
     if (pls.isEmpty) {
-      return const EmptyState(title: '还没有歌单', subtitle: '在「歌单」页新建或从 GitHub 拉取');
+      return const EmptyState(title: '还没有歌单', subtitle: '在「歌单」页新建或拉取现成歌单');
     }
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.m, edge.right, 140),

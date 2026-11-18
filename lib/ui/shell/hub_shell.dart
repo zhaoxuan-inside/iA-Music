@@ -19,7 +19,6 @@ import '../playing/playing_page.dart';
 import '../playlists/playlists_page.dart';
 import '../quickplay/quickplay_page.dart';
 import '../settings/settings_page.dart';
-import 'hub_backdrop.dart';
 import 'panorama_backdrop.dart';
 
 /// Hub 八屏。
@@ -69,8 +68,7 @@ class _HubShellState extends ConsumerState<HubShell> {
       backgroundColor: IaColors.canvas,
       body: Stack(
         children: [
-          // 封面色雾：整个 Hub 的环境底色。
-          const Positioned.fill(child: HubBackdrop()),
+          // 背景永远是纯黑画布，不随歌曲/封面变化；巨字水印提供全景层次。
           Positioned.fill(
             child: PanoramaBackdrop(controller: _pc, titles: _titles),
           ),

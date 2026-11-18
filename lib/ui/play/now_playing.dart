@@ -73,22 +73,19 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
 
     return Scaffold(
       backgroundColor: IaColors.canvas,
-      body: AmbientBackdrop(
-        track: cur,
-        opacity: 0.56,
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _NpHeader(
-                pane: _pane,
-                edge: edge,
-                index: snap.index,
-                total: snap.queue.length,
-                onPick: (i) => setState(() => _pane = i),
-              ),
-              Expanded(
-                child: GestureDetector(
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _NpHeader(
+              pane: _pane,
+              edge: edge,
+              index: snap.index,
+              total: snap.queue.length,
+              onPick: (i) => setState(() => _pane = i),
+            ),
+            Expanded(
+              child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onPanStart: (d) => _panStart = d.localPosition,
                   onPanUpdate: (d) {
@@ -153,7 +150,6 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
             ],
           ),
         ),
-      ),
     );
   }
 }

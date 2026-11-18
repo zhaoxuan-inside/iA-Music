@@ -4,7 +4,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/theme/design_tokens.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../shared/search_action.dart';
@@ -81,11 +80,6 @@ class ListenPage extends ConsumerWidget {
             subtitle: items[i].$2,
             onTap: items[i].$3,
           ),
-        const SizedBox(height: IaSpacing.xl),
-        const Text(
-          '负一屏 · 左滑回正在播放',
-          style: TextStyle(fontSize: 11, color: IaColors.textLow),
-        ),
       ],
     );
   }

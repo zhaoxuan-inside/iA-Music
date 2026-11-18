@@ -357,7 +357,7 @@ void main() {
     ));
     await tester.pump();
     expect(tester.takeException(), isNull);
-    expect(find.text('从链接提取 ›'), findsOneWidget);
+    expect(find.text('本地曲库'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), '夜曲');
     await tester.pump();

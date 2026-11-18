@@ -50,20 +50,58 @@ class SongsPage extends ConsumerStatefulWidget {
 
 class _SongsPageState extends ConsumerState<SongsPage> {
   final _groupKeys = <String, GlobalKey>{};
+  final _scrollCtrl = ScrollController();
   String? _bigLetter;
 
+  /// 各字母组头的估算偏移（build 时随分组刷新）。
+  Map<String, double> _estOffsets = const {};
+
+  /// 估算槽高：刻意取略小于实际值——估算偏小才能保证第一次跳转落在
+  /// 目标组头上方，让懒列表把它构建出来再精确校正。
+  static const double _estHeaderH = 36;
+  static const double _estRowH = 60;
+
   /// 拖动刷屏：即时跳组（Win11 跳转栏无缓动等待）。
-  void _jumpTo(String letter, {bool animated = false}) {
-    final gk = _groupKeys[letter];
-    final ctx = gk?.currentContext;
-    if (ctx == null) {
+  void _jumpTo(String letter) {
+    final ctx = _groupKeys[letter]?.currentContext;
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx, duration: Duration.zero);
       return;
     }
-    Scrollable.ensureVisible(
-      ctx,
-      duration: Duration(milliseconds: animated ? 220 : 0),
-      curve: Curves.easeOutCubic,
-    );
+    _jumpByEstimate(letter);
+  }
+
+  /// 目标组头尚未被懒列表构建（GlobalKey 还没有 context）：
+  /// 先跳到估算落点把目标组头带进视口，下一帧 ensureVisible 精确校正；
+  /// 若估算 overshoot 仍未构建，回退 600px 重试（最多两次）。
+  void _jumpByEstimate(String letter, {double backtrack = 0}) {
+    if (!_scrollCtrl.hasClients) {
+      return;
+    }
+    final offset =
+        ((_estOffsets[letter] ?? 0) - backtrack).clamp(0.0, _scrollCtrl.position.maxScrollExtent);
+    _scrollCtrl.jumpTo(offset);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      final ctx = _groupKeys[letter]?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+        );
+      } else if (backtrack < 1200) {
+        _jumpByEstimate(letter, backtrack: backtrack + 600);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -80,11 +118,21 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     }
     final letters = groups.keys.toList();
 
+    // 组头估算偏移：与槽位构建同序累加（曲目顺序即展平顺序，无需 indexOf）。
+    final estOffsets = <String, double>{};
+    var est = IaSpacing.xl; // ListView 顶部 padding
+    for (final entry in groups.entries) {
+      estOffsets[entry.key] = est;
+      est += _estHeaderH + entry.value.length * _estRowH;
+    }
+    _estOffsets = estOffsets;
+
     final slots = <_Slot>[];
+    var flat = 0;
     for (final entry in groups.entries) {
       slots.add(_Header(entry.key));
-      for (var i = 0; i < entry.value.length; i++) {
-        slots.add(_Song(entry.value[i], tracks.indexOf(entry.value[i])));
+      for (final t in entry.value) {
+        slots.add(_Song(t, flat++));
       }
     }
     slots.add(const _MusicPageEntry());
@@ -132,6 +180,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
           child: Stack(
             children: [
               ListView.builder(
+                controller: _scrollCtrl,
                 padding: EdgeInsets.fromLTRB(
                   edge.left,
                   IaSpacing.xl,

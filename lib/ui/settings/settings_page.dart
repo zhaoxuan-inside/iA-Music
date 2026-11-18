@@ -4,7 +4,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../services/collect/platform_store.dart';
 import '../../state/collect_providers.dart';
@@ -27,7 +26,6 @@ class SettingsPage extends ConsumerWidget {
     final biliIn = ref.watch(platformLoginProvider(PlatformId.bilibili)).value ?? false;
     final ytIn = ref.watch(platformLoginProvider(PlatformId.youtube)).value ?? false;
     final loggedCount = (biliIn ? 1 : 0) + (ytIn ? 1 : 0);
-    final queueCount = ref.watch(collectTasksProvider).value?.length ?? 0;
 
     return HubPage(
       header: const PageHeader(
@@ -50,15 +48,9 @@ class SettingsPage extends ConsumerWidget {
         ),
         BigRow(
           title: '收集',
-          subtitle: '登录 · 站内搜索 · 已登录 $loggedCount/2 · 队列 $queueCount 项',
+          subtitle: '登录 · 站内搜索 · 已登录 $loggedCount/2',
           onTap: () => Navigator.of(context).push(
               zuneRoute<void>(builder: (_) => const CollectSubPage())),
-        ),
-        BigRow(
-          title: '提取链接',
-          subtitle: 'B 站 / YouTube / 直链音频 · 粘贴即提取',
-          onTap: () => Navigator.of(context).push(
-              zuneRoute<void>(builder: (_) => const LinkExtractPage())),
         ),
         BigRow(
           title: '关于',
@@ -67,13 +59,6 @@ class SettingsPage extends ConsumerWidget {
               zuneRoute<void>(builder: (_) => const AboutSubPage())),
         ),
         const SizedBox(height: IaSpacing.xl),
-        Text(kAppVersionLabel,
-            style: const TextStyle(fontSize: 11, color: IaColors.textLow)),
-        const SizedBox(height: IaSpacing.xs),
-        const Text(
-          '设置 · 左缘右滑返回',
-          style: TextStyle(fontSize: 11, color: IaColors.textLow),
-        ),
       ],
     );
   }

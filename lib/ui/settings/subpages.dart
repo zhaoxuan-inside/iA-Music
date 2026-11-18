@@ -1,4 +1,4 @@
-/// 设置子页：存储 / 收集（含 GitHub 歌单拉取入口与提取进度）/ 关于。
+/// 设置子页：存储 / 收集（平台登录与站内搜索）/ 关于。
 library;
 
 import 'dart:async';
@@ -7,19 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
-import '../../data/daos/collect_dao.dart';
-import '../../services/collect/bilibili_client.dart';
 import '../../services/collect/platform_store.dart';
-import '../../services/collect/youtube_client.dart';
 import '../../state/collect_providers.dart';
 import '../../state/diagnostics.dart';
-import '../../state/enrich_controller.dart';
 import '../../state/library_providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
-import '../playlists/github/github_page.dart';
 import '../shared/ui_kit.dart';
 import 'bilibili_login_page.dart';
 import 'directory_picker_page.dart';
@@ -61,194 +55,6 @@ class _SubHeader extends StatelessWidget {
           width: 26,
           height: 2,
           color: Theme.of(context).extension<IaPalette>()!.accent,
-        ),
-      ],
-    );
-  }
-}
-
-String _statusLabel(CollectStatusCol status) => switch (status) {
-      CollectStatusCol.pending => '等待',
-      CollectStatusCol.running => '提取中',
-      CollectStatusCol.done => '完成',
-      CollectStatusCol.blocked => '待处理',
-      CollectStatusCol.failed => '失败',
-    };
-
-/// 提取与补全进度子页：任务实时流（真实 CollectTasks）。
-class ExtractPage extends ConsumerWidget {
-  const ExtractPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(collectTasksProvider).value ?? const [];
-    final edge = edgeInsets(context);
-    final p = Theme.of(context).extension<IaPalette>()!;
-    final failed =
-        tasks.where((t) => t.status == CollectStatusCol.failed).length;
-    final pending =
-        tasks.where((t) => t.status == CollectStatusCol.pending).length;
-
-    return Scaffold(
-      backgroundColor: IaColors.canvas,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
-          children: [
-            const _SubHeader(title: '提取进度'),
-            const SizedBox(height: IaSpacing.s),
-            Row(
-              children: [
-                Text('${tasks.length} 项任务 · 完成后自动入库',
-                    style:
-                        const TextStyle(fontSize: 12, color: IaColors.textLow)),
-              ],
-            ),
-            if (pending > 0 || failed > 0)
-              Row(
-                children: [
-                  if (pending > 0)
-                    TextButton(
-                      onPressed: () =>
-                          unawaited(ref.read(collectTasksApiProvider).drive()),
-                      child: Text('继续 $pending',
-                          style: TextStyle(fontSize: 12, color: p.accent)),
-                    ),
-                  if (failed > 0)
-                    TextButton(
-                      onPressed: () async {
-                        final api = ref.read(collectTasksApiProvider);
-                        final n = await api.retryFailed();
-                        unawaited(api.drive());
-                        if (context.mounted) {
-                          showWpToast(context,
-                              title: '提取', message: '已重试 $n 个失败任务');
-                        }
-                      },
-                      child: Text('重试失败 $failed',
-                          style: TextStyle(fontSize: 12, color: p.accent)),
-                    ),
-                ],
-              ),
-            const SizedBox(height: IaSpacing.l),
-            if (tasks.isEmpty)
-              const Text('当前没有进行中的任务——回到「收集」粘贴链接或拉取歌单开始',
-                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
-            for (final t in tasks) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.m, vertical: IaSpacing.m),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(t.title.isEmpty ? t.url : t.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: IaType.list,
-                                  color: t.status == CollectStatusCol.failed
-                                      ? IaColors.error
-                                      : IaColors.textHi)),
-                        ),
-                        Text(
-                            '${t.source} · ${_statusLabel(t.status)} · '
-                            '${t.status == CollectStatusCol.done ? 100 : t.progress}%',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: t.status == CollectStatusCol.failed
-                                    ? IaColors.error
-                                    : t.status == CollectStatusCol.done
-                                        ? p.accent
-                                        : IaColors.textLow)),
-                      ],
-                    ),
-                    const SizedBox(height: IaSpacing.s),
-                    Stack(
-                      children: [
-                        Container(height: 2, color: IaColors.hairlineStrong),
-                        FractionallySizedBox(
-                          widthFactor: (t.progress / 100).clamp(0.0, 1.0),
-                          child: Container(
-                            height: 2,
-                            color: t.status == CollectStatusCol.failed
-                                ? IaColors.error
-                                : p.accent,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: IaSpacing.m),
-            ],
-            // ── 元数据补全区块（demo：音频指纹 → 在线匹配 → 封面/歌词 → 写入标签）──
-            const SizedBox(height: IaSpacing.l),
-            const SectionLabel('元数据补全'),
-            const SizedBox(height: IaSpacing.s),
-            Text('音频指纹 → 在线匹配 → 封面/歌词 → 写入标签',
-                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-            const SizedBox(height: IaSpacing.m),
-            _EnrichSection(),
-            const SizedBox(height: IaSpacing.l),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 补全运行区块：进度条 + 当前曲目 + 手动「开始补全」（扫描后亦自动驱动）。
-class _EnrichSection extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final st = ref.watch(enrichProvider);
-    final p = Theme.of(context).extension<IaPalette>()!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                st.running
-                    ? (st.currentTitle.isEmpty ? '补全中…' : '补全中 · ${st.currentTitle}')
-                    : (st.lastSummary.isEmpty ? '队列空闲 · 扫描完成后自动运行' : st.lastSummary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: IaType.list, color: IaColors.textHi),
-              ),
-            ),
-            Text(st.running ? '${st.done}/${st.total}' : '',
-                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-          ],
-        ),
-        const SizedBox(height: IaSpacing.s),
-        Stack(
-          children: [
-            Container(height: 2, color: IaColors.hairlineStrong),
-            FractionallySizedBox(
-              widthFactor: st.running && st.total > 0
-                  ? (st.done / st.total).clamp(0.05, 1.0)
-                  : (st.running ? 0.05 : 0.0),
-              child: Container(height: 2, color: p.accent),
-            ),
-          ],
-        ),
-        const SizedBox(height: IaSpacing.s),
-        TextButton(
-          onPressed: st.running
-              ? null
-              : () => ref.read(enrichProvider.notifier).runOnce(),
-          child: Text(st.running ? '补全中…' : '开始补全',
-              style: TextStyle(
-                  fontSize: 12.5,
-                  color: st.running ? IaColors.textLow : p.accent)),
         ),
       ],
     );
@@ -558,19 +364,13 @@ class _DiagnosticsBlock extends ConsumerWidget {
   }
 }
 
-/// 收集子页：A 层登录 + 站内搜索 + B 层链接提取 + 提取与补全进度入口。
+/// 收集子页：平台登录 + 站内搜索提取。
 class CollectSubPage extends ConsumerWidget {
   const CollectSubPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(collectTasksProvider).value ?? const [];
     final edge = edgeInsets(context);
-    final running = tasks
-        .where((t) =>
-            t.status == CollectStatusCol.pending ||
-            t.status == CollectStatusCol.running)
-        .length;
 
     return Scaffold(
       backgroundColor: IaColors.canvas,
@@ -580,105 +380,13 @@ class CollectSubPage extends ConsumerWidget {
           children: [
             const _SubHeader(title: '收集'),
             const SizedBox(height: IaSpacing.m),
-            const Text('登录平台后可站内搜索；也可以直接粘贴链接提取。',
+            const Text('登录平台后可站内搜索、批量提取。',
                 style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.xl),
             const SectionLabel('平台登录'),
             const SizedBox(height: IaSpacing.m),
             _PlatformRow(platform: PlatformId.bilibili, label: 'B 站'),
             _PlatformRow(platform: PlatformId.youtube, label: 'YouTube'),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('GitHub 歌单'),
-            const SizedBox(height: IaSpacing.m),
-            BigRow(
-              title: '拉取 GitHub 歌单',
-              subtitle: 'JSON 契约',
-              onTap: () => Navigator.of(context).push(
-                  zuneRoute<void>(builder: (_) => const GithubPage())),
-            ),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('粘贴链接提取'),
-            const SizedBox(height: IaSpacing.m),
-            const _LinkExtractForm(),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('进度'),
-            const SizedBox(height: IaSpacing.m),
-            Container(
-              decoration: const BoxDecoration(
-                  border:
-                      Border(bottom: BorderSide(color: IaColors.hairline))),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('提取与补全进度',
-                    style:
-                        TextStyle(fontSize: IaType.list, color: IaColors.textHi)),
-                subtitle: Text(running > 0
-                    ? '$running 项进行中'
-                    : '当前没有进行中的任务',
-                    style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-                trailing:
-                    const Icon(Icons.chevron_right, color: IaColors.textLow),
-                onTap: () => Navigator.of(context).push(
-                    zuneRoute<void>(builder: (_) => const ExtractPage())),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 独立的「提取链接」页：设置页一键直达，不必先进收集页再往下滚。
-class LinkExtractPage extends ConsumerWidget {
-  const LinkExtractPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(collectTasksProvider).value ?? const [];
-    final edge = edgeInsets(context);
-    final running = tasks
-        .where((t) =>
-            t.status == CollectStatusCol.pending ||
-            t.status == CollectStatusCol.running)
-        .length;
-
-    return Scaffold(
-      backgroundColor: IaColors.canvas,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
-          children: [
-            const _SubHeader(title: '提取链接'),
-            const SizedBox(height: IaSpacing.m),
-            const Text(
-              '粘贴 B 站 / YouTube / 直链音频地址，提取完成后统一入曲库。',
-              style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
-            ),
-            const SizedBox(height: IaSpacing.xl),
-            const _LinkExtractForm(),
-            const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('进度'),
-            const SizedBox(height: IaSpacing.s),
-            Container(
-              decoration: const BoxDecoration(
-                  border:
-                      Border(bottom: BorderSide(color: IaColors.hairline))),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('提取与补全进度',
-                    style: TextStyle(
-                        fontSize: IaType.list, color: IaColors.textHi)),
-                subtitle: Text(
-                    running > 0 ? '$running 项进行中' : '当前没有进行中的任务',
-                    style: const TextStyle(
-                        fontSize: 12, color: IaColors.textLow)),
-                trailing:
-                    const Icon(Icons.chevron_right, color: IaColors.textLow),
-                onTap: () => Navigator.of(context).push(
-                    zuneRoute<void>(builder: (_) => const ExtractPage())),
-              ),
-            ),
           ],
         ),
       ),
@@ -809,125 +517,6 @@ class _PlatformRow extends ConsumerWidget {
   }
 }
 
-/// B 层粘贴链接提取：链接逐条解析 → 任务落库 → 驱动执行器。
-class _LinkExtractForm extends ConsumerStatefulWidget {
-  const _LinkExtractForm();
-
-  @override
-  ConsumerState<_LinkExtractForm> createState() => _LinkExtractFormState();
-}
-
-class _LinkExtractFormState extends ConsumerState<_LinkExtractForm> {
-  final _ctrl = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: IaSpacing.m, vertical: IaSpacing.s),
-          decoration:
-              BoxDecoration(border: Border.all(color: IaColors.hairlineStrong)),
-          child: TextField(
-            controller: _ctrl,
-            maxLines: 3,
-            style: const TextStyle(fontSize: 13, color: IaColors.textHi),
-            decoration: const InputDecoration(
-              hintText: '粘贴 B 站 / YouTube / 直链音频…（多行批量）',
-              border: InputBorder.none,
-              isDense: true,
-            ),
-          ),
-        ),
-        const SizedBox(height: IaSpacing.s),
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: _submitting ? null : _submit,
-            child: Text(_submitting ? '解析中…' : '提取',
-                style: const TextStyle(fontSize: 14)),
-          ),
-        ),
-        const SizedBox(height: IaSpacing.s),
-        const Text('支持：bilibili 视频页 · YouTube 视频页 · 直链音频文件。识别不了的链接会明确报错。',
-            style: TextStyle(fontSize: 11, color: IaColors.textLow)),
-      ],
-    );
-  }
-
-  Future<void> _submit() async {
-    final raw = _ctrl.text.trim();
-    if (raw.isEmpty) {
-      if (mounted) {
-        showWpToast(context, title: '收集', message: '先粘贴链接');
-      }
-      return;
-    }
-    setState(() => _submitting = true);
-    final api = ref.read(collectTasksApiProvider);
-    var added = 0;
-    var rejected = 0;
-    try {
-      for (final line in raw.split(RegExp(r'[\s]+'))) {
-        final url = line.trim();
-        if (url.isEmpty) {
-          continue;
-        }
-        final source = _detectSource(url);
-        if (source == null) {
-          rejected++;
-          continue;
-        }
-        // 标题/歌手留空——提取引擎运行时用平台协议补全真实元数据
-        await api.enqueue(source, url);
-        added++;
-      }
-      if (added > 0) {
-        // 100 P 合集可能有上百个任务：只入队，下载在后台跑，避免提交按钮卡死。
-        // 重复链接虽不重复入队，也要驱动一轮——僵尸 running 任务由此获得回收。
-        unawaited(api.drive());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
-    }
-    if (!mounted) {
-      return;
-    }
-    if (added > 0) {
-      _ctrl.clear();
-    }
-    showWpToast(context,
-        title: '收集',
-        message: added > 0
-            ? '$added 个链接进入提取队列${rejected > 0 ? ' · $rejected 个无法识别' : ''}'
-            : '没有可识别的链接');
-  }
-
-  String? _detectSource(String url) {
-    final u = url.toLowerCase();
-    if (u.contains('bilibili.com/') ||
-        u.contains('b23.tv/') ||
-        BilibiliClient.bvidFrom(url) != null) {
-      return 'bilibili';
-    }
-    if (u.contains('youtube.com/') ||
-        u.contains('youtu.be/') ||
-        YoutubeClient.videoIdFrom(url) != null) {
-      return 'youtube';
-    }
-    if (u.startsWith('http') &&
-        RegExp(r'\.(mp3|m4a|flac|wav|ogg|opus|aac)(\?|$)').hasMatch(u)) {
-      return 'direct';
-    }
-    return null;
-  }
-}
-
 /// 关于子页。
 class AboutSubPage extends ConsumerWidget {
   const AboutSubPage({super.key});
@@ -988,12 +577,6 @@ class AboutSubPage extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: IaSpacing.xl),
-            Text(kAppVersionLabel,
-                style: const TextStyle(
-                    fontSize: 12.5,
-                    color: IaColors.textMid,
-                    letterSpacing: 0.3)),
-            const SizedBox(height: IaSpacing.xs),
           ],
         ),
       ),

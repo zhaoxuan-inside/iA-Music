@@ -148,17 +148,6 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                       }
                     },
                   ),
-                  const Spacer(),
-                  InkWell(
-                    onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                        builder: (_) => const LinkExtractPage())),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      child: Text('从链接提取 ›',
-                          style:
-                              TextStyle(fontSize: 11, color: IaColors.textLow)),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -172,7 +161,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                         const SizedBox(height: IaSpacing.s),
                         const Text(
                           '本地曲库即时匹配，支持拼音全拼与首字母（如 zjl / zhoujielun）。\n'
-                          '点「在线来源」同时搜索已登录的 B 站 / YouTube；没有登录也可以从链接直接提取。',
+                          '点「在线来源」同时搜索已登录的 B 站 / YouTube。',
                           style: TextStyle(
                               fontSize: 12.5, height: 1.6, color: IaColors.textLow),
                         ),
@@ -350,8 +339,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
     if (ids.isEmpty) {
       setState(() {
         _onlineResults = const [];
-        _onlineError = '还没有登录在线来源。可以在「设置 · 收集」登录 B 站 / YouTube，'
-            '或直接从下方链接提取。';
+        _onlineError = '还没有登录在线来源。可以在「设置 · 收集」登录 B 站 / YouTube。';
         _onlineLoading = false;
       });
       return;

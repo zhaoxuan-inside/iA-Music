@@ -39,7 +39,8 @@ class DbActions {
   Future<void> playNext(Track t) =>
       _ref.read(playbackProvider.notifier).playNext(t);
 
-  /// 从曲库彻底删除一首歌：音频文件 + 曲库行（歌单条目/历史/歌词元数据一并清）。
+  /// 删除一首歌：只删音频文件并标记缺失。曲库列表不再出现、播放自动跳过，
+  /// 但已建立的数据（歌单条目 / 播放历史 / 喜欢 / 歌词）全部保留；文件放回原位重扫即复活。
   Future<void> deleteTrack(Track t) async {
     try {
       final f = File(t.path);
@@ -47,9 +48,9 @@ class DbActions {
         await f.delete();
       }
     } on Object {
-      // 文件删不掉（占用/权限）仍清曲库行，避免幽灵条目
+      // 文件删不掉（占用/权限）也照样标缺失，行为与文件消失一致
     }
-    await _ref.read(dbProvider).libraryDao.purgeTrack(t.id);
+    await _ref.read(dbProvider).libraryDao.markMissing([t.id]);
   }
 }
 
@@ -123,7 +124,7 @@ Future<void> _confirmDeleteTrack(
             fontSize: 18, fontWeight: IaType.light, color: IaColors.textHi),
       ),
       content: const Text(
-        '将从曲库移除并删除音频文件，歌单条目与播放记录一并清除，不可恢复。',
+        '将删除音频文件并从曲库移除（播放时自动跳过）；歌单、播放记录与喜欢都会保留。',
         style: TextStyle(fontSize: 13, height: 1.5, color: IaColors.textMid),
       ),
       actions: [

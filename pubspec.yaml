@@ -2,7 +2,7 @@ name: ia_music
 description: "iA-Music — 本地优先的个人音乐库。"
 publish_to: 'none'
 
-version: 0.0.2+15
+version: 0.0.3+16
 
 environment:
   sdk: ^3.13.5

@@ -1,39 +1,41 @@
-/// 最近添加屏（Hub 屏4）：计数行 + 两列专辑网格（按 addedAt 倒序）。
+/// 最近添加屏（Hub 屏4）：计数行 + 两列歌曲网格（按 addedAt 倒序，歌曲维度）。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../domain/entities/quickplay.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
-import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
-import '../../state/quickplay_providers.dart';
-import '../detail/detail_page.dart';
+import '../shared/actions.dart';
 import '../shared/cover.dart';
 import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 import '../shared/wp_motion.dart';
+
+/// 网格最多展示的新入库歌曲数（计数行给出全库总数）。
+const int _maxRecentSongs = 30;
 
 class AddedPage extends ConsumerWidget {
   const AddedPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final albums = ref.watch(recentAddedAlbumsProvider).value ?? const <AlbumGroup>[];
+    final tracks = ref.watch(tracksProvider(TrackSort.recentAdded)).value ??
+        const <Track>[];
+    final recent = tracks.where((t) => !t.missing).take(_maxRecentSongs).toList();
     final trackCount = ref.watch(trackCountProvider).value ?? 0;
 
     return HubPage(
       header: PageHeader(
         kicker: '库里的新鲜事',
         title: '最近添加',
-        subtitle: '$trackCount 首 · ${albums.length} 张专辑',
+        subtitle: '$trackCount 首 · 新入库在前',
         trailing: const SearchAction(),
       ),
       children: [
-        if (albums.isEmpty)
+        if (recent.isEmpty)
           const EmptyState(title: '还没有音乐', subtitle: '在「设置 · 收集」扫描音乐目录后出现在这里')
         else
           GridView.builder(
@@ -44,30 +46,30 @@ class AddedPage extends ConsumerWidget {
                 crossAxisSpacing: 14,
                 mainAxisSpacing: 18,
                 childAspectRatio: 0.76),
-            itemCount: albums.length,
+            itemCount: recent.length,
             itemBuilder: (_, i) {
-              final a = albums[i];
+              final t = recent[i];
               return FeatherIn(
                 index: i,
                 child: InkWell(
-                  onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                      builder: (_) =>
-                          DetailPage(type: DetailType.album, id: albumKey(a.album)))),
-                  onLongPress: () => _albumMenu(context, ref, a),
+                  onTap: () => ref
+                      .read(playbackProvider.notifier)
+                      .playTracks(recent, startIndex: i),
+                  onLongPress: () => showTrackMenu(context, ref, t),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AspectRatio(
                         aspectRatio: 1,
-                        child: _FirstCover(albumNorm: albumKey(a.album)),
+                        child: CoverArt(track: t, size: double.infinity),
                       ),
                       const SizedBox(height: IaSpacing.s),
-                      Text(a.album,
+                      Text(t.title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontSize: 12.5, color: IaColors.textHi)),
-                      Text(a.artist,
+                      Text(t.artistDisplay,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -81,56 +83,4 @@ class AddedPage extends ConsumerWidget {
       ],
     );
   }
-
-  void _albumMenu(BuildContext context, WidgetRef ref, AlbumGroup a) {
-    final pin = QuickplayPin(
-      kind: QuickplayKind.album,
-      key: albumKey(a.album),
-      title: a.album,
-      subtitle: a.artist,
-    );
-    final pinned =
-        ref.read(quickplayProvider).isPinned(QuickplayKind.album, pin.key);
-    showWpMenu(context, title: a.album, items: [
-      (
-        pinned ? '解除快速播放固定' : '固定到快速播放',
-        () async {
-          await ref.read(quickplayProvider.notifier).toggle(pin);
-        },
-      ),
-      (
-        '打开专辑',
-        () => Navigator.of(context).push(zuneRoute<void>(
-            builder: (_) =>
-                DetailPage(type: DetailType.album, id: albumKey(a.album)))),
-      ),
-    ]);
-  }
-}
-
-/// 网格封面：取该专辑首曲封面。
-class _FirstCover extends ConsumerWidget {
-  const _FirstCover({required this.albumNorm});
-
-  final String albumNorm;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tracks = ref.watch(albumTracksProvider(albumNorm)).value ?? const <Track>[];
-    final first = tracks.firstOrNull;
-    if (first == null) {
-      return Container(color: IaColors.hairline);
-    }
-    return CoverArt(track: first, size: double.infinity);
-  }
-}
-
-/// 专辑曲目数（网格副题用）。
-int albumTrackCount(Iterable<Track> tracks, String albumNorm) =>
-    tracks.where((t) => albumKey(t.album) == albumNorm).length;
-
-/// 播放直通（供未来磁贴长按菜单复用）。
-void playAlbumNow(WidgetRef ref, List<Track> tracks, String albumNorm) {
-  final list = tracks.where((t) => albumKey(t.album) == albumNorm).toList();
-  ref.read(playbackProvider.notifier).playTracks(list, startIndex: 0);
 }

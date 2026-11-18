@@ -1,4 +1,4 @@
-/// 歌单屏（Hub 屏6）：计数行 + 两列歌单卡（自定义封面 / GitHub 拉取 pending 态）+ 拉取入口。
+/// 歌单屏（Hub 屏6）：计数行 + 两列歌单卡（自定义封面 / 拉取 pending 态）+ 拉取入口。
 library;
 
 import 'dart:io';
@@ -41,7 +41,7 @@ class PlaylistsPage extends ConsumerWidget {
                   zuneRoute<void>(builder: (_) => const GithubPage())),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text('⇣ 拉取歌单',
+                child: Text('拉取歌单',
                     style: TextStyle(
                         fontSize: 12,
                         color:
@@ -56,7 +56,7 @@ class PlaylistsPage extends ConsumerWidget {
         if (pls.isEmpty)
           const EmptyState(
               title: '还没有歌单',
-              subtitle: '长按歌曲「加到歌单」新建，或从 GitHub 拉取现成歌单')
+              subtitle: '长按歌曲「加到歌单」新建，或点右上角拉取现成歌单')
         else
           GridView.builder(
             shrinkWrap: true,
@@ -104,7 +104,7 @@ class PlaylistsPage extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontSize: 12.5, color: IaColors.textHi)),
-                      Text(pend > 0 ? 'GitHub · 提取中' : '歌单',
+                      Text(pend > 0 ? '提取中' : '歌单',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style:

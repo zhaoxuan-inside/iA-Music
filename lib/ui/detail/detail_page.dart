@@ -1,7 +1,7 @@
 /// 详情页（专辑 / 艺人 / 歌单 / 流派 四型同壳）：
 /// 磁贴头 + 曲目列表 + 底部应用栏（播放/随机/喜欢）；左缘右滑返回。
 ///
-/// 头部使用「封面 + 倒影 + 环境光」，把详情页从一张列表变成一张唱片内页。
+/// 头部使用「封面 + 倒影」，把详情页从一张列表变成一张唱片内页。
 library;
 
 import 'dart:io';
@@ -122,11 +122,7 @@ class DetailPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: IaColors.canvas,
-      body: AmbientBackdrop(
-        track: first,
-        strength: 0.7,
-        opacity: 0.46,
-        child: CustomScrollView(
+      body: CustomScrollView(
           slivers: [
             SliverAppBar(
               pinned: false,
@@ -242,7 +238,6 @@ class DetailPage extends ConsumerWidget {
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
-      ),
       bottomNavigationBar: tracks.isEmpty
           ? null
           : _DetailAppBar(

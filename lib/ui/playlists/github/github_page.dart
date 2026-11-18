@@ -1,4 +1,4 @@
-/// GitHub 歌单拉取页（真实实现）：URL 输入 → 拉取 → 预览 → 导入 → 队列。
+/// 拉取歌单页：URL 输入 → 拉取 → 预览 → 导入 → 队列。
 library;
 
 import 'package:flutter/material.dart';
@@ -50,7 +50,7 @@ class _GithubPageState extends ConsumerState<GithubPage> {
                     fontWeight: IaType.light,
                     color: IaColors.textHi)),
             const SizedBox(height: IaSpacing.m),
-            const Text('从 GitHub 仓库拉取 JSON 歌单：每首含 来源 / 搜索词 / 来源地址 / 歌手 / 歌名 / 歌词',
+            const Text('粘贴歌单清单 URL，拉取现成歌单：每首含 来源 / 搜索词 / 来源地址 / 歌手 / 歌名 / 歌词',
                 style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.l),
             Row(
@@ -63,7 +63,7 @@ class _GithubPageState extends ConsumerState<GithubPage> {
                         color: IaColors.textHi,
                         fontWeight: IaType.regular),
                     decoration: const InputDecoration(
-                      hintText: 'https://raw.githubusercontent.com/…',
+                      hintText: '歌单清单 URL…',
                     ),
                   ),
                 ),
@@ -124,7 +124,7 @@ class _GithubPageState extends ConsumerState<GithubPage> {
                   ),
                 ),
               const SizedBox(height: IaSpacing.l),
-              Text('${_result!.tracks.length} 首 · 直链音频直接下载，平台页面进入提取队列（二期引擎）',
+              Text('${_result!.tracks.length} 首 · 直链音频直接下载，平台页面进入提取队列',
                   style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
               const SizedBox(height: IaSpacing.l),
               TextButton(
@@ -137,7 +137,7 @@ class _GithubPageState extends ConsumerState<GithubPage> {
               ),
             ],
             const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('JSON 契约'),
+            const SectionLabel('清单格式'),
             const SizedBox(height: IaSpacing.m),
             Container(
               padding: const EdgeInsets.all(IaSpacing.l),
