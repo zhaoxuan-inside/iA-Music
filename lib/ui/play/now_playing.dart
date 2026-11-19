@@ -282,7 +282,8 @@ class _PlayPane extends ConsumerWidget {
       MediaQuery.sizeOf(context).width - edge.horizontal - 12,
       IaSpacing.coverHeroMax,
     );
-    final liked = ref.watch(favoriteProvider(cur.id)).value ?? false;
+    final liked =
+        (ref.watch(favoritesSetProvider).value ?? const <int>{}).contains(cur.id);
     final next = snap.queue.isEmpty
         ? null
         : snap.queue[(snap.index + 1) % snap.queue.length];

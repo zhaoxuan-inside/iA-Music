@@ -70,7 +70,7 @@ class ListenPage extends ConsumerWidget {
       header: const PageHeader(
         kicker: '今天怎么听',
         title: '听法',
-        subtitle: '会话从这里开始 · 长按任意歌曲可加入队列或歌单',
+        subtitle: '会话从这里开始',
         trailing: SearchAction(),
       ),
       children: [

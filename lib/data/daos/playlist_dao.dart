@@ -149,6 +149,18 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
     return watchPlaylistIdsOfTrack(trackId).map((ids) => ids.isNotEmpty);
   }
 
+  /// 全库收藏集合（favorites 歌单内全部 trackId，单流）。
+  /// 列表页按集合查询红心，不再每行开一条查询流。
+  Stream<Set<int>> watchFavoriteTrackIds() async* {
+    final favId = await ensureFavorites();
+    final q = selectOnly(playlistTracks)
+      ..addColumns([playlistTracks.trackId])
+      ..where(playlistTracks.playlistId.equals(favId));
+    yield* q.watch().map(
+          (rows) => {for (final r in rows) r.read(playlistTracks.trackId)!},
+        );
+  }
+
   Future<bool> isFavorite(int trackId) async {
     final favId = await _favoritesId();
     if (favId == null) {

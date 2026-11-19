@@ -359,6 +359,7 @@ class _SongsList extends ConsumerWidget {
     if (tracks.isEmpty) {
       return const EmptyState(title: '还没有歌曲', subtitle: '扫描音乐目录后出现在这里');
     }
+    final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     return ListView.builder(
       padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.m, edge.right, 140),
       itemCount: tracks.length,
@@ -368,7 +369,8 @@ class _SongsList extends ConsumerWidget {
           track: t,
           leading: CoverArt(track: t, size: IaSpacing.coverSmall),
           isPlaying: playingId == t.id,
-          isLiked: ref.watch(favoriteProvider(t.id)).value ?? false,
+          isLiked: favs.contains(t.id),
+          missing: t.missing,
           onTap: () =>
               ref.read(playbackProvider.notifier).playTracks(tracks, startIndex: i),
           onLongPress: () => showTrackMenu(context, ref, t),

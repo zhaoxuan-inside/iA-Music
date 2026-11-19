@@ -80,6 +80,11 @@ class SettingsController extends Notifier<SettingsState> {
     await _settings.setString(SettingKeys.accent, '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}');
   }
 
+  /// 取色拖动中的即时预览：只改内存态不落盘（松手由 [setAccent] 持久化）。
+  void previewAccent(Color color) {
+    state = state.copyWith(accent: color);
+  }
+
   Future<void> setLocale(String mode) async {
     state = state.copyWith(locale: mode);
     await _settings.setString(SettingKeys.locale, mode);

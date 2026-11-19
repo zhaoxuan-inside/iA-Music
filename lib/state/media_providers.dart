@@ -11,8 +11,9 @@ import 'playback_controller.dart';
 import 'providers.dart';
 
 /// 封面决议结果。键含 coverPath：DB 缓存位变化 → 新键 → 重新决议。
-final coverProvider = FutureProvider.autoDispose
-    .family<File?, (int, String?)>((ref, key) async {
+/// keepAlive：决议一次全会话复用——autoDispose 会在滚动中反复建/销，
+/// 是列表卡顿与 Provider 噪音的来源。
+final coverProvider = FutureProvider.family<File?, (int, String?)>((ref, key) async {
   final (trackId, coverPath) = key;
   final chain = await ref.watch(coverChainProvider.future);
   final track = await ref.watch(dbProvider).libraryDao.trackById(trackId);

@@ -98,6 +98,11 @@ void installDiagnostics(ProviderContainer container) {
     FlutterError.presentError(details);
   };
   PlatformDispatcher.instance.onError = (e, st) {
+    // Riverpod 的 ProviderDisposedException = provider 在加载中被停止监听，
+    // 是正常生命周期事件（riverpod 自身如此说明），不进诊断打扰用户。
+    if (e.runtimeType.toString() == 'ProviderDisposedException') {
+      return true;
+    }
     rec('未捕获', e, st);
     return true;
   };

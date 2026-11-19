@@ -1,4 +1,4 @@
-/// 设置子页：存储 / 收集（平台登录与站内搜索）/ 关于。
+/// 设置子页：存储 / 收集（平台登录与站内搜索）/ 提取与补全进度 / 关于。
 library;
 
 import 'dart:async';
@@ -7,10 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
+import '../../data/daos/collect_dao.dart';
 import '../../services/collect/platform_store.dart';
 import '../../state/collect_providers.dart';
 import '../../state/diagnostics.dart';
+import '../../state/enrich_controller.dart';
 import '../../state/library_providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
@@ -135,9 +138,6 @@ class _StorageSubPageState extends ConsumerState<StorageSubPage> {
           padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
           children: [
             const _SubHeader(title: '存储'),
-            const SizedBox(height: IaSpacing.m),
-            const Text('音乐目录可随时更改；扫描后自动入库。',
-                style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.xl),
             const SectionLabel('音乐目录'),
             const SizedBox(height: IaSpacing.m),
@@ -364,6 +364,191 @@ class _DiagnosticsBlock extends ConsumerWidget {
   }
 }
 
+String _statusLabel(CollectStatusCol status) => switch (status) {
+      CollectStatusCol.pending => '等待',
+      CollectStatusCol.running => '提取中',
+      CollectStatusCol.done => '完成',
+      CollectStatusCol.blocked => '待处理',
+      CollectStatusCol.failed => '失败',
+    };
+
+/// 提取与补全进度子页：任务实时流 + 元数据补全（唯一入口 = 设置页直达）。
+class ExtractPage extends ConsumerWidget {
+  const ExtractPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(collectTasksProvider).value ?? const [];
+    final edge = edgeInsets(context);
+    final p = Theme.of(context).extension<IaPalette>()!;
+    final failed =
+        tasks.where((t) => t.status == CollectStatusCol.failed).length;
+    final pending =
+        tasks.where((t) => t.status == CollectStatusCol.pending).length;
+
+    return Scaffold(
+      backgroundColor: IaColors.canvas,
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
+          children: [
+            const _SubHeader(title: '提取与补全进度'),
+            const SizedBox(height: IaSpacing.s),
+            Text('${tasks.length} 项任务 · 完成后自动入库',
+                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
+            if (pending > 0 || failed > 0)
+              Row(
+                children: [
+                  if (pending > 0)
+                    TextButton(
+                      onPressed: () =>
+                          unawaited(ref.read(collectTasksApiProvider).drive()),
+                      child: Text('继续 $pending',
+                          style: TextStyle(fontSize: 12, color: p.accent)),
+                    ),
+                  if (failed > 0)
+                    TextButton(
+                      onPressed: () async {
+                        final api = ref.read(collectTasksApiProvider);
+                        final n = await api.retryFailed();
+                        unawaited(api.drive());
+                        if (context.mounted) {
+                          showWpToast(context,
+                              title: '提取', message: '已重试 $n 个失败任务');
+                        }
+                      },
+                      child: Text('重试失败 $failed',
+                          style: TextStyle(fontSize: 12, color: p.accent)),
+                    ),
+                ],
+              ),
+            const SizedBox(height: IaSpacing.l),
+            if (tasks.isEmpty)
+              const Text('当前没有进行中的任务——提取与补全都在后台自动运行',
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+            for (final t in tasks) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: IaSpacing.m, vertical: IaSpacing.m),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(t.title.isEmpty ? t.url : t.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: IaType.list,
+                                  color: t.status == CollectStatusCol.failed
+                                      ? IaColors.error
+                                      : IaColors.textHi)),
+                        ),
+                        Text(
+                            '${t.source} · ${_statusLabel(t.status)} · '
+                            '${t.status == CollectStatusCol.done ? 100 : t.progress}%',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: t.status == CollectStatusCol.failed
+                                    ? IaColors.error
+                                    : t.status == CollectStatusCol.done
+                                        ? p.accent
+                                        : IaColors.textLow)),
+                      ],
+                    ),
+                    const SizedBox(height: IaSpacing.s),
+                    Stack(
+                      children: [
+                        Container(height: 2, color: IaColors.hairlineStrong),
+                        FractionallySizedBox(
+                          widthFactor: (t.progress / 100).clamp(0.0, 1.0),
+                          child: Container(
+                            height: 2,
+                            color: t.status == CollectStatusCol.failed
+                                ? IaColors.error
+                                : p.accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: IaSpacing.m),
+            ],
+            // ── 元数据补全区块：音频指纹 → 在线匹配 → 封面/歌词 → 写入标签 ──
+            const SizedBox(height: IaSpacing.l),
+            const SectionLabel('元数据补全'),
+            const SizedBox(height: IaSpacing.s),
+            Text('缺失歌手 / 歌词的曲目自动入队，识别后写回曲库',
+                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
+            const SizedBox(height: IaSpacing.m),
+            const _EnrichSection(),
+            const SizedBox(height: IaSpacing.l),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 补全运行区块：进度条 + 当前曲目 + 手动「开始补全」（扫描后亦自动驱动）。
+class _EnrichSection extends ConsumerWidget {
+  const _EnrichSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final st = ref.watch(enrichProvider);
+    final p = Theme.of(context).extension<IaPalette>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                st.running
+                    ? (st.currentTitle.isEmpty ? '补全中…' : '补全中 · ${st.currentTitle}')
+                    : (st.lastSummary.isEmpty ? '队列空闲 · 扫描完成后自动运行' : st.lastSummary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontSize: IaType.list, color: IaColors.textHi),
+              ),
+            ),
+            Text(st.running ? '${st.done}/${st.total}' : '',
+                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
+          ],
+        ),
+        const SizedBox(height: IaSpacing.s),
+        Stack(
+          children: [
+            Container(height: 2, color: IaColors.hairlineStrong),
+            FractionallySizedBox(
+              widthFactor: st.running && st.total > 0
+                  ? (st.done / st.total).clamp(0.05, 1.0)
+                  : (st.running ? 0.05 : 0.0),
+              child: Container(height: 2, color: p.accent),
+            ),
+          ],
+        ),
+        const SizedBox(height: IaSpacing.s),
+        TextButton(
+          onPressed: st.running
+              ? null
+              : () => ref.read(enrichProvider.notifier).runOnce(),
+          child: Text(st.running ? '补全中…' : '开始补全',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  color: st.running ? IaColors.textLow : p.accent)),
+        ),
+      ],
+    );
+  }
+}
+
 /// 收集子页：平台登录 + 站内搜索提取。
 class CollectSubPage extends ConsumerWidget {
   const CollectSubPage({super.key});
@@ -379,9 +564,6 @@ class CollectSubPage extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
           children: [
             const _SubHeader(title: '收集'),
-            const SizedBox(height: IaSpacing.m),
-            const Text('登录平台后可站内搜索、批量提取。',
-                style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.xl),
             const SectionLabel('平台登录'),
             const SizedBox(height: IaSpacing.m),
@@ -531,7 +713,22 @@ class AboutSubPage extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
           children: [
             const _SubHeader(title: '关于'),
-            const SizedBox(height: IaSpacing.m),
+            const SizedBox(height: IaSpacing.xl),
+            Text(kAppName,
+                style: const TextStyle(
+                    fontSize: IaType.page,
+                    fontWeight: IaType.light,
+                    letterSpacing: IaType.titleTracking,
+                    color: IaColors.textHi)),
+            const SizedBox(height: IaSpacing.s),
+            Text(kAppTagline,
+                style: const TextStyle(
+                    fontSize: 12.5, height: 1.5, color: IaColors.textMid)),
+            const SizedBox(height: IaSpacing.xl),
+            _InfoRow(label: '版本', value: kAppVersionLabel),
+            _InfoRow(label: '版本号', value: '$kAppVersionCode'),
+            _InfoRow(label: '平台', value: kAppPlatform),
+            const SizedBox(height: IaSpacing.xl),
             InkWell(
               onTap: () => _languageMenu(context, ref),
               child: Container(
@@ -587,9 +784,7 @@ class AboutSubPage extends ConsumerWidget {
         LocaleMode.zh => '中文（简体）',
         LocaleMode.en => 'English',
         _ => '跟随系统',
-      };
-
-  /// 语言选择（WP 菜单）：跟随系统 / 中文（简体）/ English。
+      };  /// 语言选择（WP 菜单）：跟随系统 / 中文（简体）/ English。
   void _languageMenu(BuildContext context, WidgetRef ref) {
     final cur = ref.read(settingsProvider).locale;
     showWpMenu(context, title: '语言', items: [
@@ -612,5 +807,34 @@ class AboutSubPage extends ConsumerWidget {
       return;
     }
     Navigator.of(context).popUntil((r) => r.isFirst);
+  }
+}
+
+/// 关于页信息行（label + value）。
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+          horizontal: IaSpacing.m, vertical: IaSpacing.l),
+      decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: IaColors.hairline))),
+      child: Row(
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: IaType.list, color: IaColors.textHi)),
+          const Spacer(),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 12, color: IaColors.textLow)),
+        ],
+      ),
+    );
   }
 }

@@ -395,6 +395,7 @@ class SongRow extends StatelessWidget {
     this.leading,
     this.isPlaying = false,
     this.isLiked = false,
+    this.missing = false,
     super.key,
   });
 
@@ -404,6 +405,9 @@ class SongRow extends StatelessWidget {
   final Widget? leading;
   final bool isPlaying;
   final bool isLiked;
+
+  /// 文件缺失/已删除：诚实灰显（点击仍可播，播放器会跳过）。
+  final bool missing;
 
   @override
   Widget build(BuildContext context) {
@@ -444,7 +448,11 @@ class SongRow extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: IaType.list,
-                                color: isPlaying ? p.accent : IaColors.textHi,
+                                color: missing
+                                    ? IaColors.textLow
+                                    : isPlaying
+                                        ? p.accent
+                                        : IaColors.textHi,
                                 fontWeight: isPlaying
                                     ? IaType.semibold
                                     : IaType.regular,

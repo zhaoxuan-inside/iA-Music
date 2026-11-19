@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../state/playback_controller.dart';
 import '../shared/cover.dart';
+import '../shared/ui_kit.dart';
 import '../shared/wp_motion.dart';
 
 class MiniPlayer extends ConsumerWidget {
@@ -22,14 +23,16 @@ class MiniPlayer extends ConsumerWidget {
     final p = Theme.of(context).extension<IaPalette>()!;
     final mq = MediaQuery.of(context);
     final bottom = mq.padding.bottom > 6 ? mq.padding.bottom : 0.0;
+    // 条宽 = 页面内容宽（与各页列表左右安全边距一致，不铺满曲面屏黑边）。
+    final edge = edgeInsets(context);
 
     if (cur == null) {
       return const SizedBox.shrink();
     }
 
     return Positioned(
-      left: 0,
-      right: 0,
+      left: edge.left,
+      right: edge.right,
       bottom: 0,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -67,10 +70,10 @@ class MiniPlayer extends ConsumerWidget {
                 ),
               ),
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  mq.padding.left + IaSpacing.m,
+                padding: const EdgeInsets.fromLTRB(
+                  IaSpacing.m,
                   IaSpacing.s,
-                  mq.padding.right + IaSpacing.xs,
+                  IaSpacing.xs,
                   IaSpacing.s,
                 ),
                 child: Row(

@@ -105,6 +105,7 @@ class DetailPage extends ConsumerWidget {
     }
 
     final tracks = tracksAsync.value ?? const <Track>[];
+    final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     final first = tracks.firstOrNull;
     final totalMs =
         tracks.fold<int>(0, (sum, t) => sum + t.durationMs);
@@ -219,9 +220,7 @@ class DetailPage extends ConsumerWidget {
                           showCover: type == DetailType.playlist,
                           isPlaying: ref.watch(playbackProvider
                               .select((s) => s.current?.id == tracks[i].id)),
-                          isLiked:
-                              ref.watch(favoriteProvider(tracks[i].id)).value ??
-                                  false,
+                          isLiked: favs.contains(tracks[i].id),
                           onTap: () => ref
                               .read(playbackProvider.notifier)
                               .playTracks(tracks, startIndex: i),

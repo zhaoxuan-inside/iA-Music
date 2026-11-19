@@ -18,12 +18,19 @@ class CoverArt extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final file =
         ref.watch(coverProvider((track.id, track.coverPath))).value;
-    if (file != null && file.existsSync()) {
+    // 存在性交给 errorBuilder 兜底；build 里不做磁盘 stat。
+    if (file != null) {
       return Image.file(file,
           width: size.isFinite ? size : null,
           height: size.isFinite ? size : null,
           fit: BoxFit.cover,
           gaplessPlayback: true,
+          // 缩略图按目标尺寸×DPR 降采样解码——整幅原图解码是列表卡顿主源。
+          cacheWidth: size.isFinite
+              ? (size * MediaQuery.devicePixelRatioOf(context))
+                  .round()
+                  .clamp(16, 2048)
+              : null,
           errorBuilder: (_, _, _) => _fallback(context, track.id, size));
     }
     return _fallback(context, track.id, size);

@@ -71,12 +71,16 @@ class PlaybackService {
   // ── 对 UI 的命令面 ───────────────────────────────────────────────────
 
   /// 播放一批曲目（[startIndex] 起播；shuffle=保留起始曲、其余洗牌）。
+  ///
+  /// [startIndex] 是调用方列表的索引——列表可能含缺失/损坏行，过滤后
+  /// 索引会错位（点谁播谁都对不上）。这里按曲目标识映射回可播列表的
+  /// 真实位置：起播曲不可播时顺延到其后第一首可播曲。
   Future<void> playTracks(List<Track> tracks, {int startIndex = 0, bool? shuffle}) async {
     final playable = tracks.where((t) => !t.missing && t.path.isNotEmpty).toList();
     if (playable.isEmpty) {
       return;
     }
-    var index = startIndex.clamp(0, playable.length - 1);
+    var index = _mapStartIndex(tracks, playable, startIndex);
     final useShuffle = shuffle ?? _snap.shuffle;
     if (useShuffle) {
       final start = playable[index];
@@ -94,6 +98,25 @@ class PlaybackService {
     await _recordHistory(playable[index], completed: false);
     await _publishMediaSession();
     _emit();
+  }
+
+  /// 调用方列表索引 → 可播列表索引（按曲目 id 对齐；缺失行不再错位）。
+  int _mapStartIndex(List<Track> tracks, List<Track> playable, int startIndex) {
+    final posById = {for (var i = 0; i < playable.length; i++) playable[i].id: i};
+    if (startIndex >= 0 && startIndex < tracks.length) {
+      final mapped = posById[tracks[startIndex].id];
+      if (mapped != null) {
+        return mapped;
+      }
+      // 起播曲不可播：顺延到其后第一首可播曲
+      for (var i = startIndex + 1; i < tracks.length; i++) {
+        final m = posById[tracks[i].id];
+        if (m != null) {
+          return m;
+        }
+      }
+    }
+    return 0;
   }
 
   Future<void> togglePlay() =>

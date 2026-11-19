@@ -14,8 +14,8 @@ import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 import '../shared/wp_motion.dart';
 
-/// 网格最多展示的新入库歌曲数（计数行给出全库总数）。
-const int _maxRecentSongs = 30;
+/// 网格展示上限（只看最近 24 小时入库的歌曲）。
+const int _maxRecentSongs = 20;
 
 class AddedPage extends ConsumerWidget {
   const AddedPage({super.key});
@@ -24,19 +24,26 @@ class AddedPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tracks = ref.watch(tracksProvider(TrackSort.recentAdded)).value ??
         const <Track>[];
-    final recent = tracks.where((t) => !t.missing).take(_maxRecentSongs).toList();
-    final trackCount = ref.watch(trackCountProvider).value ?? 0;
+    final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+    final recent = tracks
+        .where((t) => !t.missing && t.addedAt.isAfter(cutoff))
+        .take(_maxRecentSongs)
+        .toList();
 
     return HubPage(
       header: PageHeader(
         kicker: '库里的新鲜事',
         title: '最近添加',
-        subtitle: '$trackCount 首 · 新入库在前',
+        subtitle: recent.isEmpty
+            ? '最近 24 小时没有新入库'
+            : '${recent.length} 首 · 最近 24 小时入库',
         trailing: const SearchAction(),
       ),
       children: [
         if (recent.isEmpty)
-          const EmptyState(title: '还没有音乐', subtitle: '在「设置 · 收集」扫描音乐目录后出现在这里')
+          const EmptyState(
+              title: '暂时没有新歌',
+              subtitle: '最近 24 小时入库的歌曲会出现在这里——先去「设置 · 存储」扫描')
         else
           GridView.builder(
             shrinkWrap: true,

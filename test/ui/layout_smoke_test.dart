@@ -81,7 +81,7 @@ Widget _app(Widget child, PlaybackSnapshot snap) {
     overrides: [
       playbackProvider.overrideWith(() => _FakePlayback(snap)),
       coverProvider.overrideWith((ref, key) async => null),
-      favoriteProvider.overrideWith((ref, id) => Stream.value(false)),
+      favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
       recentAddedAlbumsProvider
           .overrideWith((ref) => Stream.value(const <AlbumGroup>[])),
       trackCountProvider.overrideWith((ref) => Stream.value(0)),
@@ -133,7 +133,7 @@ void main() {
         playbackProvider
             .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
         coverProvider.overrideWith((ref, key) async => null),
-        favoriteProvider.overrideWith((ref, id) => Stream.value(false)),
+        favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
         tracksProvider.overrideWith((ref, sort) => Stream.value([_track])),
         trackCountProvider.overrideWith((ref) => Stream.value(1)),
       ],
@@ -180,7 +180,7 @@ void main() {
         playbackProvider
             .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
         coverProvider.overrideWith((ref, key) async => null),
-        favoriteProvider.overrideWith((ref, id) => Stream.value(false)),
+        favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
         quickplayProvider.overrideWith(
             () => _FakeQuickplay(const QuickplayState(loaded: true))),
         albumsProvider.overrideWith((ref) => Stream.value([
@@ -340,7 +340,7 @@ void main() {
         playbackProvider
             .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
         coverProvider.overrideWith((ref, key) async => null),
-        favoriteProvider.overrideWith((ref, id) => Stream.value(false)),
+        favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
         tracksProvider.overrideWith((ref, sort) => Stream.value([_track])),
         artistsProvider.overrideWith((ref) => Stream.value(const <ArtistGroup>[])),
         albumsProvider.overrideWith((ref) => Stream.value(const <AlbumGroup>[])),

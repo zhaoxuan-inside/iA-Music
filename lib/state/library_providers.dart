@@ -11,23 +11,26 @@ final tracksProvider = StreamProvider.family<List<Track>, TrackSort>((ref, sort)
   return ref.watch(dbProvider).libraryDao.watchTracks(sort: sort);
 });
 
+/// 专辑/艺人曲目流：keepAlive（进过一次详情后常驻容器）。
+/// autoDispose 会在网格滚动时反复创建/销毁——既是卡顿源，也会在加载中
+/// 被销毁时抛 ProviderDisposedException 噪音。
 final albumsProvider =
-    StreamProvider.autoDispose<List<AlbumGroup>>((ref) {
+    StreamProvider<List<AlbumGroup>>((ref) {
   return ref.watch(dbProvider).libraryDao.watchAlbums();
 });
 
 final artistsProvider =
-    StreamProvider.autoDispose<List<ArtistGroup>>((ref) {
+    StreamProvider<List<ArtistGroup>>((ref) {
   return ref.watch(dbProvider).libraryDao.watchArtists();
 });
 
 final albumTracksProvider =
-    StreamProvider.autoDispose.family<List<Track>, String>((ref, albumNorm) {
+    StreamProvider.family<List<Track>, String>((ref, albumNorm) {
   return ref.watch(dbProvider).libraryDao.watchAlbumTracks(albumNorm);
 });
 
 final artistTracksProvider =
-    StreamProvider.autoDispose.family<List<Track>, String>((ref, artistNorm) {
+    StreamProvider.family<List<Track>, String>((ref, artistNorm) {
   return ref.watch(dbProvider).libraryDao.watchArtistTracks(artistNorm);
 });
 
@@ -44,9 +47,10 @@ final rootsProvider = StreamProvider.autoDispose<List<RepositoryRoot>>((ref) {
   return ref.watch(dbProvider).libraryDao.watchRoots();
 });
 
-/// 单曲收藏态（红心即时反馈）。
-final favoriteProvider = StreamProvider.autoDispose.family<bool, int>((ref, trackId) {
-  return ref.watch(dbProvider).playlistDao.watchFavorite(trackId);
+/// 全库收藏集合（单流）。列表行查红心 = 集合内查询，
+/// 不再每行开一条 drift watch 流（滚动卡顿 + Provider 噪音来源）。
+final favoritesSetProvider = StreamProvider<Set<int>>((ref) {
+  return ref.watch(dbProvider).playlistDao.watchFavoriteTrackIds();
 });
 
 /// 专辑 norm 键（GROUP BY 键 = 显示名规整）。

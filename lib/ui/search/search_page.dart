@@ -75,6 +75,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
     final hitAlbums = hit(albums, (a) => _match(q, [a.album, a.artist]));
     final hitPls = hit(pls, (x) => _match(q, [x.name]));
     final playingId = ref.watch(playbackProvider.select((s) => s.current?.id));
+    final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     final localEmpty = hitTracks.isEmpty &&
         hitArtists.isEmpty &&
         hitAlbums.isEmpty &&
@@ -156,15 +157,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
               child: q.isEmpty
                   ? ListView(
                       padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 40),
-                      children: [
-                        const SectionLabel('搜索'),
-                        const SizedBox(height: IaSpacing.s),
-                        const Text(
-                          '本地曲库即时匹配，支持拼音全拼与首字母（如 zjl / zhoujielun）。\n'
-                          '点「在线来源」同时搜索已登录的 B 站 / YouTube。',
-                          style: TextStyle(
-                              fontSize: 12.5, height: 1.6, color: IaColors.textLow),
-                        ),
+                      children: const [
+                        SectionLabel('搜索'),
                       ],
                     )
                   : ListView(
@@ -193,10 +187,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                               leading:
                                   CoverArt(track: t, size: IaSpacing.coverSmall),
                               isPlaying: playingId == t.id,
-                              isLiked: ref
-                                      .watch(favoriteProvider(t.id))
-                                      .value ??
-                                  false,
+                              isLiked: favs.contains(t.id),
+                              missing: t.missing,
                               onTap: () {
                                 final qi = hitTracks.indexOf(t);
                                 ref
@@ -252,9 +244,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       const SizedBox(height: IaSpacing.xs),
       SectionHead(
         label: '在线来源',
-        meta: _onlineLoading
-            ? '搜索中…'
-            : 'B 站 · YouTube · 点击结果加入提取队列',
+        meta: _onlineLoading ? '搜索中…' : 'B 站 · YouTube',
         trailing: IconButton(
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.refresh, size: 17, color: IaColors.textLow),
