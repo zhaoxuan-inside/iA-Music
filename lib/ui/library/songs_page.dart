@@ -36,9 +36,13 @@ class _Header extends _Slot {
 }
 
 class _Song extends _Slot {
-  const _Song(this.track, this.flatIndex);
+  const _Song(this.track, this.sourceIndex);
   final Track track;
-  final int flatIndex;
+
+  /// 该曲在 [tracks]（titleNorm 排序）中的真实索引。点播起播索引必须
+  /// 对齐这份列表：拼音分组会重排（SQL 按 titleNorm 码点序、组序却是
+  /// 拼音首字母首现序），展平序号与之不等，误用会点谁播谁都错位。
+  final int sourceIndex;
 }
 
 /// 曲库列表尾部的「音乐页」入口。
@@ -87,22 +91,19 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     final edge = edgeInsets(context);
 
-    final groups = <String, List<Track>>{};
-    for (final t in tracks) {
-      groups.putIfAbsent(letterKey(t.title), () => []).add(t);
-    }
-    final letters = groups.keys.toList();
-
-    // 组头槽位号与展平槽位同序累加（曲目顺序即展平顺序，无需 indexOf）。
+    // 一遍遍历建槽：组头按字母首现顺序插入（与原分组 map 等价，字母轨
+    // 行为不变）；歌曲槽携带源索引而非展平序号——见 [_Song.sourceIndex]。
     final headerSlots = <String, int>{};
+    final letters = <String>[];
     final slots = <_Slot>[];
-    var flat = 0;
-    for (final entry in groups.entries) {
-      headerSlots[entry.key] = slots.length;
-      slots.add(_Header(entry.key));
-      for (final t in entry.value) {
-        slots.add(_Song(t, flat++));
+    for (var i = 0; i < tracks.length; i++) {
+      final key = letterKey(tracks[i].title);
+      if (!headerSlots.containsKey(key)) {
+        headerSlots[key] = slots.length;
+        letters.add(key);
+        slots.add(_Header(key));
       }
+      slots.add(_Song(tracks[i], i));
     }
     slots.add(const _MusicPageEntry());
     _headerSlots = headerSlots;
@@ -177,7 +178,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                         ),
                       ),
                     ),
-                    _Song(:final track, :final flatIndex) => SongRow(
+                    _Song(:final track, :final sourceIndex) => SongRow(
                       track: track,
                       leading: CoverArt(
                         track: track,
@@ -188,7 +189,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                       missing: track.missing,
                       onTap: () => ref
                           .read(playbackProvider.notifier)
-                          .playTracks(tracks, startIndex: flatIndex),
+                          .playTracks(tracks, startIndex: sourceIndex),
                       onLongPress: () => showTrackMenu(context, ref, track),
                     ),
                     _MusicPageEntry() => BigRow(

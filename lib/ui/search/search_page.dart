@@ -149,6 +149,17 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                       }
                     },
                   ),
+                  const Spacer(),
+                  InkWell(
+                    onTap: () => Navigator.of(context).push(zuneRoute<void>(
+                        builder: (_) => const LinkExtractPage())),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Text('从链接提取 ›',
+                          style:
+                              TextStyle(fontSize: 11, color: IaColors.textLow)),
+                    ),
+                  ),
                 ],
               ),
             ),
