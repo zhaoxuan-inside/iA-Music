@@ -4,10 +4,12 @@
 /// 操作完成后重读列表（与 EnrichController 的显式状态风格一致）。
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../plugins/default_plugins.dart';
 import '../plugins/plugin_manifest.dart';
 import '../plugins/plugin_registry.dart';
 import '../plugins/plugin_runtime.dart';
@@ -19,7 +21,17 @@ const String marketUrlKey = 'plugins.market.url';
 
 final pluginRegistryProvider = FutureProvider<PluginRegistry>((ref) async {
   final dirs = await ref.watch(cacheDirsProvider.future);
-  return PluginRegistry(dir: dirs.plugins);
+  final registry = PluginRegistry(dir: dirs.plugins);
+  // 默认插件就位（幂等；版本升级覆盖；用户卸载过的跳过）
+  final skipRaw =
+      await ref.watch(settingsServiceProvider).getString(defaultUninstalledKey) ??
+          '[]';
+  final skip = (jsonDecode(skipRaw) as List?)
+          ?.whereType<String>()
+          .toSet() ??
+      const <String>{};
+  await ensureDefaultPlugins(registry, skip);
+  return registry;
 });
 
 final pluginRuntimeProvider = FutureProvider<PluginRuntimePort>((ref) async {
@@ -133,6 +145,17 @@ class PluginsController extends Notifier<PluginsState> {
   Future<void> uninstall(String id) => _run(() async {
         final registry = await ref.read(pluginRegistryProvider.future);
         await registry.uninstall(id);
+        // 默认插件卸载记墓碑：启动不再自动回装（用户决定优先）
+        if ((await defaultPluginIds()).contains(id)) {
+          final settings = ref.read(settingsServiceProvider);
+          final raw = await settings.getString(defaultUninstalledKey) ?? '[]';
+          final list =
+              ((jsonDecode(raw) as List?) ?? []).whereType<String>().toList();
+          if (!list.contains(id)) {
+            list.add(id);
+            await settings.setString(defaultUninstalledKey, jsonEncode(list));
+          }
+        }
         return '已卸载';
       });
 

@@ -68,5 +68,8 @@ hooks:
       path: native/sqlite3/sqlite3.c
 
 flutter:
+  assets:
+    - plugins/bilibili.plugin.js
+    - plugins/youtube.plugin.js
   generate: true
   uses-material-design: true
