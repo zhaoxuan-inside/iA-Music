@@ -44,6 +44,15 @@ class Tracks extends Table {
   /// 元数据补全：true=歌手/歌名待反向重建；enrichedAt=补全完成时刻。
   BoolColumn get needsMeta => boolean().withDefault(const Constant(false))();
   DateTimeColumn get enrichedAt => dateTime().nullable()();
+
+  /// 补全三阶段完成时刻（结论性：匹配成功或确认无匹配都算已处理；
+  /// 网络失败不打时刻——留待重试）。UI 三条进度条据此直读，跨重启不丢。
+  DateTimeColumn get titleMatchedAt => dateTime().nullable()();
+  DateTimeColumn get artistMatchedAt => dateTime().nullable()();
+  DateTimeColumn get lyricsAt => dateTime().nullable()();
+
+  /// 连续硬失败次数（≥3 跳出待补全池；手动「开始补全」清零重试）。
+  IntColumn get enrichAttempts => integer().withDefault(const Constant(0))();
 }
 
 @DataClassName('PlaylistRow')

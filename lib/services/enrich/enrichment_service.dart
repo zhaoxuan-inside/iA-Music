@@ -60,7 +60,9 @@ class EnrichmentService {
         }
         completed++;
       } on Object {
-        // 单首失败不阻断整轮；未写回 → 不计完成，留在池中下次再试
+        // 单首失败不阻断整轮：硬失败计数 +1（≥3 暂出池），阶段时刻不打
+        // ——进度条如实停在未处理，待手动重试或网络恢复。
+        await _library.bumpEnrichAttempts(t.id);
       }
     }
     return (ok, completed);
@@ -144,9 +146,8 @@ class EnrichmentService {
     if (match == null || match.title.isEmpty) {
       return false;
     }
-    await _library.applyEnrichment(
-        id: t.id, title: match.title, artist: match.artist);
-    // 歌词按重建后的真实元数据拉取
+    // 歌词先取（用匹配元数据，不依赖库内写回）——网络失败在写回前抛出，
+    // 三阶段时刻都不打，曲目留在待补全池等待重试。
     final hit = await _lyrics.getByFields(
         title: match.title,
         artist: match.artist,
@@ -154,6 +155,8 @@ class EnrichmentService {
     final lrc = hit == null
         ? null
         : (hit.syncedLrc.trim().isNotEmpty ? hit.syncedLrc : hit.plainLrc);
+    await _library.applyEnrichment(
+        id: t.id, title: match.title, artist: match.artist);
     if (lrc != null && lrc.trim().isNotEmpty) {
       await _saveLyrics(t.id, lrc);
     }

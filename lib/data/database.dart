@@ -46,7 +46,7 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -78,6 +78,18 @@ class IaDatabase extends _$IaDatabase {
             await customStatement(
                 'UPDATE tracks SET plays = '
                 '(SELECT COUNT(*) FROM play_history WHERE track_id = tracks.id)');
+          }
+          if (from < 6) {
+            // v6：补全三阶段时刻（进度持久化，跨重启不从头）；
+            //     旧管线已补全的行按已处理回填。
+            await m.addColumn(tracks, tracks.titleMatchedAt);
+            await m.addColumn(tracks, tracks.artistMatchedAt);
+            await m.addColumn(tracks, tracks.lyricsAt);
+            await m.addColumn(tracks, tracks.enrichAttempts);
+            await customStatement(
+                'UPDATE tracks SET titleMatchedAt = CURRENT_TIMESTAMP, '
+                'artistMatchedAt = CURRENT_TIMESTAMP, lyricsAt = CURRENT_TIMESTAMP '
+                'WHERE enrichedAt IS NOT NULL');
           }
         },
         beforeOpen: (details) async {

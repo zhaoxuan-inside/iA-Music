@@ -514,6 +514,53 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _titleMatchedAtMeta = const VerificationMeta(
+    'titleMatchedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> titleMatchedAt =
+      GeneratedColumn<DateTime>(
+        'title_matched_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _artistMatchedAtMeta = const VerificationMeta(
+    'artistMatchedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> artistMatchedAt =
+      GeneratedColumn<DateTime>(
+        'artist_matched_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _lyricsAtMeta = const VerificationMeta(
+    'lyricsAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lyricsAt = GeneratedColumn<DateTime>(
+    'lyrics_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _enrichAttemptsMeta = const VerificationMeta(
+    'enrichAttempts',
+  );
+  @override
+  late final GeneratedColumn<int> enrichAttempts = GeneratedColumn<int>(
+    'enrich_attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -539,6 +586,10 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     addedAt,
     needsMeta,
     enrichedAt,
+    titleMatchedAt,
+    artistMatchedAt,
+    lyricsAt,
+    enrichAttempts,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -714,6 +765,39 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         enrichedAt.isAcceptableOrUnknown(data['enriched_at']!, _enrichedAtMeta),
       );
     }
+    if (data.containsKey('title_matched_at')) {
+      context.handle(
+        _titleMatchedAtMeta,
+        titleMatchedAt.isAcceptableOrUnknown(
+          data['title_matched_at']!,
+          _titleMatchedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('artist_matched_at')) {
+      context.handle(
+        _artistMatchedAtMeta,
+        artistMatchedAt.isAcceptableOrUnknown(
+          data['artist_matched_at']!,
+          _artistMatchedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('lyrics_at')) {
+      context.handle(
+        _lyricsAtMeta,
+        lyricsAt.isAcceptableOrUnknown(data['lyrics_at']!, _lyricsAtMeta),
+      );
+    }
+    if (data.containsKey('enrich_attempts')) {
+      context.handle(
+        _enrichAttemptsMeta,
+        enrichAttempts.isAcceptableOrUnknown(
+          data['enrich_attempts']!,
+          _enrichAttemptsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -815,6 +899,22 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}enriched_at'],
       ),
+      titleMatchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}title_matched_at'],
+      ),
+      artistMatchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}artist_matched_at'],
+      ),
+      lyricsAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}lyrics_at'],
+      ),
+      enrichAttempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}enrich_attempts'],
+      )!,
     );
   }
 
@@ -853,6 +953,15 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   /// 元数据补全：true=歌手/歌名待反向重建；enrichedAt=补全完成时刻。
   final bool needsMeta;
   final DateTime? enrichedAt;
+
+  /// 补全三阶段完成时刻（结论性：匹配成功或确认无匹配都算已处理；
+  /// 网络失败不打时刻——留待重试）。UI 三条进度条据此直读，跨重启不丢。
+  final DateTime? titleMatchedAt;
+  final DateTime? artistMatchedAt;
+  final DateTime? lyricsAt;
+
+  /// 连续硬失败次数（≥3 跳出待补全池；手动「开始补全」清零重试）。
+  final int enrichAttempts;
   const TrackRow({
     required this.id,
     required this.rootId,
@@ -877,6 +986,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     required this.addedAt,
     required this.needsMeta,
     this.enrichedAt,
+    this.titleMatchedAt,
+    this.artistMatchedAt,
+    this.lyricsAt,
+    required this.enrichAttempts,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -912,6 +1025,16 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     if (!nullToAbsent || enrichedAt != null) {
       map['enriched_at'] = Variable<DateTime>(enrichedAt);
     }
+    if (!nullToAbsent || titleMatchedAt != null) {
+      map['title_matched_at'] = Variable<DateTime>(titleMatchedAt);
+    }
+    if (!nullToAbsent || artistMatchedAt != null) {
+      map['artist_matched_at'] = Variable<DateTime>(artistMatchedAt);
+    }
+    if (!nullToAbsent || lyricsAt != null) {
+      map['lyrics_at'] = Variable<DateTime>(lyricsAt);
+    }
+    map['enrich_attempts'] = Variable<int>(enrichAttempts);
     return map;
   }
 
@@ -948,6 +1071,16 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       enrichedAt: enrichedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(enrichedAt),
+      titleMatchedAt: titleMatchedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(titleMatchedAt),
+      artistMatchedAt: artistMatchedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artistMatchedAt),
+      lyricsAt: lyricsAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lyricsAt),
+      enrichAttempts: Value(enrichAttempts),
     );
   }
 
@@ -980,6 +1113,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
       needsMeta: serializer.fromJson<bool>(json['needsMeta']),
       enrichedAt: serializer.fromJson<DateTime?>(json['enrichedAt']),
+      titleMatchedAt: serializer.fromJson<DateTime?>(json['titleMatchedAt']),
+      artistMatchedAt: serializer.fromJson<DateTime?>(json['artistMatchedAt']),
+      lyricsAt: serializer.fromJson<DateTime?>(json['lyricsAt']),
+      enrichAttempts: serializer.fromJson<int>(json['enrichAttempts']),
     );
   }
   @override
@@ -1009,6 +1146,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'addedAt': serializer.toJson<DateTime>(addedAt),
       'needsMeta': serializer.toJson<bool>(needsMeta),
       'enrichedAt': serializer.toJson<DateTime?>(enrichedAt),
+      'titleMatchedAt': serializer.toJson<DateTime?>(titleMatchedAt),
+      'artistMatchedAt': serializer.toJson<DateTime?>(artistMatchedAt),
+      'lyricsAt': serializer.toJson<DateTime?>(lyricsAt),
+      'enrichAttempts': serializer.toJson<int>(enrichAttempts),
     };
   }
 
@@ -1036,6 +1177,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     DateTime? addedAt,
     bool? needsMeta,
     Value<DateTime?> enrichedAt = const Value.absent(),
+    Value<DateTime?> titleMatchedAt = const Value.absent(),
+    Value<DateTime?> artistMatchedAt = const Value.absent(),
+    Value<DateTime?> lyricsAt = const Value.absent(),
+    int? enrichAttempts,
   }) => TrackRow(
     id: id ?? this.id,
     rootId: rootId ?? this.rootId,
@@ -1062,6 +1207,14 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     addedAt: addedAt ?? this.addedAt,
     needsMeta: needsMeta ?? this.needsMeta,
     enrichedAt: enrichedAt.present ? enrichedAt.value : this.enrichedAt,
+    titleMatchedAt: titleMatchedAt.present
+        ? titleMatchedAt.value
+        : this.titleMatchedAt,
+    artistMatchedAt: artistMatchedAt.present
+        ? artistMatchedAt.value
+        : this.artistMatchedAt,
+    lyricsAt: lyricsAt.present ? lyricsAt.value : this.lyricsAt,
+    enrichAttempts: enrichAttempts ?? this.enrichAttempts,
   );
   TrackRow copyWithCompanion(TracksCompanion data) {
     return TrackRow(
@@ -1100,6 +1253,16 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       enrichedAt: data.enrichedAt.present
           ? data.enrichedAt.value
           : this.enrichedAt,
+      titleMatchedAt: data.titleMatchedAt.present
+          ? data.titleMatchedAt.value
+          : this.titleMatchedAt,
+      artistMatchedAt: data.artistMatchedAt.present
+          ? data.artistMatchedAt.value
+          : this.artistMatchedAt,
+      lyricsAt: data.lyricsAt.present ? data.lyricsAt.value : this.lyricsAt,
+      enrichAttempts: data.enrichAttempts.present
+          ? data.enrichAttempts.value
+          : this.enrichAttempts,
     );
   }
 
@@ -1128,7 +1291,11 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('missingAt: $missingAt, ')
           ..write('addedAt: $addedAt, ')
           ..write('needsMeta: $needsMeta, ')
-          ..write('enrichedAt: $enrichedAt')
+          ..write('enrichedAt: $enrichedAt, ')
+          ..write('titleMatchedAt: $titleMatchedAt, ')
+          ..write('artistMatchedAt: $artistMatchedAt, ')
+          ..write('lyricsAt: $lyricsAt, ')
+          ..write('enrichAttempts: $enrichAttempts')
           ..write(')'))
         .toString();
   }
@@ -1158,6 +1325,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     addedAt,
     needsMeta,
     enrichedAt,
+    titleMatchedAt,
+    artistMatchedAt,
+    lyricsAt,
+    enrichAttempts,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1185,7 +1356,11 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.missingAt == this.missingAt &&
           other.addedAt == this.addedAt &&
           other.needsMeta == this.needsMeta &&
-          other.enrichedAt == this.enrichedAt);
+          other.enrichedAt == this.enrichedAt &&
+          other.titleMatchedAt == this.titleMatchedAt &&
+          other.artistMatchedAt == this.artistMatchedAt &&
+          other.lyricsAt == this.lyricsAt &&
+          other.enrichAttempts == this.enrichAttempts);
 }
 
 class TracksCompanion extends UpdateCompanion<TrackRow> {
@@ -1212,6 +1387,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
   final Value<DateTime> addedAt;
   final Value<bool> needsMeta;
   final Value<DateTime?> enrichedAt;
+  final Value<DateTime?> titleMatchedAt;
+  final Value<DateTime?> artistMatchedAt;
+  final Value<DateTime?> lyricsAt;
+  final Value<int> enrichAttempts;
   const TracksCompanion({
     this.id = const Value.absent(),
     this.rootId = const Value.absent(),
@@ -1236,6 +1415,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.addedAt = const Value.absent(),
     this.needsMeta = const Value.absent(),
     this.enrichedAt = const Value.absent(),
+    this.titleMatchedAt = const Value.absent(),
+    this.artistMatchedAt = const Value.absent(),
+    this.lyricsAt = const Value.absent(),
+    this.enrichAttempts = const Value.absent(),
   });
   TracksCompanion.insert({
     this.id = const Value.absent(),
@@ -1261,6 +1444,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.addedAt = const Value.absent(),
     this.needsMeta = const Value.absent(),
     this.enrichedAt = const Value.absent(),
+    this.titleMatchedAt = const Value.absent(),
+    this.artistMatchedAt = const Value.absent(),
+    this.lyricsAt = const Value.absent(),
+    this.enrichAttempts = const Value.absent(),
   }) : rootId = Value(rootId),
        relPath = Value(relPath),
        path = Value(path),
@@ -1294,6 +1481,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Expression<DateTime>? addedAt,
     Expression<bool>? needsMeta,
     Expression<DateTime>? enrichedAt,
+    Expression<DateTime>? titleMatchedAt,
+    Expression<DateTime>? artistMatchedAt,
+    Expression<DateTime>? lyricsAt,
+    Expression<int>? enrichAttempts,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1319,6 +1510,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       if (addedAt != null) 'added_at': addedAt,
       if (needsMeta != null) 'needs_meta': needsMeta,
       if (enrichedAt != null) 'enriched_at': enrichedAt,
+      if (titleMatchedAt != null) 'title_matched_at': titleMatchedAt,
+      if (artistMatchedAt != null) 'artist_matched_at': artistMatchedAt,
+      if (lyricsAt != null) 'lyrics_at': lyricsAt,
+      if (enrichAttempts != null) 'enrich_attempts': enrichAttempts,
     });
   }
 
@@ -1346,6 +1541,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Value<DateTime>? addedAt,
     Value<bool>? needsMeta,
     Value<DateTime?>? enrichedAt,
+    Value<DateTime?>? titleMatchedAt,
+    Value<DateTime?>? artistMatchedAt,
+    Value<DateTime?>? lyricsAt,
+    Value<int>? enrichAttempts,
   }) {
     return TracksCompanion(
       id: id ?? this.id,
@@ -1371,6 +1570,10 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       addedAt: addedAt ?? this.addedAt,
       needsMeta: needsMeta ?? this.needsMeta,
       enrichedAt: enrichedAt ?? this.enrichedAt,
+      titleMatchedAt: titleMatchedAt ?? this.titleMatchedAt,
+      artistMatchedAt: artistMatchedAt ?? this.artistMatchedAt,
+      lyricsAt: lyricsAt ?? this.lyricsAt,
+      enrichAttempts: enrichAttempts ?? this.enrichAttempts,
     );
   }
 
@@ -1446,6 +1649,18 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     if (enrichedAt.present) {
       map['enriched_at'] = Variable<DateTime>(enrichedAt.value);
     }
+    if (titleMatchedAt.present) {
+      map['title_matched_at'] = Variable<DateTime>(titleMatchedAt.value);
+    }
+    if (artistMatchedAt.present) {
+      map['artist_matched_at'] = Variable<DateTime>(artistMatchedAt.value);
+    }
+    if (lyricsAt.present) {
+      map['lyrics_at'] = Variable<DateTime>(lyricsAt.value);
+    }
+    if (enrichAttempts.present) {
+      map['enrich_attempts'] = Variable<int>(enrichAttempts.value);
+    }
     return map;
   }
 
@@ -1474,7 +1689,11 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
           ..write('missingAt: $missingAt, ')
           ..write('addedAt: $addedAt, ')
           ..write('needsMeta: $needsMeta, ')
-          ..write('enrichedAt: $enrichedAt')
+          ..write('enrichedAt: $enrichedAt, ')
+          ..write('titleMatchedAt: $titleMatchedAt, ')
+          ..write('artistMatchedAt: $artistMatchedAt, ')
+          ..write('lyricsAt: $lyricsAt, ')
+          ..write('enrichAttempts: $enrichAttempts')
           ..write(')'))
         .toString();
   }
@@ -4177,6 +4396,10 @@ typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
   Value<DateTime> addedAt,
   Value<bool> needsMeta,
   Value<DateTime?> enrichedAt,
+  Value<DateTime?> titleMatchedAt,
+  Value<DateTime?> artistMatchedAt,
+  Value<DateTime?> lyricsAt,
+  Value<int> enrichAttempts,
 });
 typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<int> id,
@@ -4202,6 +4425,10 @@ typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<DateTime> addedAt,
   Value<bool> needsMeta,
   Value<DateTime?> enrichedAt,
+  Value<DateTime?> titleMatchedAt,
+  Value<DateTime?> artistMatchedAt,
+  Value<DateTime?> lyricsAt,
+  Value<int> enrichAttempts,
 });
 
 final class $$TracksTableReferences
@@ -4395,6 +4622,26 @@ class $$TracksTableFilterComposer extends Composer<_$IaDatabase, $TracksTable> {
 
   ColumnFilters<DateTime> get enrichedAt => $composableBuilder(
     column: $table.enrichedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get titleMatchedAt => $composableBuilder(
+    column: $table.titleMatchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get artistMatchedAt => $composableBuilder(
+    column: $table.artistMatchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lyricsAt => $composableBuilder(
+    column: $table.lyricsAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get enrichAttempts => $composableBuilder(
+    column: $table.enrichAttempts,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4616,6 +4863,26 @@ class $$TracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get titleMatchedAt => $composableBuilder(
+    column: $table.titleMatchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get artistMatchedAt => $composableBuilder(
+    column: $table.artistMatchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lyricsAt => $composableBuilder(
+    column: $table.lyricsAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get enrichAttempts => $composableBuilder(
+    column: $table.enrichAttempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   $$RepositoryRootsTableOrderingComposer get rootId {
     final $$RepositoryRootsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -4724,6 +4991,24 @@ class $$TracksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get enrichedAt => $composableBuilder(
     column: $table.enrichedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get titleMatchedAt => $composableBuilder(
+    column: $table.titleMatchedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get artistMatchedAt => $composableBuilder(
+    column: $table.artistMatchedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lyricsAt =>
+      $composableBuilder(column: $table.lyricsAt, builder: (column) => column);
+
+  GeneratedColumn<int> get enrichAttempts => $composableBuilder(
+    column: $table.enrichAttempts,
     builder: (column) => column,
   );
 
@@ -4882,6 +5167,10 @@ class $$TracksTableTableManager
                 Value<DateTime> addedAt = const Value.absent(),
                 Value<bool> needsMeta = const Value.absent(),
                 Value<DateTime?> enrichedAt = const Value.absent(),
+                Value<DateTime?> titleMatchedAt = const Value.absent(),
+                Value<DateTime?> artistMatchedAt = const Value.absent(),
+                Value<DateTime?> lyricsAt = const Value.absent(),
+                Value<int> enrichAttempts = const Value.absent(),
               }) => TracksCompanion(
                 id: id,
                 rootId: rootId,
@@ -4906,6 +5195,10 @@ class $$TracksTableTableManager
                 addedAt: addedAt,
                 needsMeta: needsMeta,
                 enrichedAt: enrichedAt,
+                titleMatchedAt: titleMatchedAt,
+                artistMatchedAt: artistMatchedAt,
+                lyricsAt: lyricsAt,
+                enrichAttempts: enrichAttempts,
               ),
           createCompanionCallback:
               ({
@@ -4932,6 +5225,10 @@ class $$TracksTableTableManager
                 Value<DateTime> addedAt = const Value.absent(),
                 Value<bool> needsMeta = const Value.absent(),
                 Value<DateTime?> enrichedAt = const Value.absent(),
+                Value<DateTime?> titleMatchedAt = const Value.absent(),
+                Value<DateTime?> artistMatchedAt = const Value.absent(),
+                Value<DateTime?> lyricsAt = const Value.absent(),
+                Value<int> enrichAttempts = const Value.absent(),
               }) => TracksCompanion.insert(
                 id: id,
                 rootId: rootId,
@@ -4956,6 +5253,10 @@ class $$TracksTableTableManager
                 addedAt: addedAt,
                 needsMeta: needsMeta,
                 enrichedAt: enrichedAt,
+                titleMatchedAt: titleMatchedAt,
+                artistMatchedAt: artistMatchedAt,
+                lyricsAt: lyricsAt,
+                enrichAttempts: enrichAttempts,
               ),
           withReferenceMapper: (p0) => p0
               .map(

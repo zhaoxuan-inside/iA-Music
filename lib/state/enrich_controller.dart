@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/entities/track.dart';
 import 'collect_providers.dart';
 import 'diagnostics.dart';
 import 'providers.dart';
@@ -47,7 +48,10 @@ class EnrichController extends Notifier<EnrichState> {
   EnrichState build() => const EnrichState();
 
   /// 跑一轮补全：分批（20/批）循环直到待补全清空；重复调用在跑时忽略。
-  Future<void> runOnce() async {
+  ///
+  /// [reset] = 手动「开始补全」：先清零连续失败计数，耗尽行重获重试机会
+  /// （扫描驱动的自动轮不重置，避免网络不可用时无限原地打转）。
+  Future<void> runOnce({bool reset = false}) async {
     if (state.running) {
       return;
     }
@@ -56,6 +60,9 @@ class EnrichController extends Notifier<EnrichState> {
     try {
       final svc = await ref.read(enrichmentServiceProvider.future);
       final library = ref.read(dbProvider).libraryDao;
+      if (reset) {
+        await library.resetEnrichAttempts();
+      }
       final total = await library.countNeedsEnrichment();
       state = state.copyWith(total: total);
       var adopted = 0;
@@ -101,3 +108,7 @@ class EnrichController extends Notifier<EnrichState> {
 
 final enrichProvider = NotifierProvider<EnrichController, EnrichState>(
     EnrichController.new);
+
+/// 补全三阶段进度（歌名/歌手/歌词，持久化于 tracks 行，跨重启不从头）。
+final enrichStagesProvider = StreamProvider<List<EnrichStage>>(
+    (ref) => ref.watch(dbProvider).libraryDao.watchEnrichStages());

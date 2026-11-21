@@ -15,6 +15,7 @@ import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
+import '../detail/detail_page.dart';
 import '../play/now_playing.dart';
 import '../shared/ambient.dart';
 import '../shared/cover.dart';
@@ -379,21 +380,32 @@ class _RecentStrip extends ConsumerWidget {
               children: [
                 _AlbumCover(album: a, size: 138),
                 const SizedBox(height: IaSpacing.s),
-                Text(
-                  a.album,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: IaColors.textHi,
+                InkWell(
+                  onTap: () => Navigator.of(context).push(zuneRoute<void>(
+                      builder: (_) => DetailPage(
+                          type: DetailType.album, id: albumKey(a.album)))),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.album,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: IaColors.textHi,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        a.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            TextStyle(fontSize: 11, color: IaColors.textLow),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  a.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
                 ),
               ],
             ),
@@ -405,6 +417,7 @@ class _RecentStrip extends ConsumerWidget {
 }
 
 /// 专辑封面：取该专辑首曲封面；无封面时沿用确定性色块。
+/// 点击封面 = 播放该专辑（从首曲起整张专辑入队）。
 class _AlbumCover extends ConsumerWidget {
   const _AlbumCover({required this.album, this.size = double.infinity});
 
@@ -427,6 +440,11 @@ class _AlbumCover extends ConsumerWidget {
       }
       return const ColoredBox(color: IaColors.hairline);
     }
-    return CoverArt(track: first, size: size);
+    return InkWell(
+      onTap: () => ref
+          .read(playbackProvider.notifier)
+          .playTrack(first, queue: tracks),
+      child: CoverArt(track: first, size: size),
+    );
   }
 }

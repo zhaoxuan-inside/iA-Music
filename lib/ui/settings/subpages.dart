@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../data/daos/collect_dao.dart';
+import '../../domain/entities/track.dart';
 import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
 import '../../state/diagnostics.dart';
@@ -394,6 +395,8 @@ class ExtractPage extends ConsumerWidget {
           children: [
             const _SubHeader(title: '提取与补全进度'),
             const SizedBox(height: IaSpacing.s),
+            const SectionLabel('提取进度'),
+            const SizedBox(height: IaSpacing.s),
             Text('${tasks.length} 项任务 · 完成后自动入库',
                 style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
             if (pending > 0 || failed > 0)
@@ -477,11 +480,11 @@ class ExtractPage extends ConsumerWidget {
               ),
               const SizedBox(height: IaSpacing.m),
             ],
-            // ── 元数据补全区块：音频指纹 → 在线匹配 → 封面/歌词 → 写入标签 ──
+            // ── 补全进度区块：歌名/歌手/歌词 三条独立阶段进度（持久化） ──
             const SizedBox(height: IaSpacing.l),
-            const SectionLabel('元数据补全'),
+            const SectionLabel('补全进度（元数据三阶段）'),
             const SizedBox(height: IaSpacing.s),
-            Text('缺失歌手 / 歌词的曲目自动入队，识别后写回曲库',
+            Text('缺失歌名 / 歌手的曲目自动入队，逐条给出三阶段结论；进度已落库，中断重启不从头',
                 style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.m),
             const _EnrichSection(),
@@ -493,14 +496,51 @@ class ExtractPage extends ConsumerWidget {
   }
 }
 
-/// 补全运行区块：进度条 + 当前曲目 + 手动「开始补全」（扫描后亦自动驱动）。
+/// 补全进度区块：三条独立阶段进度条（歌名/歌手/歌词）+ 当前曲目 +
+/// 手动「开始补全」（清零失败计数重试）。进度数据 = tracks 行直读（持久化）。
 class _EnrichSection extends ConsumerWidget {
   const _EnrichSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final st = ref.watch(enrichProvider);
+    final stages = ref.watch(enrichStagesProvider).value ?? const <EnrichStage>[];
     final p = Theme.of(context).extension<IaPalette>()!;
+
+    Widget stageRow(EnrichStage s) {
+      final complete = s.total > 0 && s.done >= s.total;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: IaSpacing.s),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(s.label,
+                      style: const TextStyle(
+                          fontSize: IaType.list, color: IaColors.textHi)),
+                ),
+                Text('${s.done}/${s.total}',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: complete ? p.accent : IaColors.textLow)),
+              ],
+            ),
+            const SizedBox(height: IaSpacing.s),
+            Stack(
+              children: [
+                Container(height: 2, color: IaColors.hairlineStrong),
+                FractionallySizedBox(
+                  widthFactor: s.fraction,
+                  child: Container(height: 2, color: p.accent),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -518,28 +558,19 @@ class _EnrichSection extends ConsumerWidget {
                     fontSize: IaType.list, color: IaColors.textHi),
               ),
             ),
-            Text(st.running ? '${st.done}/${st.total}' : '',
-                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
           ],
         ),
-        const SizedBox(height: IaSpacing.s),
-        Stack(
-          children: [
-            Container(height: 2, color: IaColors.hairlineStrong),
-            FractionallySizedBox(
-              widthFactor: st.running && st.total > 0
-                  ? (st.done / st.total).clamp(0.05, 1.0)
-                  : (st.running ? 0.05 : 0.0),
-              child: Container(height: 2, color: p.accent),
-            ),
-          ],
-        ),
+        const SizedBox(height: IaSpacing.m),
+        if (stages.isEmpty)
+          const Text('进度读取中…',
+              style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+        for (final s in stages) stageRow(s),
         const SizedBox(height: IaSpacing.s),
         TextButton(
           onPressed: st.running
               ? null
-              : () => ref.read(enrichProvider.notifier).runOnce(),
-          child: Text(st.running ? '补全中…' : '开始补全',
+              : () => ref.read(enrichProvider.notifier).runOnce(reset: true),
+          child: Text(st.running ? '补全中…' : '开始补全（重试全部失败项）',
               style: TextStyle(
                   fontSize: 12.5,
                   color: st.running ? IaColors.textLow : p.accent)),
@@ -720,6 +751,81 @@ class _SourceRow extends ConsumerWidget {
         },
       ),
     ]);
+  }
+}
+
+/// 日志追踪区块（关于页）：开关 + 一键复制追踪期全部错误日志。
+class _TraceLogBlock extends ConsumerWidget {
+  const _TraceLogBlock();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trace = ref.watch(traceLogProvider);
+    final p = Theme.of(context).extension<IaPalette>()!;
+
+    return Container(
+      padding: const EdgeInsets.all(IaSpacing.m),
+      decoration: BoxDecoration(
+        border: Border.all(
+            color: trace.enabled
+                ? p.accent.withValues(alpha: 0.5)
+                : IaColors.hairlineStrong),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text('日志追踪',
+                    style: TextStyle(
+                        fontSize: IaType.list, color: IaColors.textHi)),
+              ),
+              Switch(
+                value: trace.enabled,
+                onChanged: (v) =>
+                    ref.read(traceLogProvider.notifier).setEnabled(v),
+              ),
+            ],
+          ),
+          Text(
+            trace.enabled
+                ? '开启中——所有错误（框架 / 未捕获 / 链路）实时入册，上限 200 条，跨重启保留'
+                : '开启后记录所有错误日志，用于排查问题；关闭期间不采集',
+            style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+          ),
+          if (trace.enabled) ...[
+            const SizedBox(height: IaSpacing.m),
+            Row(
+              children: [
+                Text('${trace.entries.length} 条日志',
+                    style: TextStyle(fontSize: 12, color: p.accent)),
+                const Spacer(),
+                TextButton(
+                  onPressed: () async {
+                    final text =
+                        ref.read(traceLogProvider.notifier).copyText();
+                    await Clipboard.setData(ClipboardData(text: text));
+                    if (context.mounted) {
+                      showWpToast(context,
+                          title: '日志追踪', message: '已复制全部错误日志');
+                    }
+                  },
+                  child: Text('一键复制',
+                      style: TextStyle(fontSize: 12, color: p.accent)),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(traceLogProvider.notifier).clear(),
+                  child: const Text('清除',
+                      style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
@@ -1016,6 +1122,8 @@ class AboutSubPage extends ConsumerWidget {
             _InfoRow(label: '版本', value: kAppVersionLabel),
             _InfoRow(label: '版本号', value: '$kAppVersionCode'),
             _InfoRow(label: '平台', value: kAppPlatform),
+            const SizedBox(height: IaSpacing.xl),
+            const _TraceLogBlock(),
             const SizedBox(height: IaSpacing.xl),
             InkWell(
               onTap: () => _languageMenu(context, ref),

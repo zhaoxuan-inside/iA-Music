@@ -281,41 +281,108 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
 
   // ── 元数据补全面（反向重建：时长锚定 + 在线匹配） ────────────────────
 
-  /// 待补全曲目（歌手缺失且未补全过），最旧优先。
+  /// 待补全曲目（needsMeta 未处理；连续硬失败 ≥3 次的暂出池），最旧优先。
   Stream<List<Track>> watchNeedsEnrichment({int limit = 25}) {
     return (select(tracks)
           ..where((t) =>
               t.needsMeta &
               t.missingAt.isNull() &
-              t.enrichedAt.isNull())
+              t.enrichedAt.isNull() &
+              t.enrichAttempts.isSmallerThanValue(3))
           ..orderBy([(u) => OrderingTerm.asc(u.addedAt)])
           ..limit(limit))
         .watch()
         .map((rows) => rows.map(_map).toList());
   }
 
-  /// 待补全数量（补全进度条的总数）。
+  /// 待补全数量（补全进度条的总数；暂出池的耗尽行不计）。
   Future<int> countNeedsEnrichment() {
     final cnt = countAll();
     final query = selectOnly(tracks)
       ..addColumns([cnt])
       ..where(tracks.needsMeta &
           tracks.missingAt.isNull() &
-          tracks.enrichedAt.isNull());
+          tracks.enrichedAt.isNull() &
+          tracks.enrichAttempts.isSmallerThanValue(3));
     return query.map((row) => row.read(cnt) ?? 0).getSingle();
   }
+
   /// 补全写回：歌名/歌手/补全时刻（仅在原值缺失或为文件名特征时采纳）。
+  /// 同步打满三个阶段时刻——结论性进度（匹配成功或确认无匹配都算已处理），
+  /// 三条阶段进度条据此直读。
   Future<void> applyEnrichment(
       {required int id, required String title, required String artist}) {
+    final now = DateTime.now();
     return (update(tracks)..where((t) => t.id.equals(id))).write(
       TracksCompanion(
         title: Value(normKey(title)),
         artist: Value(artist),
         artistNorm: Value(normKey(artist)),
         needsMeta: const Value(false),
-        enrichedAt: Value(DateTime.now()),
+        enrichedAt: Value(now),
+        titleMatchedAt: Value(now),
+        artistMatchedAt: Value(now),
+        lyricsAt: Value(now),
+        enrichAttempts: const Value(0),
       ),
     );
+  }
+
+  /// 硬失败记账（网络不可用/文件不可读）：阶段时刻不打，计数 +1，
+  /// ≥3 次暂出待补全池，避免同一批失败件原地打转。
+  Future<void> bumpEnrichAttempts(int id) {
+    return customStatement(
+        'UPDATE tracks SET enrich_attempts = enrich_attempts + 1 WHERE id = ?',
+        [id]);
+  }
+
+  /// 手动「开始补全」清零失败计数（耗尽行重新获得重试机会）。
+  Future<void> resetEnrichAttempts() {
+    return customStatement(
+        'UPDATE tracks SET enrich_attempts = 0 WHERE enrich_attempts >= 3');
+  }
+
+  /// 补全阶段进度（三条独立进度条的数据面；全部直读 tracks 表，跨重启不丢）：
+  /// * 歌名：已结论（titleMatchedAt） vs 总盘（已结论 + 待处理 needsMeta）；
+  /// * 歌手：已结论（artistMatchedAt） vs 总盘（已结论 + needsMeta 且歌手空）；
+  /// * 歌词：已结论（lyricsAt） vs 总盘（已结论 + needsMeta 未处理）。
+  /// 耗尽行（连续失败 ≥3）不计入待处理——总盘随之收缩，进度条可走满。
+  Stream<List<EnrichStage>> watchEnrichStages() {
+    final alive = tracks.missingAt.isNull();
+    final titleDone =
+        tracks.id.count(filter: alive & tracks.titleMatchedAt.isNotNull());
+    final titleTotal = tracks.id.count(
+        filter: alive &
+            (tracks.titleMatchedAt.isNotNull() |
+                (tracks.needsMeta.equals(true) &
+                    tracks.enrichAttempts.isSmallerThanValue(3))));
+    final artistDone =
+        tracks.id.count(filter: alive & tracks.artistMatchedAt.isNotNull());
+    final artistTotal = tracks.id.count(
+        filter: alive &
+            (tracks.artistMatchedAt.isNotNull() |
+                (tracks.artist.equals('') &
+                    tracks.needsMeta.equals(true) &
+                    tracks.enrichAttempts.isSmallerThanValue(3))));
+    final lyricsDone = tracks.id.count(filter: alive & tracks.lyricsAt.isNotNull());
+    final lyricsTotal = tracks.id.count(
+        filter: alive &
+            (tracks.lyricsAt.isNotNull() |
+                (tracks.needsMeta.equals(true) &
+                    tracks.enrichAttempts.isSmallerThanValue(3))));
+    final q = selectOnly(tracks)
+      ..addColumns([
+        titleDone, titleTotal, artistDone, artistTotal, lyricsDone, lyricsTotal,
+      ]);
+    return q.watch().map((rows) {
+      final r = rows.isEmpty ? null : rows.first;
+      int read(Expression<int> e) => r == null ? 0 : (r.read(e) ?? 0);
+      return [
+        EnrichStage('歌名处理', read(titleDone), read(titleTotal)),
+        EnrichStage('歌手处理', read(artistDone), read(artistTotal)),
+        EnrichStage('歌词处理', read(lyricsDone), read(lyricsTotal)),
+      ];
+    });
   }
 
   // ── 搜索面（FTS 五列前缀 AND；rank 排序） ────────────────────────────

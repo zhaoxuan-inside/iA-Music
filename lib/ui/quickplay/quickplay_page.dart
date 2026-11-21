@@ -5,6 +5,7 @@
 library;
 
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -197,7 +198,11 @@ class _PinTile extends ConsumerWidget {
       showWpToast(context, title: '快速播放', message: '这一项还没有可播放的曲目');
       return;
     }
-    await ref.read(playbackProvider.notifier).playTracks(tracks);
+    // 每次点击随机起播 + 其余洗牌——「快速播放」是随缘语义，不是目录首个。
+    final start = Random().nextInt(tracks.length);
+    await ref
+        .read(playbackProvider.notifier)
+        .playTracks(tracks, startIndex: start, shuffle: true);
   }
 
   void _menu(BuildContext context, WidgetRef ref, bool pinned) {

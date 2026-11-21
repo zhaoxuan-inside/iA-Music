@@ -124,3 +124,15 @@ class TrackPlays {
   final Track track;
   final int plays;
 }
+
+/// 补全阶段进度行（done = 已结论条数；total = 已结论 + 待处理）。
+class EnrichStage {
+  const EnrichStage(this.label, this.done, this.total);
+
+  final String label;
+  final int done;
+  final int total;
+
+  /// 0..1 进度（总盘为空视为已完成——无事可做）。
+  double get fraction => total <= 0 ? 1.0 : (done / total).clamp(0.0, 1.0);
+}

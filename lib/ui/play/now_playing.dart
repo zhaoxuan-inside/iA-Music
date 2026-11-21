@@ -100,18 +100,12 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
                       Navigator.of(context).maybePop();
                       return;
                     }
-                    // 播放屏：横滑切歌；其它屏：横滑换屏。
+                    // 三屏统一：左右横滑切换 播放/歌词/队列（切歌走队列与播放控件）。
                     if (dx.abs() > 72 && dx.abs() > dy.abs() * 1.5) {
                       _swiped = true;
-                      if (_pane == 0) {
-                        dx < 0
-                            ? ref.read(playbackProvider.notifier).next()
-                            : ref.read(playbackProvider.notifier).previous();
-                      } else {
-                        setState(() {
-                          _pane = (_pane + (dx < 0 ? 1 : -1)).clamp(0, 2);
-                        });
-                      }
+                      setState(() {
+                        _pane = (_pane + (dx < 0 ? 1 : -1)).clamp(0, 2);
+                      });
                     }
                   },
                   onPanEnd: (_) {
@@ -630,7 +624,6 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
                   onTap: () => ref
                       .read(playbackProvider.notifier)
                       .seekTo(doc.lines[i].tMs + offset),
-                  onLongPress: () => _offsetMenu(context, cur.id, offset),
                   child: Container(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -649,54 +642,6 @@ class _LyricsPaneState extends ConsumerState<_LyricsPane> {
               },
             ),
           ),
-        ),
-        Padding(
-          padding: EdgeInsets.only(
-            left: edge.left,
-            right: edge.right,
-            bottom: IaSpacing.m,
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (final (label, delta) in const [
-                ('−0.5s', -500),
-                ('重置', 0),
-                ('+0.5s', 500),
-              ])
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 3),
-                  child: ZuneChip(
-                    label: label,
-                    active: delta == 0 && offset != 0,
-                    onTap: () => ref
-                        .read(lyricsActionsProvider)
-                        .setOffset(cur.id, delta == 0 ? 0 : offset + delta),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// 歌词偏移 WP 菜单（PRODUCT：长按调偏移）。
-  void _offsetMenu(BuildContext context, int trackId, int offset) {
-    showWpMenu(
-      context,
-      title: '歌词偏移',
-      items: [
-        (
-          '偏移 −0.5s',
-          () =>
-              ref.read(lyricsActionsProvider).setOffset(trackId, offset - 500),
-        ),
-        ('重置（0）', () => ref.read(lyricsActionsProvider).setOffset(trackId, 0)),
-        (
-          '偏移 +0.5s',
-          () =>
-              ref.read(lyricsActionsProvider).setOffset(trackId, offset + 500),
         ),
       ],
     );
