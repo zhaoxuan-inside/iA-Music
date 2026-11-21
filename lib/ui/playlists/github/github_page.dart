@@ -147,7 +147,7 @@ class _GithubPageState extends ConsumerState<GithubPage> {
                 '{\n'
                 '  "name": "歌单名",\n'
                 '  "tracks": [ {\n'
-                '    "source": "bilibili",   // 来源平台\n'
+                '    "source": "来源标识",      // 由 URL 路由到音频源插件\n'
                 '    "query": "搜索词",\n'
                 '    "url": "歌曲来源地址",\n'
                 '    "artist": "歌手",\n'

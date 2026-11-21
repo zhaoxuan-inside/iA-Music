@@ -1,10 +1,12 @@
-/// 收集执行服务：任务队列的真实处理（B 站 / YouTube / 直链音频）。
+/// 收集执行服务：任务队列的真实处理（source 插件 / 直链音频）。
 ///
-/// * 直链音频（source=direct）→ HTTP 下载到音乐目录 → 重扫入库 → 挂歌词 → done。
-/// * B 站（source=bilibili）→ 视频信息 → DASH 音频流下载 → 字幕转 LRC →
-///   重扫入库 → done（真实协议，端点在 collect_config）。
-/// * YouTube（source=youtube）→ InnerTube 播放流解析 → 下载 → 重扫入库 → done。
-/// * 三分离：这里只有真实下载与真实数据库写入，无任何预置内容。
+/// * 直链音频（source=direct）→ HTTP 下载到音乐目录 → 重扫入库 → done。
+/// * source 插件（source=<插件 id>）→ 插件 resolve 元数据与子曲目 →
+///   插件 stream 直链 → 宿主下载（带插件给的请求头）→ 插件 lyrics →
+///   重扫入库 → done。平台知识 100% 在插件（docs/PLUGIN.md §3.2）；
+///   宿主只做媒体 IO、多曲目拆分与数据库写入。
+/// * URL 片段约定 `#ia-track=N`：多子曲目任务只提取第 N 条（1-based），
+///   拆分由宿主完成，插件永远收到无片段的干净 URL。
 library;
 
 import 'dart:io';
@@ -15,32 +17,25 @@ import '../../app/config/collect_config.dart';
 import '../../data/database.dart';
 import '../../domain/entities/track.dart';
 import '../scan/scan_service.dart';
-import 'bilibili_client.dart' show BiliVideoInfo, BilibiliClient;
-import 'bilibili_page_meta.dart';
-import 'collect_ports.dart';
 import 'download_guard.dart';
-import 'youtube_client.dart' show YoutubeClient;
+import 'source_plugins.dart';
 
 enum CollectPhase { idle, running }
 
 class CollectRunner {
-  CollectRunner(this._db, this._scan,
-      {required this.cacheDir,
-      required this.bilibili,
-      required this.youtube});
+  CollectRunner(this._db, this._scan, {required this.cacheDir, required this.sources});
 
   final IaDatabase _db;
   final ScanService _scan;
   final String cacheDir;
 
-  /// 平台提取端口（真实实现 = BilibiliClient / YoutubeClient；测试注入假件）。
-  final BiliCollectApi bilibili;
-  final YtCollectApi youtube;
+  /// 音频源插件门面（已启用插件枚举 + 契约调用）。
+  final SourcePlugins sources;
 
   CollectPhase phase = CollectPhase.idle;
 
-  /// 多 P 任务共享同一视频信息，避免 100 个分 P 重复请求 view 接口。
-  final Map<String, BiliVideoInfo> _biliInfoCache = {};
+  /// 同一链接的 resolve 元数据缓存：多子曲目拆分后 N 个任务只解析一次。
+  final Map<String, Map<String, Object?>> _metaCache = {};
 
   CollectDao get _tasks => _db.collectDao;
   PlaylistDao get _playlists => _db.playlistDao;
@@ -48,7 +43,7 @@ class CollectRunner {
   /// 处理一轮队列（顺序执行 pending 任务；重复调用安全——运行中直接返回）。
   ///
   /// 开轮先回收僵尸：App 中途死亡留下的 running 任务重置为 pending 重跑。
-  /// 多 P 拆分会在处理中新增 pending 任务，所以这里循环取队首，
+  /// 多曲目拆分会在处理中新增 pending 任务，所以这里循环取队首，
   /// 直到没有新的 pending；遇到「没有音乐目录」则停手，等目录就绪后再跑。
   Future<void> runOnce() async {
     if (phase == CollectPhase.running) {
@@ -98,11 +93,9 @@ class CollectRunner {
         return false;
       }
       final (filePath, meta, lrc) = switch (source) {
-        'bilibili' => await _extractBilibili(
-            id, url, title, artist, root.path, playlistId),
-        'youtube' => await _extractYoutube(id, url, title, artist, root.path),
         'direct' => await _downloadDirect(id, url, title, artist, root.path),
-        _ => throw Exception('未知来源：$source'),
+        _ => await _extractViaPlugin(
+            id, source, url, title, artist, root.path, playlistId),
       };
       if (filePath == null) {
         await _tasks.setStatus(id, CollectStatusCol.failed);
@@ -146,155 +139,132 @@ class CollectRunner {
     }
   }
 
-  /// ── B 站提取 ──────────────────────────────────────────────────────
+  /// ── source 插件提取（通用管道） ────────────────────────────────────
 
-  Future<(String?, ({String title, String artist}), String?)> _extractBilibili(
+  Future<(String?, ({String title, String artist}), String?)> _extractViaPlugin(
       int taskId,
+      String source,
       String url,
       String title,
       String artist,
       String rootDir,
       int? playlistId) async {
-    final bvid = BilibiliClient.bvidFrom(url);
-    if (bvid == null) {
-      throw Exception('不是有效的 B 站视频链接：$url');
+    final handle = await sources.byId(source) ??
+        // 清单旧别名/插件换名兜底：按 URL 让插件重新认领一次
+        (await sources.routeUrl(url) == null
+            ? null
+            : await sources.byId((await sources.routeUrl(url))!));
+    if (handle == null) {
+      throw Exception('来源插件未安装或未启用：$source');
     }
-    await _tasks.setProgress(taskId, 5);
-    final info =
-        _biliInfoCache[bvid] ?? await bilibili.videoInfo(bvid);
-    _biliInfoCache[bvid] = info;
-    final pages = info.pages;
-    final requestedPage = _biliPage(url);
-    final isMulti = pages.length > 1;
+    final baseUrl = _baseUrl(url);
+    final pin = _trackPin(url);
 
-    // 不带 p 参数（或只有 p=1 的分享链接）的多 P 视频：自动按 P 拆分，每 P 一首。
-    // 原任务重定向到 P1，其余 P 入队；本轮 runOnce 会继续处理新增任务。
-    // 只有明确带 p>=2 时才视为「只提取这一 P」。
-    if (isMulti && (requestedPage == null || requestedPage <= 1)) {
-      final firstMeta = parseBiliPageMeta(pages.first.part,
-          fallbackTitle: info.title, fallbackArtist: info.owner);
+    await _tasks.setProgress(taskId, 5);
+    final meta = _metaCache[baseUrl] ??
+        (await handle.resolve(baseUrl) ??
+            (throw Exception('插件未返回元数据')));
+    _metaCache[baseUrl] = meta;
+    final tracks = (meta['tracks'] as List<Object?>? ?? const [])
+        .whereType<Map>()
+        .map((m) => m.cast<String, Object?>())
+        .toList(growable: false);
+    if (tracks.isEmpty) {
+      throw Exception('插件未返回可提取曲目');
+    }
+
+    // 多曲目拆分：未 pin 且多于一条 → 当前任务重定向到首曲，其余入队。
+    // 插件永远收到无片段的干净 URL；片段只由宿主读写。
+    if (tracks.length > 1 && pin == null) {
+      final first = tracks.first;
       try {
         await _tasks.retarget(taskId,
-            url: _withBiliPage(url, 1),
-            title: firstMeta.title,
-            artist: firstMeta.artist);
+            url: _withTrack(baseUrl, 1),
+            title: '${first['title'] ?? ''}',
+            artist: '${first['artist'] ?? ''}');
       } on Object {
-        // 唯一键冲突等：保留原任务，继续按 P1 提取。
+        // 唯一键冲突等：保留原任务，继续按首曲提取。
       }
-      for (var i = 1; i < pages.length; i++) {
-        final meta = parseBiliPageMeta(pages[i].part,
-            fallbackTitle: info.title, fallbackArtist: info.owner);
+      for (var i = 1; i < tracks.length; i++) {
+        final t = tracks[i];
         await _tasks.enqueue(
-          'bilibili',
-          _withBiliPage(url, i + 1),
-          title: meta.title,
-          artist: meta.artist,
+          source,
+          _withTrack(baseUrl, i + 1),
+          title: '${t['title'] ?? ''}',
+          artist: '${t['artist'] ?? ''}',
           playlistId: playlistId,
         );
       }
     }
 
-    final selected = pages.isEmpty
-        ? null
-        : pages[(requestedPage == null
-                ? 0
-                : (requestedPage - 1).clamp(0, pages.length - 1))
-            .toInt()];
-    final cid = selected?.cid ?? info.cid;
-    final pageMeta = isMulti && selected != null
-        ? parseBiliPageMeta(selected.part,
-            fallbackTitle: info.title, fallbackArtist: info.owner)
-        : null;
-    final useTitle =
-        pageMeta?.title ?? (title.isNotEmpty ? title : info.title);
-    final useArtist =
-        pageMeta?.artist ?? (artist.isNotEmpty ? artist : info.owner);
+    final track = tracks[pin == null ? 0 : (pin - 1).clamp(0, tracks.length - 1)]
+        .cast<String, Object?>();
+    final trackId = '${track['id'] ?? ''}';
+    if (trackId.isEmpty) {
+      throw Exception('插件子曲目缺少 id');
+    }
+    final useTitle = title.isNotEmpty ? title : ('${track['title'] ?? ''}');
+    final useArtist = artist.isNotEmpty ? artist : ('${track['artist'] ?? ''}');
 
     await _tasks.setProgress(taskId, 12);
-    final stream = await bilibili.audioStream(bvid, info.aid ?? '', cid);
+    final stream = await handle.stream(trackId) ??
+        (throw Exception('插件未返回音频直链'));
+    final streamUrl = '${stream['url'] ?? ''}';
+    if (streamUrl.isEmpty) {
+      throw Exception('插件音频直链为空');
+    }
+    final ext = ('${stream['ext'] ?? ''}').isEmpty
+        ? 'audio'
+        : ('${stream['ext']}').toLowerCase();
+    final headers =
+        (stream['headers'] as Map<Object?, Object?>? ?? const {}).cast<String, String>();
+
     await _tasks.setProgress(taskId, 20);
-    final safe = _fileName(useArtist, useTitle, stream.ext, taskId);
+    final safe = _fileName(useArtist, useTitle, ext, taskId);
     final target = '$rootDir${Platform.pathSeparator}$safe';
     // 先下到应用私有缓存（必然可写），再发布进音乐目录——
     // 共享存储里可能有异主文件（重装后旧 uid 残留），直接写会挂死。
-    final tmp = '$cacheDir/dl_bili_$taskId.${stream.ext}';
-    await bilibili.downloadAudio(stream, tmp,
-        onProgress: (received, total) =>
-            _tasks.setProgress(taskId, 20 + (received / total * 65).floor()));
+    final tmp = '$cacheDir/dl_${source}_$taskId.$ext';
+    await _downloadTo(streamUrl, headers, tmp, onProgress: (received, total) {
+      if (total > 0) {
+        _tasks.setProgress(taskId, 20 + (received / total * 65).floor());
+      }
+    });
     final filePath = await _publish(tmp, target);
-    // 字幕 → LRC（落到音频同目录同名）；限时 15s——字幕缺失/挂流不阻断提取
+
+    // 歌词（插件把字幕/歌词转成文本返回；缺失/挂流不阻断提取）
     String? lrcPath;
     try {
-      final subs = await bilibili.subtitles(info.aid, cid)
-          .timeout(const Duration(seconds: 15));
-      for (final s in subs) {
-        final lrc = await bilibili.subtitleLrc(s.url)
-            .timeout(const Duration(seconds: 15));
-        if (lrc != null) {
-          final dot = filePath.lastIndexOf('.');
-          final lrcTarget = dot > 0
-              ? '${filePath.substring(0, dot)}.lrc'
-              : '$filePath.lrc';
-          final lrcTmp = '$cacheDir/lrc_bili_$taskId.lrc';
-          await File(lrcTmp).writeAsString(lrc, flush: true);
-          lrcPath = await _publish(lrcTmp, lrcTarget);
-          break;
-        }
+      final lrc = await (handle.lyrics(trackId).timeout(const Duration(seconds: 20)));
+      final text = lrc == null
+          ? null
+          : ((lrc['synced'] as String?) ?? (lrc['plain'] as String?));
+      if (text != null && text.trim().isNotEmpty) {
+        final dot = filePath.lastIndexOf('.');
+        final lrcTarget = dot > 0
+            ? '${filePath.substring(0, dot)}.lrc'
+            : '$filePath.lrc';
+        final lrcTmp = '$cacheDir/lrc_${source}_$taskId.lrc';
+        await File(lrcTmp).writeAsString(text, flush: true);
+        lrcPath = await _publish(lrcTmp, lrcTarget);
       }
     } on Object {
-      // 字幕缺失不阻断提取
+      // 歌词缺失不阻断提取
     }
     await _tasks.setProgress(taskId, 90);
     return (filePath, (title: useTitle, artist: useArtist), lrcPath);
   }
 
-  /// URL 里的 p 参数（1-based；没有则 null）。
-  int? _biliPage(String url) {
-    final uri = Uri.tryParse(url);
-    final raw = uri?.queryParameters['p'];
-    return raw == null ? null : int.tryParse(raw);
+  /// URL 片段 `#ia-track=N` → N（1-based；没有则 null）。宿主专用约定，
+  /// 插件永远收到已剥离片段的 URL。
+  int? _trackPin(String url) {
+    final m = RegExp(r'#ia-track=(\d+)').firstMatch(url);
+    return m == null ? null : int.tryParse(m.group(1)!);
   }
 
-  /// 给 B 站 URL 写入/替换 p 参数，保留其他查询参数。
-  String _withBiliPage(String url, int page) {
-    final uri = Uri.tryParse(url);
-    if (uri == null) {
-      return '$url${url.contains('?') ? '&' : '?'}p=$page';
-    }
-    final params = Map<String, String>.from(uri.queryParameters);
-    params['p'] = '$page';
-    return uri.replace(queryParameters: params).toString();
-  }
+  String _baseUrl(String url) => url.split('#').first;
 
-  /// ── YouTube 提取 ─────────────────────────────────────────────────
-
-  Future<(String?, ({String title, String artist}), String?)> _extractYoutube(
-      int taskId, String url, String title, String artist, String rootDir) async {
-    final videoId = YoutubeClient.videoIdFrom(url);
-    if (videoId == null) {
-      throw Exception('不是有效的 YouTube 链接：$url');
-    }
-    await _tasks.setProgress(taskId, 10);
-    final (details, stream) = await youtube.resolveAudio(videoId);
-    final useTitle = title.isNotEmpty
-        ? title
-        : (details['title'] as String? ?? videoId);
-    final useArtist = artist.isNotEmpty
-        ? artist
-        : ((details['author'] as String? ?? '')
-                .replaceAll(RegExp(r' - Topic$'), ''))
-            .trim();
-    await _tasks.setProgress(taskId, 18);
-    final safe = _fileName(useArtist, useTitle, stream.ext, taskId);
-    final target = '$rootDir${Platform.pathSeparator}$safe';
-    final tmp = '$cacheDir/dl_yt_$taskId.${stream.ext}';
-    await youtube.downloadAudio(stream, tmp, onProgress: (received, total) {
-      _tasks.setProgress(taskId, 18 + (received / total * 70).floor());
-    });
-    final filePath = await _publish(tmp, target);
-    await _tasks.setProgress(taskId, 90);
-    return (filePath, (title: useTitle, artist: useArtist), null);
-  }
+  String _withTrack(String baseUrl, int n) => '$baseUrl#ia-track=$n';
 
   /// ── 直链下载 ─────────────────────────────────────────────────────
 
@@ -307,32 +277,45 @@ class CollectRunner {
     final target = '$rootDir${Platform.pathSeparator}$safe';
     final tmp = '$cacheDir/dl_direct_$taskId.$ext';
     try {
-      final client = HttpClient();
-      final req = await client.getUrl(Uri.parse(url));
-      final res = await req.close();
-      if (res.statusCode != 200) {
-        client.close();
-        return (null, (title: title, artist: artist), null);
-      }
-      final total = res.contentLength;
-      final sink = File(tmp).openWrite();
-      await pumpDownload(
-        source: res,
-        sink: sink,
-        onChunk: (r) async {
-          if (total > 0) {
-            await _tasks.setProgress(taskId, (r / total * 90).floor());
-          }
-        },
-      );
-      await sink.flush();
-      await sink.close();
-      client.close();
+      await _downloadTo(url, const {}, tmp, onProgress: (r, total) {
+        if (total > 0) {
+          _tasks.setProgress(taskId, (r / total * 90).floor());
+        }
+      });
       final filePath = await _publish(tmp, target);
       await _tasks.setProgress(taskId, 95);
       return (filePath, (title: title, artist: artist), null);
     } on Object {
       return (null, (title: title, artist: artist), null);
+    }
+  }
+
+  /// 宿主侧媒体 IO：HTTP 下载到临时文件（停滞看门狗 + 进度）。
+  Future<void> _downloadTo(
+      String url, Map<String, String> headers, String filePath,
+      {void Function(int received, int total)? onProgress}) async {
+    final client = HttpClient();
+    try {
+      final req = await client.getUrl(Uri.parse(url));
+      headers.forEach((k, v) => req.headers.set(k, v));
+      final res = await req.close();
+      if (res.statusCode != 200) {
+        throw Exception('音频流下载失败：HTTP ${res.statusCode}');
+      }
+      final total = res.contentLength > 0 ? res.contentLength : 0;
+      final sink = File(filePath).openWrite();
+      try {
+        await pumpDownload(
+          source: res,
+          sink: sink,
+          onChunk: (r) async => onProgress?.call(r, total),
+        );
+      } finally {
+        await sink.flush();
+        await sink.close();
+      }
+    } finally {
+      client.close();
     }
   }
 
@@ -392,4 +375,3 @@ class CollectRunner {
         : _db.libraryDao.trackById(rows.first.id);
   }
 }
-

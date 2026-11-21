@@ -38,6 +38,9 @@ function __IA_COMPLETE(id, ok, json) {
   delete __IA_PENDING[id];
   if (ok) { p.resolve(JSON.parse(json)); } else { p.reject(new Error(JSON.parse(json))); }
 }
+function __IA_HAS(fnName) {
+  return typeof globalThis[fnName] === 'function';
+}
 function __IA_INVOKE(fnName, argsJson) {
   // 外层 promise 落定为「字符串」（双层 JSON）——引擎的 promise→Dart
   // 转换对对象结果走 Dart toString 不可解析，字符串结果两分支均可靠。

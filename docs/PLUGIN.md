@@ -89,7 +89,7 @@ capability := {
 
 | 能力 | 职责 | 关键入口 | 状态 |
 |---|---|---|---|
-| `source` | **音频源**：登录态、搜索、解析音频直链、附赠歌词 | `auth` / `search(q,opts)` / `resolve(id)` / `lyrics(id)` | **v0.2 已实现**（B站/YouTube/播客/网盘直链都是它的实现者） |
+| `source` | **音频源**：登录态、URL 归属判定、搜索、解析音频直链、歌词 | `match` / `auth*` / `search` / `resolve` / `stream` / `lyrics` | **v0.2 已实现**（B站/YouTube/播客/网盘直链都是它的实现者） |
 | `lyrics` | **歌词源**：按 元数据 → 歌词文本（与音频无关） | `search(title, artist, durMs)` | 预留 |
 | `metadata` | **元数据补全源**：时长锚定/指纹线索 → 歌名歌手封面 | `match(clue)` | 预留（补全管线可插拔替换在线匹配链） |
 | `playlist-import` | **歌单导入源**：清单 URL → 曲目列表（标题/歌手/线索） | `list(url, cursor)` | 预留 |
@@ -97,6 +97,29 @@ capability := {
 
 新增能力 = 在宿主注册新契约 + 对应域的接线（如 `metadata` 接补全管线），
 **不改动**包格式、桥、注册表、市场——这是规范稳定性的边界。
+
+### 3.2 `source` 契约（v1，全文）
+
+```js
+async function match(url)        // → { id } | null       URL 归属判定（宿主路由用；null=不归我）
+async function authKind()        // → { kind: 'none'|'qr'|'cookie' }
+async function authStart()       // qr → { qrUrl, lifetimeSec, hint? }；其余 → {}
+async function authPoll()        // qr → { state: 'waiting'|'scanned'|'expired'|'success'|'error', message?, account? }
+                                 //      成功时插件自行把凭据写入 IA.kv（宿主不经手凭据）
+async function authImport(header)// cookie → { ok, message?, account? }
+async function authStatus()      // → { loggedIn, account? }
+async function authLogout()      // → {}
+async function search(q, opts)   // → { items: [{ id, url, title, artist, durationSec }] }（url 为完整链接）
+async function resolve(url)      // → { title, artist, durationSec, tracks: [{ id, title, artist }] }
+                                 //      tracks=该链接可提取的全部子曲目（单曲目视频 → 一个条目；分P/合集 → 多条）
+async function stream(id)        // → { url, ext, headers? }      音频直链 + 下载所需请求头
+async function lyrics(id)        // → { synced?, plain? } | null
+```
+
+- `id` 对宿主不透明：插件自定义（如 `BVxx|aid|cid|页码`），`resolve` 产出的 `tracks[].id`
+  原样传回 `stream`/`lyrics`。
+- **下载归宿主**：插件只给直链与请求头；二进制流不进沙箱。凭据归插件 KV。
+- URL 归属：域名即可判归属（`b23.tv` 短链也算），解析失败由 `resolve` 诚实报错。
 
 ## 4. 生命周期与安装来源
 

@@ -1,6 +1,6 @@
-/// 搜索页：本地曲库即时分组 + 已配置在线来源（B 站 / YouTube）聚合搜索。
+/// 搜索页：本地曲库即时分组 + 已启用音频源插件聚合搜索。
 ///
-/// 本地结果即时出现；点「在线来源」再查已登录的平台，结果可直接加入提取队列。
+/// 本地结果即时出现；点「在线来源」再查已登录的插件，结果可直接加入提取队列。
 library;
 
 import 'dart:async';
@@ -11,9 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
-import '../../services/collect/bilibili_client.dart';
-import '../../services/collect/platform_store.dart';
-import '../../services/collect/youtube_client.dart';
+import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
@@ -24,6 +22,25 @@ import '../settings/subpages.dart';
 import '../shared/actions.dart';
 import '../shared/cover.dart';
 import '../shared/ui_kit.dart';
+
+/// 在线搜索结果（跨插件统一形状）。
+class SearchHit {
+  const SearchHit({
+    required this.pluginId,
+    required this.pluginName,
+    required this.url,
+    required this.title,
+    required this.artist,
+    required this.durationSec,
+  });
+
+  final String pluginId;
+  final String pluginName;
+  final String url;
+  final String title;
+  final String artist;
+  final int durationSec;
+}
 
 class MusicSearchPage extends ConsumerStatefulWidget {
   const MusicSearchPage({super.key});
@@ -37,7 +54,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
   bool _online = false;
   bool _onlineLoading = false;
   String? _onlineError;
-  List<Object> _onlineResults = const [];
+  List<SearchHit> _onlineResults = const [];
   int _onlineToken = 0;
   Timer? _debounce;
 
@@ -251,7 +268,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       const SizedBox(height: IaSpacing.xs),
       SectionHead(
         label: '在线来源',
-        meta: _onlineLoading ? '搜索中…' : 'B 站 · YouTube',
+        meta: _onlineLoading ? '搜索中…' : '已登录的音频源插件',
         trailing: IconButton(
           visualDensity: VisualDensity.compact,
           icon: const Icon(Icons.refresh, size: 17, color: IaColors.textLow),
@@ -309,7 +326,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
     return fields.any((f) => f.toLowerCase().contains(q));
   }
 
-  /// 聚合搜索已登录平台；未登录时给出明确出路。
+  /// 聚合搜索已登录的音频源插件；未登录时给出明确出路。
   Future<void> _searchOnline() async {
     final q = _q.trim();
     if (q.isEmpty) {
@@ -323,20 +340,25 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       return;
     }
 
-    final bili =
-        await ref.read(platformLoginProvider(PlatformId.bilibili).future);
-    final yt = await ref.read(platformLoginProvider(PlatformId.youtube).future);
+    final handles = await ref.read(sourceHandlesProvider.future);
     if (!mounted) {
       return;
     }
-    final ids = <PlatformId>[
-      if (bili) PlatformId.bilibili,
-      if (yt) PlatformId.youtube,
-    ];
-    if (ids.isEmpty) {
+    // 只问已登录的插件（登录态在插件沙箱里，宿主只见状态）
+    final logged = <SourcePluginHandle>[];
+    for (final h in handles) {
+      final st = await ref.read(sourceAuthStatusProvider(h.id).future);
+      if (st.loggedIn) {
+        logged.add(h);
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    if (logged.isEmpty) {
       setState(() {
         _onlineResults = const [];
-        _onlineError = '还没有登录在线来源。可以在「设置 · 收集」登录 B 站 / YouTube。';
+        _onlineError = '还没有登录在线来源。可以在「设置 · 收集」登录已安装的音频源插件。';
         _onlineLoading = false;
       });
       return;
@@ -348,19 +370,24 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       _onlineError = null;
     });
 
-    final results = <Object>[];
+    final results = <SearchHit>[];
     final errors = <String>[];
-    for (final id in ids) {
+    for (final h in logged) {
       try {
-        final list = switch (id) {
-          PlatformId.bilibili =>
-            await ref.read(bilibiliClientProvider).search(q),
-          PlatformId.youtube =>
-            await ref.read(youtubeClientProvider).search(q),
-        };
-        results.addAll(list);
+        final list = await h.search(q);
+        results.addAll([
+          for (final item in list)
+            SearchHit(
+              pluginId: h.id,
+              pluginName: h.name,
+              url: '${item['url'] ?? ''}',
+              title: '${item['title'] ?? ''}',
+              artist: '${item['artist'] ?? ''}',
+              durationSec: (item['durationSec'] as num?)?.toInt() ?? 0,
+            ),
+        ]);
       } on Object catch (e) {
-        errors.add('${id == PlatformId.bilibili ? 'B 站' : 'YouTube'}：$e');
+        errors.add('${h.name}：$e');
       }
     }
     if (!mounted || token != _onlineToken) {
@@ -374,30 +401,15 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
   }
 
   /// 在线结果 → 提取队列（真实落库 + 驱动执行器）。
-  Future<void> _enqueueOnline(Object r) async {
-    final (source, url, title, artist) = switch (r) {
-      BiliSearchItem b => (
-          'bilibili',
-          'https://www.bilibili.com/video/${b.bvid}',
-          b.title,
-          b.author,
-        ),
-      YtSearchItem y => (
-          'youtube',
-          'https://www.youtube.com/watch?v=${y.videoId}',
-          y.title,
-          y.author,
-        ),
-      _ => ('', '', '', ''),
-    };
-    if (source.isEmpty) {
+  Future<void> _enqueueOnline(SearchHit r) async {
+    if (r.url.isEmpty) {
       return;
     }
     final api = ref.read(collectTasksApiProvider);
-    await api.enqueue(source, url, title: title, artist: artist);
+    await api.enqueue(r.pluginId, r.url, title: r.title, artist: r.artist);
     unawaited(api.drive());
     if (mounted) {
-      showWpToast(context, title: '在线来源', message: '已加入提取队列：$title');
+      showWpToast(context, title: '在线来源', message: '已加入提取队列：${r.title}');
     }
   }
 }
@@ -431,17 +443,16 @@ class _TextRow extends StatelessWidget {
 class _OnlineRow extends StatelessWidget {
   const _OnlineRow({required this.item, required this.onTap});
 
-  final Object item;
+  final SearchHit item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final (source, title, author, dur) = switch (item) {
-      BiliSearchItem b => ('B 站', b.title, b.author, b.durationSec),
-      YtSearchItem y => ('YouTube', y.title, y.author, y.durationSec),
-      _ => ('', '', '', 0),
-    };
+    final source = item.pluginName;
+    final title = item.title;
+    final author = item.artist;
+    final dur = item.durationSec;
     return Material(
       color: Colors.transparent,
       child: InkWell(

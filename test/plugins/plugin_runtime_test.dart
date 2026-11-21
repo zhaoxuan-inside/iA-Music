@@ -54,11 +54,11 @@ void main() {
     if (session == null) {
       return;
     }
-    final result = await session.call('search', ['夜曲']);
-    expect(result, isA<List<Object?>>());
-    final items = result! as List<Object?>;
+    final result = await session.call('search', ['夜曲']) as Map;
+    final items = result['items'] as List;
     expect(items, hasLength(2));
     expect((items.first as Map)['id'], 'demo-1');
+    expect((items.first as Map)['url'], contains('demo.example'));
     expect((items.first as Map)['title'], contains('夜曲'));
     // kv 沙箱真的写进来了（宿主可验证落笔，不读取内容语义）
     expect(registry.kvGetSync(plugin.manifest.id, 'lastQuery'), '夜曲');
@@ -67,17 +67,21 @@ void main() {
     session.dispose();
   });
 
-  test('resolve / lyrics / auth 契约', () async {
+  test('resolve / stream / lyrics / authKind 契约', () async {
     final session = await _openSession(runtime, plugin);
     if (session == null) {
       return;
     }
-    final r = await session.call('resolve', ['demo-1']) as Map;
-    expect(r['url'], contains('demo-1'));
+    final meta = await session.call('resolve', ['https://demo.example/t/1']) as Map;
+    expect(meta['title'], contains('示例曲目'));
+    final tracks = meta['tracks'] as List;
+    expect(tracks, hasLength(1));
+    final r = await session.call('stream', [(tracks.first as Map)['id']]) as Map;
+    expect(r['url'], isNotEmpty);
     expect(r['ext'], 'mp3');
     expect(await session.call('lyrics', ['demo-1']), isNull);
-    final auth = await session.call('auth', []) as Map;
-    expect(auth['kind'], 'none');
+    final kind = await session.call('authKind', []) as Map;
+    expect(kind['kind'], 'none');
     session.dispose();
   });
 

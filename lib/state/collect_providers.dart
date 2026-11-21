@@ -1,4 +1,4 @@
-/// 收集域 providers：任务流 / GitHub 服务 / 执行服务 / 平台客户端 / NLP 查询。
+/// 收集域 providers：任务流 / GitHub 服务 / 执行服务 / 音频源插件门面 / NLP 查询。
 library;
 
 import 'dart:async';
@@ -10,14 +10,13 @@ import '../../app/config/acoustid_config.dart';
 import '../../data/database.dart';
 import '../../domain/ports/fingerprint_port.dart';
 import '../services/acoustid/acoustid_client.dart';
-import '../services/collect/bilibili_client.dart';
 import '../services/collect/collect_service.dart';
-import '../services/collect/platform_store.dart';
-import '../services/collect/youtube_client.dart';
+import '../services/collect/source_plugins.dart';
 import '../services/enrich/enrichment_service.dart';
 import '../services/enrich/query_nlp.dart';
 import '../services/github/github_playlist_service.dart';
 import 'diagnostics.dart';
+import 'plugin_providers.dart';
 import 'providers.dart';
 
 /// 收集任务实时流（提取进度子页的数据源）。
@@ -28,38 +27,60 @@ final collectTasksProvider = StreamProvider(
 final githubPlaylistServiceProvider =
     Provider<GithubPlaylistService>((ref) => GithubPlaylistService(ref.watch(dbProvider)));
 
-/// 平台账号存取（cookie 持久化）。
-final platformStoreProvider =
-    Provider<PlatformStore>((ref) => PlatformStore(ref.watch(settingsServiceProvider)));
+/// 音频源插件门面（QuickJS 运行时 + 注册表之上的契约封装）。
+final sourcePluginsProvider = FutureProvider<SourcePlugins>((ref) async {
+  final registry = await ref.watch(pluginRegistryProvider.future);
+  final runtime = await ref.watch(pluginRuntimeProvider.future);
+  return SourcePlugins(registry, runtime);
+});
 
-/// 平台登录态（登录/退出即时刷新）。
-///
-/// KV 里的 cookie 没有自己的事件流：登录/退出后 bump 这个 epoch，
-/// 所有平台登录态 provider 会重新读一遍，而不是依赖调用方记得刷新。
-class PlatformLoginEpoch extends Notifier<int> {
+/// 登录态/插件变更信号：登录、退出、装/卸插件后 bump。
+class SourceEpoch extends Notifier<int> {
   @override
   int build() => 0;
 
   void bump() => state++;
 }
 
-final platformLoginEpochProvider =
-    NotifierProvider<PlatformLoginEpoch, int>(PlatformLoginEpoch.new);
+final sourceEpochProvider = NotifierProvider<SourceEpoch, int>(SourceEpoch.new);
 
-final platformLoginProvider =
-    StreamProvider.family<bool, PlatformId>((ref, id) async* {
-  ref.watch(platformLoginEpochProvider);
-  final store = ref.watch(platformStoreProvider);
-  yield await store.loggedIn(id);
+/// 已启用的音频源插件（插件页增删/启停后由 pluginsProvider 变更触发重扫）。
+final sourceHandlesProvider = FutureProvider<List<SourcePluginHandle>>((ref) async {
+  ref.watch(sourceEpochProvider);
+  ref.watch(pluginsProvider);
+  final sources = await ref.watch(sourcePluginsProvider.future);
+  return sources.enabled();
 });
 
-/// 登录 cookie 的字节长度（只用于状态自检；不暴露内容）。
-final platformCookieLengthProvider =
-    FutureProvider.family<int, PlatformId>((ref, id) async {
-  ref.watch(platformLoginEpochProvider);
-  final store = ref.watch(platformStoreProvider);
-  final cookies = await store.cookies(id);
-  return cookies?.length ?? 0;
+/// 登录态 family（登录/退出即时刷新；凭据在插件沙箱里，宿主只见状态）。
+class SourceAuthStatus {
+  const SourceAuthStatus({required this.loggedIn, required this.account});
+
+  final bool loggedIn;
+  final String account;
+}
+
+final sourceAuthStatusProvider =
+    FutureProvider.family<SourceAuthStatus, String>((ref, pluginId) async {
+  ref.watch(sourceEpochProvider);
+  final handles = await ref.watch(sourceHandlesProvider.future);
+  final h = handles.where((x) => x.id == pluginId).firstOrNull;
+  if (h == null) {
+    return const SourceAuthStatus(loggedIn: false, account: '');
+  }
+  final st = await h.authStatus();
+  return SourceAuthStatus(loggedIn: st.loggedIn, account: st.account);
+});
+
+/// 登录方式（qr / cookie / none）——收集页按它决定打开哪种登录页。
+final sourceAuthKindProvider =
+    FutureProvider.family<String, String>((ref, pluginId) async {
+  final handles = await ref.watch(sourceHandlesProvider.future);
+  final h = handles.where((x) => x.id == pluginId).firstOrNull;
+  if (h == null) {
+    return 'none';
+  }
+  return await h.authKind() ?? 'none';
 });
 
 /// 提取任务提交门面：UI 只经此入队与驱动，不触 data 层类型。
@@ -70,7 +91,23 @@ class CollectTasksApi {
 
   IaDatabase get _db => _ref.read(dbProvider);
 
-  /// 入队（来源：bilibili / youtube / direct；标题空由引擎运行时补全）。
+  /// URL → 来源路由：逐个启用插件问 match()，不认领时按直链音频启发式；
+  /// 都不认 → null（调用方提示无法识别）。
+  Future<String?> routeSource(String url) async {
+    final sources = await _ref.read(sourcePluginsProvider.future);
+    final hit = await sources.routeUrl(url);
+    if (hit != null) {
+      return hit;
+    }
+    if (url.startsWith('http') &&
+        RegExp(r'\.(mp3|m4a|flac|wav|ogg|opus|aac)(\?|$)')
+            .hasMatch(url.toLowerCase())) {
+      return 'direct';
+    }
+    return null;
+  }
+
+  /// 入队（来源：插件 id / direct；标题空由提取引擎运行时补全）。
   Future<void> enqueue(String source, String url,
       {String title = '', String artist = '', int? playlistId}) {
     return _db.collectDao
@@ -97,28 +134,13 @@ class CollectTasksApi {
 final collectTasksApiProvider =
     Provider<CollectTasksApi>(CollectTasksApi.new);
 
-/// B 站客户端（HTTP 复用）。
-final bilibiliClientProvider = Provider<BilibiliClient>((ref) {
-  final client = BilibiliClient(ref.watch(platformStoreProvider));
-  ref.onDispose(client.dispose);
-  return client;
-});
-
-/// YouTube 客户端（HTTP 复用）。
-final youtubeClientProvider = Provider<YoutubeClient>((ref) {
-  final client = YoutubeClient(ref.watch(platformStoreProvider));
-  ref.onDispose(client.dispose);
-  return client;
-});
-
 /// 收集执行服务（依赖扫描服务做下载后的真实入库）。
 final collectRunnerProvider = FutureProvider<CollectRunner>((ref) async {
   final scan = ref.watch(scanServiceProvider);
   final dirs = await ref.watch(cacheDirsProvider.future);
+  final sources = await ref.watch(sourcePluginsProvider.future);
   return CollectRunner(ref.watch(dbProvider), scan,
-      cacheDir: dirs.lyrics,
-      bilibili: ref.watch(bilibiliClientProvider),
-      youtube: ref.watch(youtubeClientProvider));
+      cacheDir: dirs.lyrics, sources: sources);
 });
 
 /// 音频指纹端口（MediaCodec 解码 + chromaprint FFI；原生库缺失 → null）。
@@ -141,3 +163,7 @@ final enrichmentServiceProvider = FutureProvider<EnrichmentService>((ref) async 
       fingerprintPort: fp,
       acoustid: ref.watch(acoustidClientProvider));
 });
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
+}

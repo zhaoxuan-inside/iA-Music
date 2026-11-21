@@ -22,12 +22,9 @@ class GithubPlaylistService {
   final IaDatabase _db;
   final HttpClient _client;
 
+  /// 清单 source 别名归一：direct 之外的值原样透传——提取期由宿主按
+  /// URL 路由到对应音频源插件（插件可换名，清单格式不绑定插件 id）。
   static const Map<String, String> sourceAliases = {
-    'bilibili': 'bilibili',
-    'bili': 'bilibili',
-    'b站': 'bilibili',
-    'youtube': 'youtube',
-    'yt': 'youtube',
     'direct': 'direct',
     '直链': 'direct',
   };

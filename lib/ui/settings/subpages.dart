@@ -10,9 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../data/daos/collect_dao.dart';
-import '../../services/collect/bilibili_client.dart';
-import '../../services/collect/platform_store.dart';
-import '../../services/collect/youtube_client.dart';
+import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
 import '../../state/diagnostics.dart';
 import '../../state/enrich_controller.dart';
@@ -21,10 +19,9 @@ import '../../state/plugin_providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
-import 'bilibili_login_page.dart';
 import 'directory_picker_page.dart';
 import 'platform_search_page.dart';
-import 'youtube_login_page.dart';
+import 'plugin_login_pages.dart';
 
 /// 页头（返回 + 大标题 + accent 短横），四子页共用。
 class _SubHeader extends StatelessWidget {
@@ -552,13 +549,15 @@ class _EnrichSection extends ConsumerWidget {
   }
 }
 
-/// 收集子页：平台登录 + 站内搜索提取。
+/// 收集子页：音频源插件登录 + 站内搜索提取。
 class CollectSubPage extends ConsumerWidget {
   const CollectSubPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final edge = edgeInsets(context);
+    final handles = ref.watch(sourceHandlesProvider).value ?? const [];
+    final p = Theme.of(context).extension<IaPalette>()!;
 
     return Scaffold(
       backgroundColor: IaColors.canvas,
@@ -568,10 +567,23 @@ class CollectSubPage extends ConsumerWidget {
           children: [
             const _SubHeader(title: '收集'),
             const SizedBox(height: IaSpacing.xl),
-            const SectionLabel('平台登录'),
-            const SizedBox(height: IaSpacing.m),
-            _PlatformRow(platform: PlatformId.bilibili, label: 'B 站'),
-            _PlatformRow(platform: PlatformId.youtube, label: 'YouTube'),
+            const SectionLabel('音频源插件'),
+            if (handles.isEmpty) ...[
+              const Text('还没有启用的音频源插件——外部平台能力全部来自插件',
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+              const SizedBox(height: IaSpacing.m),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).push(
+                    zuneRoute<void>(builder: (_) => const PluginsPage())),
+                child: Text('去「插件」安装',
+                    style: TextStyle(fontSize: 12.5, color: p.accent)),
+              ),
+            ],
+            for (final h in handles) _SourceRow(plugin: h),
+            const SizedBox(height: IaSpacing.l),
+            const Text(
+                '平台知识 100% 在插件里：安装/卸载/启停都在「设置 · 插件」，凭据只存在插件沙箱。',
+                style: TextStyle(fontSize: 11, color: IaColors.textLow)),
           ],
         ),
       ),
@@ -579,18 +591,19 @@ class CollectSubPage extends ConsumerWidget {
   }
 }
 
-/// 平台行：登录态 + 登录/退出/站内搜索。
-class _PlatformRow extends ConsumerWidget {
-  const _PlatformRow({required this.platform, required this.label});
+/// 音频源插件行：登录态 + 登录/退出/站内搜索（按 authKind 打开对应登录页）。
+class _SourceRow extends ConsumerWidget {
+  const _SourceRow({required this.plugin});
 
-  final PlatformId platform;
-  final String label;
+  final SourcePluginHandle plugin;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loggedIn = ref.watch(platformLoginProvider(platform)).value ?? false;
-    final cookieLen =
-        ref.watch(platformCookieLengthProvider(platform)).value ?? 0;
+    final auth =
+        ref.watch(sourceAuthStatusProvider(plugin.id)).value;
+    final loggedIn = auth?.loggedIn ?? false;
+    final account = auth?.account ?? '';
+    final kind = ref.watch(sourceAuthKindProvider(plugin.id)).value ?? 'none';
 
     return Container(
       padding: const EdgeInsets.symmetric(
@@ -599,30 +612,37 @@ class _PlatformRow extends ConsumerWidget {
           border: Border(bottom: BorderSide(color: IaColors.hairline))),
       child: Row(
         children: [
-          Text(label,
-              style: const TextStyle(fontSize: IaType.list, color: IaColors.textHi)),
-          const Spacer(),
-          Text(loggedIn ? '已登录 · ${cookieLen}B' : '未登录 · ${cookieLen}B',
-              style: TextStyle(
-                  fontSize: 11.5,
-                  color: loggedIn
-                      ? Theme.of(context).extension<IaPalette>()!.accent
-                      : IaColors.textLow)),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            tooltip: '刷新登录态',
-            icon: const Icon(Icons.refresh, size: 16),
-            color: IaColors.textLow,
-            onPressed: () {
-              ref.read(platformLoginEpochProvider.notifier).bump();
-              ref.invalidate(platformLoginProvider(platform));
-            },
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(plugin.name,
+                    style: const TextStyle(
+                        fontSize: IaType.list, color: IaColors.textHi)),
+                const SizedBox(height: 2),
+                Text(
+                  loggedIn
+                      ? (account.isEmpty ? '已登录' : '已登录 · $account')
+                      : (kind == 'none' ? '无需登录' : '未登录'),
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      color: loggedIn
+                          ? Theme.of(context).extension<IaPalette>()!.accent
+                          : IaColors.textLow),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: IaSpacing.xs),
           OutlinedButton(
-            onPressed: () =>
-                loggedIn ? _manage(context, ref) : _login(context, ref),
-            child: Text(loggedIn ? '管理' : '登录',
+            onPressed: () => loggedIn
+                ? _manage(context, ref)
+                : (kind == 'none'
+                    ? _manage(context, ref)
+                    : _login(context, ref)),
+            child: Text(
+                loggedIn
+                    ? '管理'
+                    : (kind == 'none' ? '站内搜索' : '登录'),
                 style: const TextStyle(fontSize: 12, color: IaColors.textHi)),
           ),
         ],
@@ -631,31 +651,35 @@ class _PlatformRow extends ConsumerWidget {
   }
 
   Future<void> _login(BuildContext context, WidgetRef ref) async {
-    final page = platform == PlatformId.bilibili
-        ? const BilibiliLoginPage()
-        : const YoutubeLoginPage();
+    final kind = await ref.read(sourceAuthKindProvider(plugin.id).future);
+    if (!context.mounted) {
+      return;
+    }
+    final page = switch (kind) {
+      'cookie' => PluginCookieLoginPage(pluginId: plugin.id),
+      _ => PluginQrLoginPage(pluginId: plugin.id),
+    };
     await Navigator.of(context).push(zuneRoute<bool>(builder: (_) => page));
     if (!context.mounted) {
       return;
     }
-    // 直接从存储读一次：区分「cookie 没落库」和「界面没刷新」。
-    final len =
-        (await ref.read(platformStoreProvider).cookies(platform))?.length ?? 0;
-    ref.read(platformLoginEpochProvider.notifier).bump();
-    ref.invalidate(platformLoginProvider(platform));
-    if (context.mounted) {
-      showWpToast(context,
-          title: label,
-          message: len > 0 ? '登录成功 · 登录态已保存' : '未保存登录态');
+    ref.read(sourceEpochProvider.notifier).bump();
+    final st = await ref.read(sourceAuthStatusProvider(plugin.id).future);
+    if (!context.mounted) {
+      return;
     }
+    showWpToast(context,
+        title: plugin.name,
+        message: st.loggedIn ? '登录成功 · 凭据已入插件沙箱' : '未保存登录态');
   }
 
   Future<void> _manage(BuildContext context, WidgetRef ref) async {
-    await showWpMenu(context, title: label, items: [
+    await showWpMenu(context, title: plugin.name, items: [
       (
         '站内搜索 · 提取',
         () => Navigator.of(context).push(zuneRoute<void>(
-            builder: (_) => PlatformSearchPage(platform: platform))),
+            builder: (_) => PlatformSearchPage(
+                pluginId: plugin.id, name: plugin.name))),
       ),
       (
         '退出登录',
@@ -669,7 +693,7 @@ class _PlatformRow extends ConsumerWidget {
                       fontSize: 20,
                       fontWeight: IaType.light,
                       color: IaColors.textHi)),
-              content: const Text('退出后本机保存的登录凭据会被清除，需要重新扫码登录。',
+              content: const Text('退出后本机保存的登录凭据会被清除，需要重新登录。',
                   style: TextStyle(fontSize: 13, color: IaColors.textMid)),
               actions: [
                 TextButton(
@@ -688,13 +712,10 @@ class _PlatformRow extends ConsumerWidget {
           if (ok != true) {
             return;
           }
-          final store = ref.read(platformStoreProvider);
-          await store.clearCookies(platform);
-          await store.clearAccount(platform);
-          ref.read(platformLoginEpochProvider.notifier).bump();
-          ref.invalidate(platformLoginProvider(platform));
+          await plugin.authLogout();
+          ref.read(sourceEpochProvider.notifier).bump();
           if (context.mounted) {
-            showWpToast(context, title: label, message: '已退出登录');
+            showWpToast(context, title: plugin.name, message: '已退出登录');
           }
         },
       ),
@@ -1133,7 +1154,7 @@ class _LinkExtractFormState extends ConsumerState<_LinkExtractForm> {
             maxLines: 3,
             style: const TextStyle(fontSize: 13, color: IaColors.textHi),
             decoration: const InputDecoration(
-              hintText: '粘贴 B 站 / YouTube / 直链音频…（多行批量）',
+              hintText: '粘贴任意音频源插件支持的链接…（多行批量）',
               border: InputBorder.none,
               isDense: true,
             ),
@@ -1170,12 +1191,12 @@ class _LinkExtractFormState extends ConsumerState<_LinkExtractForm> {
         if (url.isEmpty) {
           continue;
         }
-        final source = _detectSource(url);
+        final source = await api.routeSource(url);
         if (source == null) {
           rejected++;
           continue;
         }
-        // 标题/歌手留空——提取引擎运行时用平台协议补全真实元数据
+        // 标题/歌手留空——提取引擎运行时用插件协议补全真实元数据
         await api.enqueue(source, url);
         added++;
       }
@@ -1200,24 +1221,5 @@ class _LinkExtractFormState extends ConsumerState<_LinkExtractForm> {
         message: added > 0
             ? '$added 个链接进入提取队列${rejected > 0 ? ' · $rejected 个无法识别' : ''}'
             : '没有可识别的链接');
-  }
-
-  String? _detectSource(String url) {
-    final u = url.toLowerCase();
-    if (u.contains('bilibili.com/') ||
-        u.contains('b23.tv/') ||
-        BilibiliClient.bvidFrom(url) != null) {
-      return 'bilibili';
-    }
-    if (u.contains('youtube.com/') ||
-        u.contains('youtu.be/') ||
-        YoutubeClient.videoIdFrom(url) != null) {
-      return 'youtube';
-    }
-    if (u.startsWith('http') &&
-        RegExp(r'\.(mp3|m4a|flac|wav|ogg|opus|aac)(\?|$)').hasMatch(u)) {
-      return 'direct';
-    }
-    return null;
   }
 }

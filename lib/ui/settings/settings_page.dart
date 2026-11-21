@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../services/collect/platform_store.dart';
 import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
 import '../../state/settings_controller.dart';
@@ -23,9 +22,8 @@ class SettingsPage extends ConsumerWidget {
         .map((w) => w.name)
         .firstOrNull;
     final trackCount = ref.watch(trackCountProvider).value ?? 0;
-    final biliIn = ref.watch(platformLoginProvider(PlatformId.bilibili)).value ?? false;
-    final ytIn = ref.watch(platformLoginProvider(PlatformId.youtube)).value ?? false;
-    final loggedCount = (biliIn ? 1 : 0) + (ytIn ? 1 : 0);
+    final sourceCount =
+        ref.watch(sourceHandlesProvider).value?.length ?? 0;
     final taskCount = ref.watch(collectTasksProvider).value?.length ?? 0;
 
     return HubPage(
@@ -49,7 +47,9 @@ class SettingsPage extends ConsumerWidget {
         ),
         BigRow(
           title: '收集',
-          subtitle: '登录 · 站内搜索 · 已登录 $loggedCount/2',
+          subtitle: sourceCount > 0
+              ? '音频源插件 $sourceCount 个 · 后台自动运行'
+              : '音频源来自插件 · 去安装',
           onTap: () => Navigator.of(context).push(
               zuneRoute<void>(builder: (_) => const CollectSubPage())),
         ),

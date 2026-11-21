@@ -54,7 +54,7 @@ Flutter 与 l10n。
 
 ## 构建链
 
-- 平台：**仅 Android（arm64）**——`flutter build apk --target-platform android-arm64`
+- 平台：**仅 Android（arm64）**——`flutter build apk --release --split-per-abi --target-platform android-arm64`（v8a 交付件 = app-arm64-v8a-release.apk；不带 split 会产出混 ABI 包）
   （`packaging/build.ps1` 一键）。
 - sqlite3：仓库内置源码自编（`native/sqlite3/sqlite3.c`，hooks user_defines；
   测试宿主的 Windows 构建同走源码编译）。

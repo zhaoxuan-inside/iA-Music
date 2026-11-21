@@ -13,7 +13,7 @@ enum CollectStatusCol { pending, running, done, blocked, failed }
 @DataClassName('CollectTaskRow')
 class CollectTasks extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get source => text()(); // 来源平台标识（bilibili/youtube/direct/github）
+  TextColumn get source => text()(); // 来源：音频源插件 id / direct / github
   TextColumn get query => text().withDefault(const Constant(''))(); // 搜索词
   TextColumn get url => text()(); // 歌曲来源地址
   TextColumn get title => text()();
