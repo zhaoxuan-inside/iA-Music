@@ -55,7 +55,6 @@ Flutter 与 l10n。
 ## 构建链
 - 平台：**仅 Android（arm64）**——`flutter build apk --release --split-per-abi --target-platform android-arm64`（不带 split 会产出混 ABI 包）
 - 打包规范：`packaging/build.ps1` 一键 → **产物落 `dist/`**，命名 `iA-Music-v<版本>-arm64-v8a.apk` + `.sha256` 校验件（版本/构建号从 pubspec `version:` 读取；arm64 实际 versionCode = buildNo×1000+2）。`dist/` 不入库。
-  （`packaging/build.ps1` 一键）。
 - sqlite3：仓库内置源码自编（`native/sqlite3/sqlite3.c`，hooks user_defines；
   测试宿主的 Windows 构建同走源码编译）。
 - 播放：AndroidX Media3/ExoPlayer（just_audio + audio_service），全 ABI，无自编译播放器。
