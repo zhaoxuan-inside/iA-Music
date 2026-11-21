@@ -86,14 +86,20 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     final edge = edgeInsets(context);
 
-    // 一遍遍历建槽：组头按字母首现顺序插入（与原分组 map 等价，字母轨
-    // 行为不变）。点播不依赖任何定位——UI 只交出被点的曲目，按 id 对位
-    // 收口在服务层 [PlaybackService.playTrack]。
+    // 显示序在 Dart 侧自排：SQL 按 titleNorm 码点序（中文≠拼音序），
+    // 直接用会让同组歌曲散落、组头只在首现处出现。按（拼音首字母，歌名）
+    // 排序后一遍建槽，组才真正连续、字母轨才能跳到整组。点播不依赖任何
+    // 定位——只交出被点的曲目，按 id 对位收口在 [PlaybackService.playTrack]。
+    final display = [
+      for (final t in tracks) (t, letterKey(t.title)),
+    ]..sort((a, b) {
+      final c = a.$2.compareTo(b.$2);
+      return c != 0 ? c : a.$1.title.toLowerCase().compareTo(b.$1.title.toLowerCase());
+    });
     final headerSlots = <String, int>{};
     final letters = <String>[];
     final slots = <_Slot>[];
-    for (final t in tracks) {
-      final key = letterKey(t.title);
+    for (final (t, key) in display) {
       if (!headerSlots.containsKey(key)) {
         headerSlots[key] = slots.length;
         letters.add(key);

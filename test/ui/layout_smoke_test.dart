@@ -53,6 +53,38 @@ class _FakePlayback extends PlaybackController {
   PlaybackSnapshot build() => initial;
 }
 
+/// 记录点播命令的假控制器：只对账 playTrack 收到的曲目身份与队列。
+class _RecordingPlayback extends _FakePlayback {
+  _RecordingPlayback(super.initial);
+
+  final starts = <Track>[];
+  final queues = <List<Track>>[];
+
+  @override
+  Future<void> playTrack(Track start, {List<Track>? queue, bool? shuffle}) async {
+    starts.add(start);
+    queues.add(queue ?? <Track>[start]);
+  }
+}
+
+Track _trackOf({required int id, required String title}) => Track(
+      id: id,
+      rootId: 1,
+      relPath: 't$id.mp3',
+      path: '/music/t$id.mp3',
+      title: title,
+      artist: 'A',
+      album: 'L',
+      genre: '',
+      durationMs: 60000,
+      sizeBytes: 1,
+      contentHash: 'h$id',
+      audioFormat: 'mp3',
+      trackNo: id,
+      coverPath: null,
+      addedAt: DateTime(2024, 1, 1),
+    );
+
 class _FakeQuickplay extends QuickplayController {
   _FakeQuickplay(this.initial);
 
@@ -146,6 +178,79 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(find.byIcon(Icons.search), findsOneWidget);
+  });
+
+  testWidgets('SongsPage · 中文曲库点谁播谁（按曲目身份起播）', (tester) async {
+    await phone(tester);
+    // SQL 码点序（tracksProvider 原样下发）：拼音分组会重排，正是历史上
+    // 「点谁播谁都错位」的数据形态——ABC(A) 不如(B) 爱情(A) 记得(J)
+    final sqlOrder = [
+      _trackOf(id: 1, title: 'ABC Song'),
+      _trackOf(id: 2, title: '不如'),
+      _trackOf(id: 3, title: '爱情'),
+      _trackOf(id: 4, title: '记得'),
+    ];
+    final playback = _RecordingPlayback(_snapshot());
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        playbackProvider.overrideWith(() => playback),
+        coverProvider.overrideWith((ref, key) async => null),
+        favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
+        tracksProvider.overrideWith((ref, sort) => Stream.value(sqlOrder)),
+        trackCountProvider.overrideWith((ref) => Stream.value(sqlOrder.length)),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: buildIaTheme(accent: kDefaultAccent),
+        home: const Scaffold(body: SongsPage()),
+      ),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.text('记得'));
+    await tester.pump();
+    expect(playback.starts.single.id, 4);
+    expect(playback.queues.single.map((t) => t.id), [1, 2, 3, 4]);
+
+    await tester.tap(find.text('爱情'));
+    await tester.pump();
+    expect(playback.starts.last.id, 3);
+  });
+
+  testWidgets('SongsPage · 拼音分组连续显示（组头齐全且同组相邻）', (tester) async {
+    await phone(tester);
+    final sqlOrder = [
+      _trackOf(id: 1, title: 'ABC Song'),
+      _trackOf(id: 2, title: '不如'),
+      _trackOf(id: 3, title: '爱情'),
+      _trackOf(id: 4, title: '记得'),
+    ];
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        playbackProvider.overrideWith(() => _FakePlayback(_snapshot())),
+        coverProvider.overrideWith((ref, key) async => null),
+        favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
+        tracksProvider.overrideWith((ref, sort) => Stream.value(sqlOrder)),
+        trackCountProvider.overrideWith((ref) => Stream.value(sqlOrder.length)),
+      ],
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: buildIaTheme(accent: kDefaultAccent),
+        home: const Scaffold(body: SongsPage()),
+      ),
+    ));
+    await tester.pump();
+
+    final texts =
+        tester.widgetList<Text>(find.byType(Text)).map((t) => t.data ?? '');
+    final songOrder = [
+      for (final s in texts)
+        if (s == 'ABC Song' || s == '爱情' || s == '不如' || s == '记得') s
+    ];
+    expect(songOrder, ['ABC Song', '爱情', '不如', '记得']);
+    for (final letter in ['A', 'B', 'J']) {
+      expect(texts, contains(letter), reason: '缺 $letter 组头');
+    }
   });
 
   testWidgets('NowPlayingPage · 小屏 320×568', (tester) async {
