@@ -65,6 +65,8 @@ class PlaybackService {
     if (resumeSession) {
       await _tryRestore();
     }
+    // 历史修剪限制表无限增长（播放次数已在 tracks.plays 物化，不影响统计）。
+    unawaited(_history.prune());
     _emit();
   }
 

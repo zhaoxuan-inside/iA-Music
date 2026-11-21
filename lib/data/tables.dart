@@ -28,6 +28,10 @@ class Tracks extends Table {
   TextColumn get albumNorm => text()();
   TextColumn get genre => text().withDefault(const Constant(''))();
   IntColumn get trackNo => integer().withDefault(const Constant(0))();
+
+  /// 累计播放次数（record 历史时物化递增；常听面直读本列，
+  /// 不再对 play_history 全表 GROUP BY——历史表随播放无限增长）。
+  IntColumn get plays => integer().withDefault(const Constant(0))();
   IntColumn get durationMs => integer().withDefault(const Constant(0))();
   IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
   TextColumn get contentHash => text().withDefault(const Constant(''))();

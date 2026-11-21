@@ -384,6 +384,16 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _playsMeta = const VerificationMeta('plays');
+  @override
+  late final GeneratedColumn<int> plays = GeneratedColumn<int>(
+    'plays',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _durationMsMeta = const VerificationMeta(
     'durationMs',
   );
@@ -518,6 +528,7 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     albumNorm,
     genre,
     trackNo,
+    plays,
     durationMs,
     sizeBytes,
     contentHash,
@@ -626,6 +637,12 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
       context.handle(
         _trackNoMeta,
         trackNo.isAcceptableOrUnknown(data['track_no']!, _trackNoMeta),
+      );
+    }
+    if (data.containsKey('plays')) {
+      context.handle(
+        _playsMeta,
+        plays.isAcceptableOrUnknown(data['plays']!, _playsMeta),
       );
     }
     if (data.containsKey('duration_ms')) {
@@ -754,6 +771,10 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         DriftSqlType.int,
         data['${effectivePrefix}track_no'],
       )!,
+      plays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}plays'],
+      )!,
       durationMs: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}duration_ms'],
@@ -816,6 +837,10 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   final String albumNorm;
   final String genre;
   final int trackNo;
+
+  /// 累计播放次数（record 历史时物化递增；常听面直读本列，
+  /// 不再对 play_history 全表 GROUP BY——历史表随播放无限增长）。
+  final int plays;
   final int durationMs;
   final int sizeBytes;
   final String contentHash;
@@ -841,6 +866,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     required this.albumNorm,
     required this.genre,
     required this.trackNo,
+    required this.plays,
     required this.durationMs,
     required this.sizeBytes,
     required this.contentHash,
@@ -867,6 +893,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     map['album_norm'] = Variable<String>(albumNorm);
     map['genre'] = Variable<String>(genre);
     map['track_no'] = Variable<int>(trackNo);
+    map['plays'] = Variable<int>(plays);
     map['duration_ms'] = Variable<int>(durationMs);
     map['size_bytes'] = Variable<int>(sizeBytes);
     map['content_hash'] = Variable<String>(contentHash);
@@ -902,6 +929,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       albumNorm: Value(albumNorm),
       genre: Value(genre),
       trackNo: Value(trackNo),
+      plays: Value(plays),
       durationMs: Value(durationMs),
       sizeBytes: Value(sizeBytes),
       contentHash: Value(contentHash),
@@ -941,6 +969,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       albumNorm: serializer.fromJson<String>(json['albumNorm']),
       genre: serializer.fromJson<String>(json['genre']),
       trackNo: serializer.fromJson<int>(json['trackNo']),
+      plays: serializer.fromJson<int>(json['plays']),
       durationMs: serializer.fromJson<int>(json['durationMs']),
       sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
       contentHash: serializer.fromJson<String>(json['contentHash']),
@@ -969,6 +998,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'albumNorm': serializer.toJson<String>(albumNorm),
       'genre': serializer.toJson<String>(genre),
       'trackNo': serializer.toJson<int>(trackNo),
+      'plays': serializer.toJson<int>(plays),
       'durationMs': serializer.toJson<int>(durationMs),
       'sizeBytes': serializer.toJson<int>(sizeBytes),
       'contentHash': serializer.toJson<String>(contentHash),
@@ -995,6 +1025,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     String? albumNorm,
     String? genre,
     int? trackNo,
+    int? plays,
     int? durationMs,
     int? sizeBytes,
     String? contentHash,
@@ -1018,6 +1049,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     albumNorm: albumNorm ?? this.albumNorm,
     genre: genre ?? this.genre,
     trackNo: trackNo ?? this.trackNo,
+    plays: plays ?? this.plays,
     durationMs: durationMs ?? this.durationMs,
     sizeBytes: sizeBytes ?? this.sizeBytes,
     contentHash: contentHash ?? this.contentHash,
@@ -1047,6 +1079,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       albumNorm: data.albumNorm.present ? data.albumNorm.value : this.albumNorm,
       genre: data.genre.present ? data.genre.value : this.genre,
       trackNo: data.trackNo.present ? data.trackNo.value : this.trackNo,
+      plays: data.plays.present ? data.plays.value : this.plays,
       durationMs: data.durationMs.present
           ? data.durationMs.value
           : this.durationMs,
@@ -1085,6 +1118,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('albumNorm: $albumNorm, ')
           ..write('genre: $genre, ')
           ..write('trackNo: $trackNo, ')
+          ..write('plays: $plays, ')
           ..write('durationMs: $durationMs, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('contentHash: $contentHash, ')
@@ -1113,6 +1147,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     albumNorm,
     genre,
     trackNo,
+    plays,
     durationMs,
     sizeBytes,
     contentHash,
@@ -1140,6 +1175,7 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.albumNorm == this.albumNorm &&
           other.genre == this.genre &&
           other.trackNo == this.trackNo &&
+          other.plays == this.plays &&
           other.durationMs == this.durationMs &&
           other.sizeBytes == this.sizeBytes &&
           other.contentHash == this.contentHash &&
@@ -1165,6 +1201,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
   final Value<String> albumNorm;
   final Value<String> genre;
   final Value<int> trackNo;
+  final Value<int> plays;
   final Value<int> durationMs;
   final Value<int> sizeBytes;
   final Value<String> contentHash;
@@ -1188,6 +1225,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.albumNorm = const Value.absent(),
     this.genre = const Value.absent(),
     this.trackNo = const Value.absent(),
+    this.plays = const Value.absent(),
     this.durationMs = const Value.absent(),
     this.sizeBytes = const Value.absent(),
     this.contentHash = const Value.absent(),
@@ -1212,6 +1250,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     required String albumNorm,
     this.genre = const Value.absent(),
     this.trackNo = const Value.absent(),
+    this.plays = const Value.absent(),
     this.durationMs = const Value.absent(),
     this.sizeBytes = const Value.absent(),
     this.contentHash = const Value.absent(),
@@ -1244,6 +1283,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Expression<String>? albumNorm,
     Expression<String>? genre,
     Expression<int>? trackNo,
+    Expression<int>? plays,
     Expression<int>? durationMs,
     Expression<int>? sizeBytes,
     Expression<String>? contentHash,
@@ -1268,6 +1308,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       if (albumNorm != null) 'album_norm': albumNorm,
       if (genre != null) 'genre': genre,
       if (trackNo != null) 'track_no': trackNo,
+      if (plays != null) 'plays': plays,
       if (durationMs != null) 'duration_ms': durationMs,
       if (sizeBytes != null) 'size_bytes': sizeBytes,
       if (contentHash != null) 'content_hash': contentHash,
@@ -1294,6 +1335,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Value<String>? albumNorm,
     Value<String>? genre,
     Value<int>? trackNo,
+    Value<int>? plays,
     Value<int>? durationMs,
     Value<int>? sizeBytes,
     Value<String>? contentHash,
@@ -1318,6 +1360,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       albumNorm: albumNorm ?? this.albumNorm,
       genre: genre ?? this.genre,
       trackNo: trackNo ?? this.trackNo,
+      plays: plays ?? this.plays,
       durationMs: durationMs ?? this.durationMs,
       sizeBytes: sizeBytes ?? this.sizeBytes,
       contentHash: contentHash ?? this.contentHash,
@@ -1370,6 +1413,9 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     if (trackNo.present) {
       map['track_no'] = Variable<int>(trackNo.value);
     }
+    if (plays.present) {
+      map['plays'] = Variable<int>(plays.value);
+    }
     if (durationMs.present) {
       map['duration_ms'] = Variable<int>(durationMs.value);
     }
@@ -1418,6 +1464,7 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
           ..write('albumNorm: $albumNorm, ')
           ..write('genre: $genre, ')
           ..write('trackNo: $trackNo, ')
+          ..write('plays: $plays, ')
           ..write('durationMs: $durationMs, ')
           ..write('sizeBytes: $sizeBytes, ')
           ..write('contentHash: $contentHash, ')
@@ -4119,6 +4166,7 @@ typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
   required String albumNorm,
   Value<String> genre,
   Value<int> trackNo,
+  Value<int> plays,
   Value<int> durationMs,
   Value<int> sizeBytes,
   Value<String> contentHash,
@@ -4143,6 +4191,7 @@ typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<String> albumNorm,
   Value<String> genre,
   Value<int> trackNo,
+  Value<int> plays,
   Value<int> durationMs,
   Value<int> sizeBytes,
   Value<String> contentHash,
@@ -4291,6 +4340,11 @@ class $$TracksTableFilterComposer extends Composer<_$IaDatabase, $TracksTable> {
 
   ColumnFilters<int> get trackNo => $composableBuilder(
     column: $table.trackNo,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get plays => $composableBuilder(
+    column: $table.plays,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4507,6 +4561,11 @@ class $$TracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get plays => $composableBuilder(
+    column: $table.plays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get durationMs => $composableBuilder(
     column: $table.durationMs,
     builder: (column) => ColumnOrderings(column),
@@ -4624,6 +4683,9 @@ class $$TracksTableAnnotationComposer
 
   GeneratedColumn<int> get trackNo =>
       $composableBuilder(column: $table.trackNo, builder: (column) => column);
+
+  GeneratedColumn<int> get plays =>
+      $composableBuilder(column: $table.plays, builder: (column) => column);
 
   GeneratedColumn<int> get durationMs => $composableBuilder(
     column: $table.durationMs,
@@ -4809,6 +4871,7 @@ class $$TracksTableTableManager
                 Value<String> albumNorm = const Value.absent(),
                 Value<String> genre = const Value.absent(),
                 Value<int> trackNo = const Value.absent(),
+                Value<int> plays = const Value.absent(),
                 Value<int> durationMs = const Value.absent(),
                 Value<int> sizeBytes = const Value.absent(),
                 Value<String> contentHash = const Value.absent(),
@@ -4832,6 +4895,7 @@ class $$TracksTableTableManager
                 albumNorm: albumNorm,
                 genre: genre,
                 trackNo: trackNo,
+                plays: plays,
                 durationMs: durationMs,
                 sizeBytes: sizeBytes,
                 contentHash: contentHash,
@@ -4857,6 +4921,7 @@ class $$TracksTableTableManager
                 required String albumNorm,
                 Value<String> genre = const Value.absent(),
                 Value<int> trackNo = const Value.absent(),
+                Value<int> plays = const Value.absent(),
                 Value<int> durationMs = const Value.absent(),
                 Value<int> sizeBytes = const Value.absent(),
                 Value<String> contentHash = const Value.absent(),
@@ -4880,6 +4945,7 @@ class $$TracksTableTableManager
                 albumNorm: albumNorm,
                 genre: genre,
                 trackNo: trackNo,
+                plays: plays,
                 durationMs: durationMs,
                 sizeBytes: sizeBytes,
                 contentHash: contentHash,

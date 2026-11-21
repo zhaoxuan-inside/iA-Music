@@ -14,9 +14,28 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
   HistoryDao(super.db);
 
   /// 记录一次播放（completed=完整听完的诚实位；同曲短时间内去重交给 service）。
+  ///
+  /// 同事务内物化递增 tracks.plays——常听统计 O(1) 直读，
+  /// 不再每次播放对 play_history 全表 GROUP BY。
   Future<void> record(int trackId, {required bool completed}) {
-    return into(playHistory).insert(
-      PlayHistoryCompanion.insert(trackId: trackId, completed: Value(completed)),
+    return transaction(() async {
+      await into(playHistory).insert(
+        PlayHistoryCompanion.insert(trackId: trackId, completed: Value(completed)),
+      );
+      await customStatement(
+        'UPDATE tracks SET plays = plays + 1 WHERE id = ?',
+        [trackId],
+      );
+    });
+  }
+
+  /// 历史修剪：只保留最近 [keep] 条（启动时调用一次，限制表无限增长；
+  /// 播放次数已在 tracks.plays 物化，修剪不影响常听统计）。
+  Future<void> prune({int keep = 2000}) {
+    return customStatement(
+      'DELETE FROM play_history WHERE id NOT IN '
+      '(SELECT id FROM play_history ORDER BY played_at DESC LIMIT ?)',
+      [keep],
     );
   }
 

@@ -41,28 +41,6 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         missing: r.missingAt != null,
       );
 
-  /// customSelect 行 → Track（t.* 全列直取）。
-  Track _trackFromRow(QueryRow r) => Track(
-        id: r.read<int>('id'),
-        rootId: r.read<int>('root_id'),
-        relPath: r.read<String>('rel_path'),
-        path: r.read<String>('path'),
-        title: r.read<String>('title'),
-        artist: r.read<String>('artist'),
-        album: r.read<String>('album'),
-        genre: r.read<String>('genre'),
-        durationMs: r.read<int>('duration_ms'),
-        sizeBytes: r.read<int>('size_bytes'),
-        contentHash: r.read<String>('content_hash'),
-        audioFormat: r.read<String>('audio_format'),
-        trackNo: r.read<int>('track_no'),
-        coverPath: r.readNullable<String>('cover_path'),
-        addedAt: r.read<DateTime>('added_at'),
-        needsMeta: r.read<bool>('needs_meta'),
-        enrichedAt: r.readNullable<DateTime>('enriched_at'),
-        missing: r.readNullable<DateTime>('missing_at') != null,
-      );
-
   // ── 查询面 ──────────────────────────────────────────────────────────
 
   Stream<List<Track>> watchTracks({TrackSort sort = TrackSort.recentAdded}) {
@@ -240,22 +218,22 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         );
   }
 
-  // ── 常听面（PlayHistory 聚合；播放次数为准） ─────────────────────────
+  // ── 常听面（直读 tracks.plays 物化计数；不再聚合 play_history） ─────
 
   /// 常听专辑（按累计播放次数排序；未播过的不出现）。
+  ///
+  /// plays 已在 record 时物化递增（v5），此查询只扫 tracks 单表——
+  /// 每次播放不再触发 tracks×play_history 全表 GROUP BY。
   Stream<List<AlbumGroup>> watchTopAlbums({int limit = 12}) {
     final album = tracks.album;
     final artist = tracks.artist;
     final albumNorm = tracks.albumNorm;
     final cnt = tracks.id.count();
     final dur = tracks.durationMs.sum();
-    final plays = playHistory.id.count();
+    final plays = tracks.plays.sum();
     final query = selectOnly(tracks)
       ..addColumns([album, artist, albumNorm, cnt, dur, plays])
-      ..join([
-        innerJoin(playHistory, playHistory.trackId.equalsExp(tracks.id)),
-      ])
-      ..where(tracks.missingAt.isNull())
+      ..where(tracks.missingAt.isNull() & tracks.plays.isBiggerThanValue(0))
       ..groupBy([albumNorm])
       ..orderBy([OrderingTerm.desc(plays)])
       ..limit(limit);
@@ -276,16 +254,14 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   /// 单曲粒度：无专辑元数据的收集曲不会被折叠进同一个「未知专辑」磁贴，
   /// 「常听与历史」页因此总能如实反映播放次数。
   Stream<List<TrackPlays>> watchTopTracks({int limit = 12}) {
-    return customSelect(
-      'SELECT t.*, COUNT(h.id) AS plays FROM tracks t '
-      'JOIN play_history h ON h.track_id = t.id '
-      'WHERE t.missing_at IS NULL '
-      'GROUP BY t.id ORDER BY plays DESC LIMIT ?',
-      variables: [Variable.withInt(limit)],
-      readsFrom: {tracks, playHistory},
-    ).watch().map((rows) => [
+    final query = select(tracks)
+      ..where((t) =>
+          t.missingAt.isNull() & t.plays.isBiggerThanValue(0))
+      ..orderBy([(u) => OrderingTerm.desc(u.plays)])
+      ..limit(limit);
+    return query.watch().map((rows) => [
           for (final r in rows)
-            TrackPlays(track: _trackFromRow(r), plays: r.read<int>('plays')),
+            TrackPlays(track: _map(r), plays: r.plays),
         ]);
   }
 

@@ -46,7 +46,7 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -72,9 +72,24 @@ class IaDatabase extends _$IaDatabase {
             // v4：歌单自定义封面
             await m.addColumn(playlists, playlists.coverPath);
           }
+          if (from < 5) {
+            // v5：播放次数物化（常听面不再全表聚合）+ 历史计数回填
+            await m.addColumn(tracks, tracks.plays);
+            await customStatement(
+                'UPDATE tracks SET plays = '
+                '(SELECT COUNT(*) FROM play_history WHERE track_id = tracks.id)');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
+          // 历史域索引：最近列表按时间倒序、计数按 track 归组（IF NOT
+          // EXISTS 幂等；覆盖老库升级与全新安装两种路径）。
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_history_played_at '
+              'ON play_history (played_at)');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_history_track '
+              'ON play_history (track_id)');
         },
       );
 }
