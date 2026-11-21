@@ -53,7 +53,8 @@ class PlayedPage extends ConsumerWidget {
               child: _SongTile(
                 track: top[i].track,
                 meta: '${top[i].plays} 次',
-                onTap: () => _playFrom(ref, [for (final t in top) t.track], i),
+                onTap: () =>
+                    _playFrom(ref, top[i].track, [for (final t in top) t.track]),
                 onLongPress: () => showTrackMenu(context, ref, top[i].track),
               ),
             ),
@@ -80,7 +81,7 @@ class PlayedPage extends ConsumerWidget {
               index: i,
               child: _SongTile(
                 track: recent[i],
-                onTap: () => _playFrom(ref, recent, i),
+                onTap: () => _playFrom(ref, recent[i], recent),
                 onLongPress: () => showTrackMenu(context, ref, recent[i]),
               ),
             ),
@@ -89,8 +90,8 @@ class PlayedPage extends ConsumerWidget {
     );
   }
 
-  void _playFrom(WidgetRef ref, List<Track> tracks, int index) {
-    ref.read(playbackProvider.notifier).playTracks(tracks, startIndex: index);
+  void _playFrom(WidgetRef ref, Track track, List<Track> tracks) {
+    ref.read(playbackProvider.notifier).playTrack(track, queue: tracks);
   }
 }
 

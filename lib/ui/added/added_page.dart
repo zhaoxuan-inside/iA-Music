@@ -61,7 +61,7 @@ class AddedPage extends ConsumerWidget {
                 child: InkWell(
                   onTap: () => ref
                       .read(playbackProvider.notifier)
-                      .playTracks(recent, startIndex: i),
+                      .playTrack(t, queue: recent),
                   onLongPress: () => showTrackMenu(context, ref, t),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

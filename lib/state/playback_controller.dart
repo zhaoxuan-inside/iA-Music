@@ -28,6 +28,10 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
   Future<void> playTracks(List<Track> tracks, {int startIndex = 0, bool? shuffle}) =>
       _service.playTracks(tracks, startIndex: startIndex, shuffle: shuffle);
 
+  /// 点播：按曲目身份起播（UI 不算位置索引）。
+  Future<void> playTrack(Track start, {List<Track>? queue, bool? shuffle}) =>
+      _service.playTrack(start, queue: queue, shuffle: shuffle);
+
   Future<void> togglePlay() => _service.togglePlay();
   Future<void> next() => _service.next();
   Future<void> previous() => _service.previous();

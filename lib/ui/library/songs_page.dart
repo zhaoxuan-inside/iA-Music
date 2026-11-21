@@ -36,13 +36,8 @@ class _Header extends _Slot {
 }
 
 class _Song extends _Slot {
-  const _Song(this.track, this.sourceIndex);
+  const _Song(this.track);
   final Track track;
-
-  /// 该曲在 [tracks]（titleNorm 排序）中的真实索引。点播起播索引必须
-  /// 对齐这份列表：拼音分组会重排（SQL 按 titleNorm 码点序、组序却是
-  /// 拼音首字母首现序），展平序号与之不等，误用会点谁播谁都错位。
-  final int sourceIndex;
 }
 
 /// 曲库列表尾部的「音乐页」入口。
@@ -92,18 +87,19 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     final edge = edgeInsets(context);
 
     // 一遍遍历建槽：组头按字母首现顺序插入（与原分组 map 等价，字母轨
-    // 行为不变）；歌曲槽携带源索引而非展平序号——见 [_Song.sourceIndex]。
+    // 行为不变）。点播不依赖任何定位——UI 只交出被点的曲目，按 id 对位
+    // 收口在服务层 [PlaybackService.playTrack]。
     final headerSlots = <String, int>{};
     final letters = <String>[];
     final slots = <_Slot>[];
-    for (var i = 0; i < tracks.length; i++) {
-      final key = letterKey(tracks[i].title);
+    for (final t in tracks) {
+      final key = letterKey(t.title);
       if (!headerSlots.containsKey(key)) {
         headerSlots[key] = slots.length;
         letters.add(key);
         slots.add(_Header(key));
       }
-      slots.add(_Song(tracks[i], i));
+      slots.add(_Song(t));
     }
     slots.add(const _MusicPageEntry());
     _headerSlots = headerSlots;
@@ -178,7 +174,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                         ),
                       ),
                     ),
-                    _Song(:final track, :final sourceIndex) => SongRow(
+                    _Song(:final track) => SongRow(
                       track: track,
                       leading: CoverArt(
                         track: track,
@@ -189,7 +185,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                       missing: track.missing,
                       onTap: () => ref
                           .read(playbackProvider.notifier)
-                          .playTracks(tracks, startIndex: sourceIndex),
+                          .playTrack(track, queue: tracks),
                       onLongPress: () => showTrackMenu(context, ref, track),
                     ),
                     _MusicPageEntry() => BigRow(

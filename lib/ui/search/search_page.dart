@@ -200,13 +200,9 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                               isPlaying: playingId == t.id,
                               isLiked: favs.contains(t.id),
                               missing: t.missing,
-                              onTap: () {
-                                final qi = hitTracks.indexOf(t);
-                                ref
-                                    .read(playbackProvider.notifier)
-                                    .playTracks(hitTracks,
-                                        startIndex: qi < 0 ? 0 : qi);
-                              },
+                              onTap: () => ref
+                                  .read(playbackProvider.notifier)
+                                  .playTrack(t, queue: hitTracks),
                               onLongPress: () => showTrackMenu(context, ref, t),
                             ),
                         ],

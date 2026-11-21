@@ -773,7 +773,7 @@ class _QueuePane extends ConsumerWidget {
             child: InkWell(
               onTap: () => ref
                   .read(playbackProvider.notifier)
-                  .playTracks(snap.queue, startIndex: i),
+                  .playTrack(snap.queue[i], queue: snap.queue),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: IaSpacing.s,

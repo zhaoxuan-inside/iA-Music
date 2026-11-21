@@ -223,7 +223,7 @@ class DetailPage extends ConsumerWidget {
                           isLiked: favs.contains(tracks[i].id),
                           onTap: () => ref
                               .read(playbackProvider.notifier)
-                              .playTracks(tracks, startIndex: i),
+                              .playTrack(tracks[i], queue: tracks),
                           onLongPress: () => type == DetailType.playlist
                               ? _playlistTrackMenu(
                                   context, ref, int.tryParse(id) ?? 0, tracks[i])

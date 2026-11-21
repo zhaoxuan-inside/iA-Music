@@ -70,6 +70,15 @@ class PlaybackService {
 
   // ── 对 UI 的命令面 ───────────────────────────────────────────────────
 
+  /// 点播入口：按曲目身份起播——UI 只交出被点的那首，不算任何位置索引。
+  /// [queue] 缺省单曲队列；给了则以它为整批队列，[start] 按 id 对位后走
+  /// [playTracks]（对位→可播索引映射、缺失行顺延都在那一层收口）。
+  Future<void> playTrack(Track start, {List<Track>? queue, bool? shuffle}) async {
+    final list = queue ?? <Track>[start];
+    final i = list.indexWhere((t) => t.id == start.id);
+    await playTracks(list, startIndex: i < 0 ? 0 : i, shuffle: shuffle);
+  }
+
   /// 播放一批曲目（[startIndex] 起播；shuffle=保留起始曲、其余洗牌）。
   ///
   /// [startIndex] 是调用方列表的索引——列表可能含缺失/损坏行，过滤后

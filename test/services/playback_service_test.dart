@@ -121,6 +121,34 @@ void main() {
     expect(service.snapshot.current?.id, tracks[2].id);
   });
 
+  test('playTrack：按曲目身份起播，队列顺序无关', () async {
+    final shuffled = [tracks[3], tracks[1], tracks[0], tracks[2]];
+    await service.playTrack(tracks[0], queue: shuffled);
+    expect(service.snapshot.current?.id, tracks[0].id);
+    expect(service.snapshot.queue.map((t) => t.id), shuffled.map((t) => t.id));
+  });
+
+  test('playTrack：队列含缺失行仍起播被点曲目', () async {
+    await service.playTracks(tracks, startIndex: 0);
+    engine.emit(const EngineFailed(EngineErrorCtor('broken file')));
+    await pump();
+    final bad = await db.libraryDao.trackById(tracks[0].id);
+    expect(bad?.missing, isTrue);
+    // 队列表里带一行已缺失（模拟 UI 持有的旧列表未刷新）：过滤后
+    // 其余曲目前移一位，按 id 对位不受影响
+    final stale = [bad!, tracks[1], tracks[2], tracks[3]];
+    await service.playTrack(tracks[2], queue: stale);
+    expect(service.snapshot.current?.id, tracks[2].id);
+    expect(service.snapshot.queue.map((t) => t.id),
+        [tracks[1].id, tracks[2].id, tracks[3].id]);
+  });
+
+  test('playTrack：不带队列 → 单曲队列', () async {
+    await service.playTrack(tracks[1]);
+    expect(service.snapshot.queue.map((t) => t.id), [tracks[1].id]);
+    expect(service.snapshot.current?.id, tracks[1].id);
+  });
+
   test('shuffle：起始曲固定在队首', () async {
     await service.playTracks(tracks, startIndex: 3, shuffle: true);
     expect(engine.startIndexes.single, 0);

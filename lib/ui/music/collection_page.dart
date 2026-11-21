@@ -372,7 +372,7 @@ class _SongsList extends ConsumerWidget {
           isLiked: favs.contains(t.id),
           missing: t.missing,
           onTap: () =>
-              ref.read(playbackProvider.notifier).playTracks(tracks, startIndex: i),
+              ref.read(playbackProvider.notifier).playTrack(t, queue: tracks),
           onLongPress: () => showTrackMenu(context, ref, t),
         );
       },
