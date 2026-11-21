@@ -40,26 +40,30 @@ class EnrichmentService {
 
   LibraryDao get _library => _db.libraryDao;
 
-  /// 处理一轮待补全曲目（顺序；每首独立成败）。返回采纳成功条数。
-  /// [onProgress] 上报 (当前曲, 已处理, 待处理)，供 UI 进度展示。
-  Future<int> enrichPending(
+  /// 处理一轮待补全曲目（顺序；每首独立成败）。
+  ///
+  /// 返回 (采纳成功数, 完成数)：完成 = 本轮真正写回/标记过的曲目数
+  /// （匹配成功、无候选、无匹配都算）；抛错曲目不计完成——未写回就留在
+  /// 待补全池，由调用方裁决（整轮零完成时中断，避免原地打转）。
+  /// [onProgress] 上报 (当前曲, 本轮已完成, 本轮总数)，供 UI 进度展示。
+  Future<(int, int)> enrichPending(
       {int limit = 20,
       void Function(String currentTitle, int done, int total)? onProgress}) async {
     final pending = await _library.watchNeedsEnrichment(limit: limit).first;
     var ok = 0;
-    var done = 0;
+    var completed = 0;
     for (final t in pending) {
-      done++;
-      onProgress?.call(t.title, done, pending.length);
+      onProgress?.call(t.title, completed, pending.length);
       try {
         if (await _enrichOne(t)) {
           ok++;
         }
+        completed++;
       } on Object {
-        // 单首失败不阻断整轮
+        // 单首失败不阻断整轮；未写回 → 不计完成，留在池中下次再试
       }
     }
-    return ok;
+    return (ok, completed);
   }
 
   Future<bool> _enrichOne(Track t) async {

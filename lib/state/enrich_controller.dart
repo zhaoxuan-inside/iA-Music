@@ -61,14 +61,26 @@ class EnrichController extends Notifier<EnrichState> {
       var adopted = 0;
       // 每首处理完都会标记 enrichedAt → 待补全数单调收敛；上界防意外打转。
       for (var round = 0; round < 200; round++) {
-        final ok = await svc.enrichPending(
+        final remainBefore = await library.countNeedsEnrichment();
+        final (ok, processed) = await svc.enrichPending(
           limit: 20,
-          onProgress: (title, _, _) =>
-              state = state.copyWith(currentTitle: title),
+          // 逐曲推进：批前基线（DB 权威）+ 本轮完成数；批后以 remain 校准
+          onProgress: (title, batchDone, _) => state = state.copyWith(
+              currentTitle: title, done: total - remainBefore + batchDone),
         );
         adopted += ok;
         final remain = await library.countNeedsEnrichment();
         state = state.copyWith(done: total - remain);
+        if (processed == 0) {
+          // 整轮零完成：这批全部抛错（网络不可用/文件不可读）——未写回
+          // 的曲目原样留在池里，继续循环只会原地打转，诚实中断。
+          state = state.copyWith(
+              running: false,
+              currentTitle: '',
+              lastSummary:
+                  '补全中断：连续失败（网络不可用或文件不可读？）已推进 ${total - remain}/$total');
+          return;
+        }
         if (remain == 0) {
           break;
         }
