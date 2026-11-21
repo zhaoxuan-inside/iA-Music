@@ -915,6 +915,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.1.0"
+  quickjs_engine:
+    dependency: "direct main"
+    description:
+      name: quickjs_engine
+      sha256: "76fd249a53e5505111596231d4667c464bb8f19d029dde53f5d13f37b6a6bffb"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.1.7"
   recase:
     dependency: transitive
     description:

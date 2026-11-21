@@ -36,6 +36,7 @@ dependencies:
   just_audio_background: ^0.0.1-beta.17
   audio_service: ^0.18.19
   audio_session: ^0.2.4
+  quickjs_engine: ^0.1.7
 dev_dependencies:
   flutter_test:
     sdk: flutter

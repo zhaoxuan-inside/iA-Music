@@ -60,6 +60,12 @@ class SettingsPage extends ConsumerWidget {
               zuneRoute<void>(builder: (_) => const ExtractPage())),
         ),
         BigRow(
+          title: '插件',
+          subtitle: '市场 · 本地导入 · 外部平台能力',
+          onTap: () => Navigator.of(context).push(
+              zuneRoute<void>(builder: (_) => const PluginsPage())),
+        ),
+        BigRow(
           title: '关于',
           subtitle: '语言 · 开箱仪式',
           onTap: () => Navigator.of(context).push(

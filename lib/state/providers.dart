@@ -55,12 +55,19 @@ final coverFetchProvider = Provider<CoverFetchPort>((ref) {
 final settingsServiceProvider =
     Provider<SettingsService>((ref) => SettingsService(ref.watch(dbProvider).settingsDao));
 
-/// 应用私有目录集（covers / lyrics 兜底缓存）。
+/// 应用私有目录集（covers / lyrics 兜底缓存 + plugins 插件根目录）。
 class CacheDirs {
-  const CacheDirs({required this.covers, required this.lyrics});
+  const CacheDirs({
+    required this.covers,
+    required this.lyrics,
+    required this.plugins,
+  });
 
   final String covers;
   final String lyrics;
+
+  /// 插件根目录（registry.json / `<id>`/main.js / `<id>`/kv.json）。
+  final String plugins;
 }
 
 final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
@@ -69,9 +76,11 @@ final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
   final dirs = CacheDirs(
     covers: '${support.path}${Platform.pathSeparator}covers',
     lyrics: '${support.path}${Platform.pathSeparator}lyrics',
+    plugins: '${support.path}${Platform.pathSeparator}plugins',
   );
   await Directory(dirs.covers).create(recursive: true);
   await Directory(dirs.lyrics).create(recursive: true);
+  await Directory(dirs.plugins).create(recursive: true);
   return dirs;
 });
 

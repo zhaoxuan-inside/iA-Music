@@ -17,6 +17,7 @@ import '../../state/collect_providers.dart';
 import '../../state/diagnostics.dart';
 import '../../state/enrich_controller.dart';
 import '../../state/library_providers.dart';
+import '../../state/plugin_providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
@@ -698,6 +699,246 @@ class _PlatformRow extends ConsumerWidget {
         },
       ),
     ]);
+  }
+}
+
+/// 插件子页：市场安装 / 本地导入 / 启停 / 卸载（docs/PLUGIN.md）。
+/// 宿主零平台代码——外部平台能力全部来自这里安装的插件。
+class PluginsPage extends ConsumerStatefulWidget {
+  const PluginsPage({super.key});
+
+  @override
+  ConsumerState<PluginsPage> createState() => _PluginsPageState();
+}
+
+class _PluginsPageState extends ConsumerState<PluginsPage> {
+  final _marketCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    ref.read(marketUrlProvider.future).then((url) {
+      if (mounted && url.isNotEmpty && _marketCtrl.text.isEmpty) {
+        _marketCtrl.text = url;
+        ref.read(pluginsProvider.notifier).refreshMarket(url);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _marketCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final st = ref.watch(pluginsProvider);
+    final edge = edgeInsets(context);
+
+    return Scaffold(
+      backgroundColor: IaColors.canvas,
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
+          children: [
+            const _SubHeader(title: '插件'),
+            const SizedBox(height: IaSpacing.xl),
+            const Text('外部平台能力全部来自插件——宿主不内置任何平台调用',
+                style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+            const SizedBox(height: IaSpacing.m),
+            if (st.message.isNotEmpty) ...[
+              Text(st.message,
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context)
+                          .extension<IaPalette>()!
+                          .accent)),
+              const SizedBox(height: IaSpacing.s),
+            ],
+            // ── 已安装 ──
+            const SectionLabel('已安装'),
+            if (st.installed.isEmpty)
+              const Text('还没有插件——从市场安装、粘贴 URL，或把 .plugin.js 放进插件目录后点「扫描导入」',
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+            for (final p in st.installed) ...[
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: IaSpacing.s),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('${p.manifest.name} ${p.manifest.version}',
+                              style: const TextStyle(
+                                  fontSize: IaType.list,
+                                  color: IaColors.textHi)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${p.manifest.id} · ${p.manifest.capabilities.join("/")}'
+                            '${p.manifest.author.isEmpty ? '' : ' · ${p.manifest.author}'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: IaColors.textLow),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: p.enabled,
+                      onChanged: st.busy
+                          ? null
+                          : (v) => ref
+                              .read(pluginsProvider.notifier)
+                              .setEnabled(p.manifest.id, v),
+                    ),
+                    TextButton(
+                      onPressed: st.busy
+                          ? null
+                          : () => ref
+                              .read(pluginsProvider.notifier)
+                              .uninstall(p.manifest.id),
+                      child: const Text('卸载',
+                          style: TextStyle(
+                              fontSize: 12, color: IaColors.error)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: IaSpacing.s),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: st.busy
+                      ? null
+                      : () =>
+                          ref.read(pluginsProvider.notifier).importLocal(),
+                  child: Text(st.busy ? '处理中…' : '扫描导入',
+                      style: TextStyle(
+                          fontSize: 12.5, color: Theme.of(context).extension<IaPalette>()!.accent)),
+                ),
+              ],
+            ),
+            const SizedBox(height: IaSpacing.l),
+            // ── 插件市场 ──
+            const SectionLabel('插件市场'),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: IaSpacing.m, vertical: IaSpacing.s),
+              decoration: BoxDecoration(
+                  border: Border.all(color: IaColors.hairlineStrong)),
+              child: TextField(
+                controller: _marketCtrl,
+                style: const TextStyle(
+                    fontSize: 12.5, color: IaColors.textHi),
+                decoration: const InputDecoration(
+                  hintText: '市场索引 JSON 的 URL（可自建仓库）',
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: IaSpacing.s),
+            TextButton(
+              onPressed: st.busy
+                  ? null
+                  : () => ref
+                      .read(pluginsProvider.notifier)
+                      .refreshMarket(_marketCtrl.text),
+              child: Text('刷新市场',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      color: Theme.of(context).extension<IaPalette>()!.accent)),
+            ),
+            for (final e in st.market) ...[
+              const SizedBox(height: IaSpacing.s),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${e.name} ${e.version}',
+                            style: const TextStyle(
+                                fontSize: IaType.list,
+                                color: IaColors.textHi)),
+                        if (e.notes.isNotEmpty)
+                          Text(e.notes,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  fontSize: 11, color: IaColors.textLow)),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: st.busy
+                        ? null
+                        : () => ref
+                            .read(pluginsProvider.notifier)
+                            .installFromMarket(e),
+                    child: const Text('安装',
+                        style: TextStyle(fontSize: 12.5)),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: IaSpacing.l),
+            // ── 本地导入 ──
+            const SectionLabel('本地导入'),
+            const Text('粘贴单个 .plugin.js 文件的 URL 安装；或把文件放进插件目录后点上方「扫描导入」',
+                style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+            const SizedBox(height: IaSpacing.s),
+            TextButton(
+              onPressed: st.busy
+                  ? null
+                  : () {
+                      final ctrl = TextEditingController();
+                      showDialog<void>(
+                        context: context,
+                        builder: (dialogCtx) => AlertDialog(
+                          backgroundColor: IaColors.canvas,
+                          title: const Text('从 URL 安装插件',
+                              style: TextStyle(fontSize: 15)),
+                          content: TextField(
+                            controller: ctrl,
+                            autofocus: true,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: IaColors.textHi),
+                            decoration: const InputDecoration(
+                                hintText: 'https://…/xxx.plugin.js'),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(dialogCtx).pop(),
+                              child: const Text('取消'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(dialogCtx).pop();
+                                ref
+                                    .read(pluginsProvider.notifier)
+                                    .installFromUrl(ctrl.text);
+                              },
+                              child: const Text('安装'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+              child: Text('从 URL 安装…',
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      color: Theme.of(context).extension<IaPalette>()!.accent)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
