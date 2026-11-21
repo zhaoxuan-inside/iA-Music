@@ -1,4 +1,5 @@
-/// 沉浸播放页：pivot（播放|歌词|队列）+ 整页横滑切歌 + 歌词沉浸 + 队列编辑。
+/// 沉浸播放页：pivot（播放|歌词|队列）+ 三屏横滑换页 + 播放屏竖滑切歌 +
+/// 歌词沉浸 + 队列编辑。
 ///
 /// Zune HD 的做法：不套一层「播放器卡片」，而是让封面、倒影、环境光
 /// 直接成为页面；控制只保留细线、细字与一个 accent 圆环。
@@ -94,13 +95,17 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
                     }
                     final dx = d.localPosition.dx - _panStart!.dx;
                     final dy = d.localPosition.dy - _panStart!.dy;
-                    // 播放屏下滑退出（与系统返回等价）。
-                    if (_pane == 0 && dy > 70 && dy.abs() > dx.abs() * 1.4) {
+                    // 播放屏竖滑切歌：上滑下一首，下滑上一首（退出走系统返回）。
+                    if (_pane == 0 &&
+                        dy.abs() > 70 &&
+                        dy.abs() > dx.abs() * 1.4) {
                       _swiped = true;
-                      Navigator.of(context).maybePop();
+                      dy < 0
+                          ? ref.read(playbackProvider.notifier).next()
+                          : ref.read(playbackProvider.notifier).previous();
                       return;
                     }
-                    // 三屏统一：左右横滑切换 播放/歌词/队列（切歌走队列与播放控件）。
+                    // 三屏统一：左右横滑切换 播放/歌词/队列。
                     if (dx.abs() > 72 && dx.abs() > dy.abs() * 1.5) {
                       _swiped = true;
                       setState(() {
