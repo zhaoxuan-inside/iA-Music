@@ -1,8 +1,21 @@
-# iA-Music 插件规范 v0.1
+# iA-Music 插件规范 v0.2
 
-> 原则：宿主不内置任何第三方平台代码；一切外部平台能力由**用户安装的插件**提供。
+> 原则：宿主不内置任何第三方平台代码；一切外部能力由**用户安装的插件**提供。
 > 插件 = 单文件 JS 脚本，运行在宿主内的 QuickJS 沙箱，只经能力桥访问受控资源。
+> 本规范与具体平台无关——B站/YouTube/播客/网盘直链都只是 `source` 能力的实现者。
 > 借鉴：Dify 插件（市场 + 清单）、Legado 书源（用户自备源）、Greasemonkey（单文件分发）。
+
+## 0. 分层：什么与场景有关，什么无关
+
+| 层 | 泛化性 | 说明 |
+|---|---|---|
+| 包格式（.plugin.js + manifest） | ✅ 完全泛化 | 任何功能的插件都长一个样 |
+| 能力桥 `IA.*`（fetch/crypto/kv/log） | ✅ 完全泛化 | 沙箱内唯一的世界接口，与业务无关 |
+| 注册表 / 市场 / 生命周期 / 安全模型 | ✅ 完全泛化 | 安装、启停、更新、凭据沙箱对一切插件一致 |
+| **能力契约（capabilities）** | ⚙️ 按域定义 | 每类功能一个契约（§3）；宿主按契约调插件 |
+
+**插件规范 ≠ 某个平台的接入规范。** 平台差异被压缩在"某个能力的一个插件实现"里；
+同一能力可以有任意多个插件（多源共存、用户自选启用）。
 
 ## 1. 插件包格式
 
@@ -13,8 +26,8 @@
 ```js
 /*!
 {
-  "id": "com.example.bilibili",
-  "name": "B 站音频源",
+  "id": "com.example.demo",
+  "name": "示例音频源",
   "version": "1.0.0",
   "api": 1,
   "capabilities": ["source"],
@@ -32,64 +45,80 @@
 | `name` | ✓ | 展示名 |
 | `version` | ✓ | semver；更新判定 = 市场版本更高 且 sha256 不同 |
 | `api` | ✓ | 宿主桥协议版本（本规范 = 1）；不匹配拒绝激活 |
-| `capabilities` | ✓ | 声明的能力列表（见 §2）；宿主只激活**已知**能力 |
+| `capabilities` | ✓ | 声明的能力列表（§3）；宿主只激活**已知**能力 |
 | `author` / `homepage` / `notes` |   | 展示用 |
 
-## 2. 能力（capabilities）
-
-宿主按能力激活插件入口函数；未知能力不激活也不报错（诚实降级）。
-
-| 能力 | 入口函数（全局 async） | 状态 |
-|---|---|---|
-| `source` | `search(query, opts)` / `resolve(id)` / `lyrics(id)` / `auth()` | v1 实现 |
-| `lyrics-provider` | 预留 | 未实现 |
-| `audio-provider` | 预留 | 未实现 |
-
-`source` 契约：
-
-```js
-async function search(query, opts)   // → [{ id, title, artist, durationSec, extra? }]
-async function resolve(id)           // → { url, ext, bitrate?, headers? }（直链音频流）
-async function lyrics(id)            // → { synced?, plain? } | null
-async function auth()                // → { kind: "none" | "qr" | "cookie", … }
-//   qr:     { kind:"qr", qrUrl, poll(): Promise<{state:"waiting"|"scanned"|"expired"|"success"|"error", message?}> }
-//   cookie: { kind:"cookie", check(header): Promise<{ok, user?}> }
-```
-
-## 3. 能力桥（宿主注入的 `IA` 运行时）
+## 2. 能力桥 `IA.*`（所有能力共用，与业务无关）
 
 沙箱内**没有** `dart:io` / 文件系统 / 原生库。插件只能通过桥做四类事：
 
-| 桥 | 签名 | 实现 |
+| 桥 | 签名 | 权限语义 |
 |---|---|---|
-| 网络 | `await IA.fetch({ url, method?, headers?, body? })` → `{ status, headers, body }`（body 为文本） | 宿主 HttpClient（经 download_guard 审计）；二进制流不进沙箱 |
-| 加密 | `IA.md5(s)` / `IA.sha256(s)` / `IA.hmacSha256(key, s)` | crypto 包，同步通道 |
-| 凭据沙箱 | `await IA.kvGet(key)` / `await IA.kvSet(key, value)` | 每插件独立 KV 文件，**宿主不读取不展示**；凭据自知原则 |
+| 网络 | `await IA.fetch({ url, method?, headers?, body? })` → `{ status, headers, body }`（body 为文本） | 访问外部网络；二进制流不进沙箱 |
+| 加密 | `IA.md5(s)` / `IA.sha256(s)` / `IA.hmacSha256(key, s)` | 纯计算 |
+| 凭据沙箱 | `await IA.kvGet(key)` / `await IA.kvSet(key, value)` | 每插件独立 KV 文件，**宿主不读取不展示** |
 | 日志 | `IA.log(...)` | 诊断流（设置 · 诊断可查） |
 
-实现约束：`fetch`/`kv` 为异步（Promise + 宿主回调完成）；`crypto` 为同步通道。沙箱无 `setTimeout` 计时器注入时轮询由宿主驱动。
+实现约束：`fetch`/`kv` 为异步（Promise + 宿主回调完成）；`crypto` 为同步通道。
+桥协议由 `api` 字段锁版本——新增桥面 = 提升 api 主版本，旧插件保持可运行。
+
+## 3. 能力元模型（本规范泛化性的核心）
+
+**能力（capability）= 一份有名有版本的函数契约**，不是某个平台的接入指南：
+
+```
+capability := {
+  name:        "source"                  # 全局唯一，小写
+  version:     1                         # 契约自身版本（与插件 api 版本独立演进）
+  entries:     [ search, resolve, … ]    # 宿主可调用的全局 async 函数
+  dataShapes:  { … }                     # 入参/出参的数据形状（JSON Schema 风格）
+  permissions: [network, kv]             # 契约要求的最小桥权限
+}
+```
+
+统一约定（**所有能力必须遵守**，宿主据此做通用包装）：
+
+1. **入口全部是全局 async 函数**，参数与返回值皆 JSON 可序列化；返回 `undefined` 视为 `null`。
+2. **错误协议**：抛错 → 宿主收到字符串消息；不重试语义由能力契约自行定义。
+3. **列表分页**：返回多于一条的入口用 `{ items, cursor? }`；`cursor` 透传回下一页调用。
+4. **凭据**：一律走 `IA.kv`，不进 manifest、不进日志；`auth` 系入口负责写沙箱。
+5. **限速友好**：契约可声明 `rateHint`（建议间隔 ms），宿主队列据此节流。
+6. **未知能力不激活也不报错**——插件可携带未来能力先行分发（诚实降级）。
+
+### 3.1 能力族谱（按域扩展；宿主每实现一个，就点亮一行）
+
+| 能力 | 职责 | 关键入口 | 状态 |
+|---|---|---|---|
+| `source` | **音频源**：登录态、搜索、解析音频直链、附赠歌词 | `auth` / `search(q,opts)` / `resolve(id)` / `lyrics(id)` | **v0.2 已实现**（B站/YouTube/播客/网盘直链都是它的实现者） |
+| `lyrics` | **歌词源**：按 元数据 → 歌词文本（与音频无关） | `search(title, artist, durMs)` | 预留 |
+| `metadata` | **元数据补全源**：时长锚定/指纹线索 → 歌名歌手封面 | `match(clue)` | 预留（补全管线可插拔替换在线匹配链） |
+| `playlist-import` | **歌单导入源**：清单 URL → 曲目列表（标题/歌手/线索） | `list(url, cursor)` | 预留 |
+| `streaming` | **在线流播放源**：不经本地文件的流式播放会话 | `open(id) → session` | 预留 |
+
+新增能力 = 在宿主注册新契约 + 对应域的接线（如 `metadata` 接补全管线），
+**不改动**包格式、桥、注册表、市场——这是规范稳定性的边界。
 
 ## 4. 生命周期与安装来源
 
-- **本地导入**：把 `.plugin.js` 放进应用插件目录（设置 · 插件 → 打开目录），点「扫描导入」；或直接粘贴文件 URL 安装。
-- **插件市场**：市场 = 一个**索引 JSON URL**（用户可配置，可指向自建仓库）。格式：
+- **本地导入**：把 `.plugin.js` 放进应用插件目录（设置 · 插件 → 扫描导入）；或粘贴文件 URL 安装。
+- **插件市场**：市场 = 一个**索引 JSON URL**（用户可配置，可指向自建仓库；宿主不内置默认市场、不点名平台）：
 
 ```json
 {
   "api": 1,
   "name": "示例插件市场",
   "plugins": [
-    { "id": "com.example.bilibili", "name": "B 站音频源", "version": "1.0.0",
-      "capabilities": ["source"], "file": "https://…/bilibili.plugin.js",
+    { "id": "com.example.demo", "name": "示例音频源", "version": "1.0.0",
+      "capabilities": ["source"], "file": "https://…/demo.plugin.js",
       "sha256": "…", "homepage": "…", "notes": "…" }
   ]
 }
 ```
 
 安装流程：下载文件 → 校验 `sha256`（索引提供时）→ 静态解析 manifest → 一致性校验 → 写入 `<pluginsDir>/<id>/main.js` → 注册表登记（默认启用）。
+
 - **更新**：市场版本更高即提示；替换文件前校验新 manifest 的 `id` 不变。
-- **卸载**：删除插件目录（含 KV 沙箱）+ 注销。
-- **禁用**：仅停用，文件与凭据保留。
+- **卸载**：删除插件目录（含 KV 沙箱）+ 注销。**禁用**：仅停用，文件与凭据保留。
 
 ## 5. 存储布局
 
@@ -104,18 +133,24 @@ async function auth()                // → { kind: "none" | "qr" | "cookie", �
 ## 6. 安全模型（诚实边界）
 
 1. 沙箱 = QuickJS（无 dart:io / 无进程 / 无原生）；插件逃不出能力桥。
-2. 能力按 manifest 声明收口；v1 全部能力默认授予（用户主动安装即信任），后续引入逐能力授权 UI。
+2. 能力按 manifest 声明收口；v0.2 全部能力默认授予（用户主动安装即信任），
+   后续引入按 `permissions` 逐能力授权 UI（§3 的 permissions 字段已为它预留）。
 3. 凭据只存在于插件自己的 KV，宿主 UI 不展示、不导出（沿用「凭据自知」）。
 4. 市场索引不带签名也可用；提供 `sha256` 则安装时强校验。供应链责任在市场维护者，宿主诚实呈现来源。
 5. 插件崩溃/超时（默认 30s/次调用）不影响宿主，异常进诊断流。
+6. **宿主中立性**：宿主不内置任何平台插件、不预设市场、文案不点名平台——
+   平台知识 100% 存在于用户安装的插件里。
 
-## 7. 宿主集成点
+## 7. 宿主集成点（按能力接线，互不影响）
 
-- `collect_service` 提取队列经 `SourcePluginPort` 调插件（替代内置客户端的调用面）。
-- 收集页平台行、站内搜索按已装 `source` 插件枚举。
-- 宿主自带的 B站/YouTube 内置客户端将在插件运行时于真机验证后移除（迁移期并存）。
+- `source` → 提取队列与站内搜索（`collect_service` 走 `SourcePluginPort` 调插件）。
+- `metadata` → 补全管线（`EnrichmentService` 的在线匹配链可插拔）。
+- `lyrics` / `playlist-import` / `streaming` → 各自域接线，随实现点亮。
+- 收集页平台行按**已装且已启用**的对应能力插件枚举，不再硬编码平台。
 
 ## 8. 参考实现
 
 `plugins/` 目录存放参考插件（也是桥协议的活文档）：
-- `demo-source.plugin.js` —— 最小 source 插件：fetch 桥 + kv 沙箱 + crypto 签名演示。
+- `demo-source.plugin.js` —— 最小 `source` 插件：fetch 桥 + kv 沙箱 + crypto 签名演示。
+
+新能力落地时的最小验收 = 该能力契约条目的入口函数能被宿主按 §3 统一约定调用成功。
