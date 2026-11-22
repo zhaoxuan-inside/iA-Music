@@ -125,14 +125,29 @@ class TrackPlays {
   final int plays;
 }
 
-/// 补全阶段进度行（done = 已结论条数；total = 已结论 + 待处理）。
+/// 补全阶段进度行（三态：成功=结论性已处理；失败=连续硬失败耗尽；其余待处理）。
 class EnrichStage {
-  const EnrichStage(this.label, this.done, this.total);
+  const EnrichStage(this.label, this.done, this.failed, this.total);
 
   final String label;
+
+  /// 成功条数（进度条从左往右，绿色）。
   final int done;
+
+  /// 失败条数（进度条从右往左，红色）。
+  final int failed;
+
+  /// 总盘 = 成功 + 失败 + 待处理。
   final int total;
 
-  /// 0..1 进度（总盘为空视为已完成——无事可做）。
-  double get fraction => total <= 0 ? 1.0 : (done / total).clamp(0.0, 1.0);
+  /// 成功占比 0..1（总盘为空视为已完成——无事可做）。
+  double get successFraction =>
+      total <= 0 ? 1.0 : (done / total).clamp(0.0, 1.0);
+
+  /// 失败占比 0..1。
+  double get failedFraction =>
+      total <= 0 ? 0.0 : (failed / total).clamp(0.0, 1.0);
+
+  /// 待处理条数（中段灰）。
+  int get pending => (total - done - failed).clamp(0, total);
 }

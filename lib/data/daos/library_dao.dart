@@ -349,38 +349,53 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   /// 耗尽行（连续失败 ≥3）不计入待处理——总盘随之收缩，进度条可走满。
   Stream<List<EnrichStage>> watchEnrichStages() {
     final alive = tracks.missingAt.isNull();
+    // 耗尽行（连续硬失败 ≥3）：三态进度里的「失败」桶
+    final exhausted = tracks.needsMeta.equals(true) &
+        tracks.enrichAttempts.isBiggerOrEqualValue(3) &
+        alive;
+    // 歌名
     final titleDone =
         tracks.id.count(filter: alive & tracks.titleMatchedAt.isNotNull());
+    final titleFailed =
+        tracks.id.count(filter: exhausted & tracks.titleMatchedAt.isNull());
     final titleTotal = tracks.id.count(
         filter: alive &
-            (tracks.titleMatchedAt.isNotNull() |
-                (tracks.needsMeta.equals(true) &
-                    tracks.enrichAttempts.isSmallerThanValue(3))));
+            (tracks.titleMatchedAt.isNotNull() | tracks.needsMeta.equals(true)));
+    // 歌手
     final artistDone =
         tracks.id.count(filter: alive & tracks.artistMatchedAt.isNotNull());
+    final artistFailed = tracks.id.count(
+        filter: exhausted &
+            tracks.artist.equals('') &
+            tracks.artistMatchedAt.isNull());
     final artistTotal = tracks.id.count(
         filter: alive &
             (tracks.artistMatchedAt.isNotNull() |
-                (tracks.artist.equals('') &
-                    tracks.needsMeta.equals(true) &
-                    tracks.enrichAttempts.isSmallerThanValue(3))));
-    final lyricsDone = tracks.id.count(filter: alive & tracks.lyricsAt.isNotNull());
+                (tracks.needsMeta.equals(true) & tracks.artist.equals(''))));
+    // 歌词
+    final lyricsDone =
+        tracks.id.count(filter: alive & tracks.lyricsAt.isNotNull());
+    final lyricsFailed =
+        tracks.id.count(filter: exhausted & tracks.lyricsAt.isNull());
     final lyricsTotal = tracks.id.count(
         filter: alive &
-            (tracks.lyricsAt.isNotNull() |
-                (tracks.needsMeta.equals(true) &
-                    tracks.enrichAttempts.isSmallerThanValue(3))));
+            (tracks.lyricsAt.isNotNull() | tracks.needsMeta.equals(true)));
     final q = selectOnly(tracks)
       ..addColumns([
-        titleDone, titleTotal, artistDone, artistTotal, lyricsDone, lyricsTotal,
+        titleDone, titleFailed, titleTotal,
+        artistDone, artistFailed, artistTotal,
+        lyricsDone, lyricsFailed, lyricsTotal,
       ]);
     return q.watch().map((rows) {
       final r = rows.isEmpty ? null : rows.first;
       int read(Expression<int> e) => r == null ? 0 : (r.read(e) ?? 0);
       return [
-        EnrichStage('歌名处理', read(titleDone), read(titleTotal)),
-        EnrichStage('歌手处理', read(artistDone), read(artistTotal)),
-        EnrichStage('歌词处理', read(lyricsDone), read(lyricsTotal)),
+        EnrichStage('歌名处理', read(titleDone), read(titleFailed),
+            read(titleTotal)),
+        EnrichStage('歌手处理', read(artistDone), read(artistFailed),
+            read(artistTotal)),
+        EnrichStage('歌词处理', read(lyricsDone), read(lyricsFailed),
+            read(lyricsTotal)),
       ];
     });
   }

@@ -484,7 +484,8 @@ class ExtractPage extends ConsumerWidget {
             const SizedBox(height: IaSpacing.l),
             const SectionLabel('补全进度（元数据三阶段）'),
             const SizedBox(height: IaSpacing.s),
-            Text('缺失歌名 / 歌手的曲目自动入队，逐条给出三阶段结论；进度已落库，中断重启不从头',
+            Text('缺失歌名 / 歌手的曲目自动入队，逐条给出三阶段结论；进度已落库，中断重启不从头。'
+                '绿从左进=成功 · 红从右进=失败 · 中灰=待处理',
                 style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
             const SizedBox(height: IaSpacing.m),
             const _EnrichSection(),
@@ -508,7 +509,8 @@ class _EnrichSection extends ConsumerWidget {
     final p = Theme.of(context).extension<IaPalette>()!;
 
     Widget stageRow(EnrichStage s) {
-      final complete = s.total > 0 && s.done >= s.total;
+      // 三态条：底灰=待处理；成功绿从左往右；失败红从右往左。
+      const okGreen = Color(0xFF60A917);
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: IaSpacing.s),
         child: Column(
@@ -521,19 +523,28 @@ class _EnrichSection extends ConsumerWidget {
                       style: const TextStyle(
                           fontSize: IaType.list, color: IaColors.textHi)),
                 ),
-                Text('${s.done}/${s.total}',
+                Text('成 ${s.done} · 败 ${s.failed} · 待 ${s.pending}',
                     style: TextStyle(
                         fontSize: 12,
-                        color: complete ? p.accent : IaColors.textLow)),
+                        color: s.total > 0 && s.pending == 0 && s.failed == 0
+                            ? okGreen
+                            : IaColors.textLow)),
               ],
             ),
             const SizedBox(height: IaSpacing.s),
             Stack(
               children: [
-                Container(height: 2, color: IaColors.hairlineStrong),
+                Container(height: 6, color: IaColors.hairlineStrong),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: s.failedFraction,
+                    child: Container(height: 6, color: IaColors.error),
+                  ),
+                ),
                 FractionallySizedBox(
-                  widthFactor: s.fraction,
-                  child: Container(height: 2, color: p.accent),
+                  widthFactor: s.successFraction,
+                  child: Container(height: 6, color: okGreen),
                 ),
               ],
             ),
@@ -781,7 +792,7 @@ class _TraceLogBlock extends ConsumerWidget {
                     style: TextStyle(
                         fontSize: IaType.list, color: IaColors.textHi)),
               ),
-              Switch(
+              WpSwitch(
                 value: trace.enabled,
                 onChanged: (v) =>
                     ref.read(traceLogProvider.notifier).setEnabled(v),
@@ -914,7 +925,7 @@ class _PluginsPageState extends ConsumerState<PluginsPage> {
                         ],
                       ),
                     ),
-                    Switch(
+                    WpSwitch(
                       value: p.enabled,
                       onChanged: st.busy
                           ? null
