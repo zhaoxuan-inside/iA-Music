@@ -19,6 +19,7 @@ import '../domain/ports/engine_port.dart';
 import '../domain/ports/lyrics_port.dart';
 import '../domain/ports/metadata_port.dart';
 import '../services/covers/cover_chain.dart';
+import '../services/log/log_file_writer.dart';
 import '../services/lyrics/lyrics_pipeline.dart';
 import '../services/playback/playback_service.dart';
 import '../services/scan/root_watcher.dart';
@@ -55,12 +56,24 @@ final coverFetchProvider = Provider<CoverFetchPort>((ref) {
 final settingsServiceProvider =
     Provider<SettingsService>((ref) => SettingsService(ref.watch(dbProvider).settingsDao));
 
-/// 应用私有目录集（covers / lyrics 兜底缓存 + plugins 插件根目录）。
+/// 追踪日志文件写入器（`<logs>/trace.log`，≤100MB 滚动）。
+final logFileWriterProvider = FutureProvider<LogFileWriter>((ref) async {
+  final dirs = await ref.watch(cacheDirsProvider.future);
+  return LogFileWriter(dir: dirs.logs);
+});
+
+/// 日志文件路径（关于页展示用）。
+final logFilePathProvider = FutureProvider<String>((ref) async {
+  return (await ref.watch(logFileWriterProvider.future)).currentPath;
+});
+
+/// 应用私有目录集（covers / lyrics 兜底缓存 + plugins 插件根目录 + logs 日志）。
 class CacheDirs {
   const CacheDirs({
     required this.covers,
     required this.lyrics,
     required this.plugins,
+    required this.logs,
   });
 
   final String covers;
@@ -68,6 +81,9 @@ class CacheDirs {
 
   /// 插件根目录（registry.json / `<id>`/main.js / `<id>`/kv.json）。
   final String plugins;
+
+  /// 日志目录（trace.log，≤100MB 滚动）。
+  final String logs;
 }
 
 final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
@@ -77,10 +93,12 @@ final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
     covers: '${support.path}${Platform.pathSeparator}covers',
     lyrics: '${support.path}${Platform.pathSeparator}lyrics',
     plugins: '${support.path}${Platform.pathSeparator}plugins',
+    logs: '${support.path}${Platform.pathSeparator}logs',
   );
   await Directory(dirs.covers).create(recursive: true);
   await Directory(dirs.lyrics).create(recursive: true);
   await Directory(dirs.plugins).create(recursive: true);
+  await Directory(dirs.logs).create(recursive: true);
   return dirs;
 });
 

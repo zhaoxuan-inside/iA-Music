@@ -143,6 +143,7 @@ class TraceLogController extends Notifier<TraceLogState> {
   }
 
   /// 追踪开关开启时记录；关闭期间不采集（错误仍进最近错误诊断）。
+  /// 同时追加到日志文件（≤100MB 滚动，trace.log）。
   Future<void> record(String source, Object error, [StackTrace? st]) async {
     if (!state.enabled) {
       return;
@@ -150,9 +151,10 @@ class TraceLogController extends Notifier<TraceLogState> {
     final detail = st == null
         ? '$error'
         : '$error\n${st.toString().split('\n').take(6).join('\n')}';
+    final now = DateTime.now();
     final entries = [
       ...state.entries,
-      DiagEntry(at: DateTime.now(), source: source, detail: detail),
+      DiagEntry(at: now, source: source, detail: detail),
     ];
     if (entries.length > _cap) {
       entries.removeRange(0, entries.length - _cap);
@@ -165,6 +167,11 @@ class TraceLogController extends Notifier<TraceLogState> {
     } on Object {
       // 持久化失败不阻断
     }
+    // 日志文件（滚动 100MB）：失败静默
+    unawaited(ref
+        .read(logFileWriterProvider.future)
+        .then((w) => w.writeLine('── $now · $source\n$detail\n'))
+        .catchError((Object _) {}));
   }
 
   /// 一键复制文本（关于页按钮）。

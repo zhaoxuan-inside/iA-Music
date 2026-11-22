@@ -17,6 +17,7 @@ import '../../state/diagnostics.dart';
 import '../../state/enrich_controller.dart';
 import '../../state/library_providers.dart';
 import '../../state/plugin_providers.dart';
+import '../../state/providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
@@ -806,6 +807,15 @@ class _TraceLogBlock extends ConsumerWidget {
             style: const TextStyle(fontSize: 11, color: IaColors.textLow),
           ),
           if (trace.enabled) ...[
+            const SizedBox(height: IaSpacing.s),
+            Builder(builder: (context) {
+              final path = ref.watch(logFilePathProvider).value;
+              return Text(
+                path == null ? '日志文件准备中…' : '文件：$path（≤100MB 滚动）',
+                style: const TextStyle(
+                    fontSize: 10.5, color: IaColors.textLow),
+              );
+            }),
             const SizedBox(height: IaSpacing.m),
             Row(
               children: [
