@@ -349,15 +349,15 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   /// 耗尽行（连续失败 ≥3）不计入待处理——总盘随之收缩，进度条可走满。
   Stream<List<EnrichStage>> watchEnrichStages() {
     final alive = tracks.missingAt.isNull();
-    // 耗尽行（连续硬失败 ≥3）：三态进度里的「失败」桶
-    final exhausted = tracks.needsMeta.equals(true) &
-        tracks.enrichAttempts.isBiggerOrEqualValue(3) &
+    // 失败桶：有过硬失败记录且尚未结论的行——失败即时可见，不等耗尽
+    final failedPool = tracks.needsMeta.equals(true) &
+        tracks.enrichAttempts.isBiggerOrEqualValue(1) &
         alive;
     // 歌名
     final titleDone =
         tracks.id.count(filter: alive & tracks.titleMatchedAt.isNotNull());
     final titleFailed =
-        tracks.id.count(filter: exhausted & tracks.titleMatchedAt.isNull());
+        tracks.id.count(filter: failedPool & tracks.titleMatchedAt.isNull());
     final titleTotal = tracks.id.count(
         filter: alive &
             (tracks.titleMatchedAt.isNotNull() | tracks.needsMeta.equals(true)));
@@ -365,7 +365,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     final artistDone =
         tracks.id.count(filter: alive & tracks.artistMatchedAt.isNotNull());
     final artistFailed = tracks.id.count(
-        filter: exhausted &
+        filter: failedPool &
             tracks.artist.equals('') &
             tracks.artistMatchedAt.isNull());
     final artistTotal = tracks.id.count(
@@ -376,7 +376,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     final lyricsDone =
         tracks.id.count(filter: alive & tracks.lyricsAt.isNotNull());
     final lyricsFailed =
-        tracks.id.count(filter: exhausted & tracks.lyricsAt.isNull());
+        tracks.id.count(filter: failedPool & tracks.lyricsAt.isNull());
     final lyricsTotal = tracks.id.count(
         filter: alive &
             (tracks.lyricsAt.isNotNull() | tracks.needsMeta.equals(true)));

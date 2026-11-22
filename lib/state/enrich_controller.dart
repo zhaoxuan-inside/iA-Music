@@ -74,6 +74,10 @@ class EnrichController extends Notifier<EnrichState> {
           // 逐曲推进：批前基线（DB 权威）+ 本轮完成数；批后以 remain 校准
           onProgress: (title, batchDone, _) => state = state.copyWith(
               currentTitle: title, done: total - remainBefore + batchDone),
+          // 单曲硬失败 → 诊断 + 日志追踪（真实错误原文，不是猜测文案）
+          onError: (title, e) => unawaited(ref
+              .read(diagnosticsProvider.notifier)
+              .record('补全 · $title', e)),
         );
         adopted += ok;
         final remain = await library.countNeedsEnrichment();
@@ -81,11 +85,13 @@ class EnrichController extends Notifier<EnrichState> {
         if (processed == 0) {
           // 整轮零完成：这批全部抛错（网络不可用/文件不可读）——未写回
           // 的曲目原样留在池里，继续循环只会原地打转，诚实中断。
+          final summary =
+              '补全中断：连续失败（网络不可用或文件不可读？）已推进 ${total - remain}/$total';
           state = state.copyWith(
-              running: false,
-              currentTitle: '',
-              lastSummary:
-                  '补全中断：连续失败（网络不可用或文件不可读？）已推进 ${total - remain}/$total');
+              running: false, currentTitle: '', lastSummary: summary);
+          unawaited(ref
+              .read(diagnosticsProvider.notifier)
+              .record('补全中断', summary));
           return;
         }
         if (remain == 0) {

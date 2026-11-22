@@ -84,11 +84,15 @@ void main() {
   }
 
   test('抛错曲目不标记不计完成——留在池中，进度不再卡死打转', () async {
-    final (ok, completed) = await service.enrichPending(limit: 20);
+    final errors = <String>[];
+    final (ok, completed) = await service.enrichPending(
+        limit: 20, onError: (title, e) => errors.add('$title: $e'));
     // 「坏掉的歌」抛网络错（不计完成、不标记）；「好听的歌」无候选（标记）；
     // 「投名状」高置信采纳（标记）。完成数 = 2，采纳 = 1。
     expect(ok, 1);
     expect(completed, 2);
+    expect(errors, hasLength(1), reason: '硬失败必须回调（诊断/日志追踪入口）');
+    expect(errors.single, contains('坏掉的歌'));
 
     final bad = await trackByTitle('坏掉的歌');
     expect(bad.enrichedAt, isNull, reason: '未写回 → 留在待补全池');

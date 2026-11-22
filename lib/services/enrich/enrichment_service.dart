@@ -45,10 +45,12 @@ class EnrichmentService {
   /// 返回 (采纳成功数, 完成数)：完成 = 本轮真正写回/标记过的曲目数
   /// （匹配成功、无候选、无匹配都算）；抛错曲目不计完成——未写回就留在
   /// 待补全池，由调用方裁决（整轮零完成时中断，避免原地打转）。
-  /// [onProgress] 上报 (当前曲, 本轮已完成, 本轮总数)，供 UI 进度展示。
+  /// [onProgress] 上报 (当前曲, 本轮已完成, 本轮总数)，供 UI 进度展示；
+  /// [onError] 单曲硬失败回调（带错误原文，供诊断/日志追踪）。
   Future<(int, int)> enrichPending(
       {int limit = 20,
-      void Function(String currentTitle, int done, int total)? onProgress}) async {
+      void Function(String currentTitle, int done, int total)? onProgress,
+      void Function(String title, Object error)? onError}) async {
     final pending = await _library.watchNeedsEnrichment(limit: limit).first;
     var ok = 0;
     var completed = 0;
@@ -59,9 +61,10 @@ class EnrichmentService {
           ok++;
         }
         completed++;
-      } on Object {
+      } on Object catch (e) {
         // 单首失败不阻断整轮：硬失败计数 +1（≥3 暂出池），阶段时刻不打
         // ——进度条如实停在未处理，待手动重试或网络恢复。
+        onError?.call(t.title, e);
         await _library.bumpEnrichAttempts(t.id);
       }
     }

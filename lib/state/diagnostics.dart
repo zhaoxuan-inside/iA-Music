@@ -59,6 +59,7 @@ class DiagnosticsController extends Notifier<DiagEntry?> {
   }
 
   /// 记录一条错误（覆盖上一条；同时持久化，跨重启可读）。
+  /// 日志追踪开启时同步入册（追踪开关状态由 TraceLogController 自判）。
   Future<void> record(String source, Object error, [StackTrace? st]) async {
     final detail = st == null
         ? '$error'
@@ -72,6 +73,7 @@ class DiagnosticsController extends Notifier<DiagEntry?> {
     } on Object {
       // 持久化失败不阻断
     }
+    unawaited(ref.read(traceLogProvider.notifier).record(source, error, st));
   }
 
   /// 清除（用户已读/已复制）。
@@ -187,13 +189,12 @@ class TraceLogController extends Notifier<TraceLogState> {
 final traceLogProvider =
     NotifierProvider<TraceLogController, TraceLogState>(TraceLogController.new);
 
-/// 全局挂钩：Flutter 框架异常 + 未捕获异步异常 → 诊断记录 + 日志追踪。
+/// 全局挂钩：Flutter 框架异常 + 未捕获异步异常 → 诊断记录。
+/// diagnostics.record 内部会把错误同步进日志追踪（单漏斗，避免双写）。
 /// 在 main() 的 ProviderScope 之上调用一次。
 void installDiagnostics(ProviderContainer container) {
-  void rec(String s, Object e, StackTrace? st) {
-    container.read(diagnosticsProvider.notifier).record(s, e, st);
-    unawaited(container.read(traceLogProvider.notifier).record(s, e, st));
-  }
+  void rec(String s, Object e, StackTrace? st) =>
+      container.read(diagnosticsProvider.notifier).record(s, e, st);
 
   FlutterError.onError = (details) {
     rec('Flutter', details.exception, details.stack);
