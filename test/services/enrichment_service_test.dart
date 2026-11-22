@@ -149,6 +149,39 @@ void main() {
     final t = await trackByTitle('投名状 (live)');
     expect(t.artist, '歌手', reason: '文字链接管后采纳不受指纹链影响');
   });
+
+  test('指纹链 AuthError（key 无效）→ 会话级禁用：后续曲目不再请求 AcoustID', () async {
+    var hits = 0;
+    final server = await HttpServer.bind('127.0.0.1', 0);
+    addTearDown(server.close);
+    server.listen((req) async {
+      hits++;
+      req.response.statusCode = 400;
+      req.response
+          .add(utf8.encode('{"error":{"code":4,"message":"invalid API key"}}'));
+      await req.response.close();
+    });
+    final svcFp = EnrichmentService(db, _FakeLyrics(),
+        cacheDir: cacheDir.path,
+        fingerprintPort: _FakeFpPort(),
+        acoustid: AcoustidClient(
+            apiKey: 'k', baseUrl: 'http://127.0.0.1:${server.port}'));
+
+    final soft = <String>[];
+    final (ok, completed) = await svcFp.enrichPending(
+        limit: 20,
+        onSoftError: (s, e) => soft.add('$s: $e'));
+
+    // 首曲即禁用指纹链：AcoustID 只被打 1 次（不再逐曲浪费指纹+HTTP，
+    // 千首级全库 = 小时级纯浪费）；文字链接管照常推进与采纳。
+    expect(hits, 1, reason: 'key 无效 → 会话级禁用，后续曲目直走文字链');
+    expect(soft, hasLength(1), reason: '只记一次软失败，不逐曲刷屏');
+    expect(soft.single, contains('key 无效'));
+    expect(ok, 1);
+    expect(completed, 2);
+    final t = await trackByTitle('投名状 (live)');
+    expect(t.artist, '歌手', reason: '文字链接管照常采纳');
+  });
 }
 
 /// 会吐指纹的假指纹端口（指纹链必走 AcoustID）。

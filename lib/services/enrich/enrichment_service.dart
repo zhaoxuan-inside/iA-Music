@@ -15,6 +15,7 @@ import 'package:drift/drift.dart';
 
 import '../../data/database.dart';
 import '../../domain/entities/track.dart';
+import '../../domain/errors.dart';
 import '../../domain/ports/fingerprint_port.dart';
 import '../../domain/ports/lyrics_port.dart';
 import '../acoustid/acoustid_client.dart';
@@ -33,6 +34,12 @@ class EnrichmentService {
 
   /// 本地 NLP：分词/去噪/构造候选搜索词。
   final QueryNlp nlp;
+
+  /// 指纹链本实例禁用（AcoustID key 无效等配置级致命错误后置位）：
+  /// 后续曲目直走文字链，不再逐曲浪费指纹计算 + HTTP 往返（全库千首级
+  /// 时是小时级的纯浪费）。key 是编译期常量，修正必经重启——实例级
+  /// 标志与之一致，重启自愈。
+  bool _fingerprintDisabled = false;
 
   /// 真·内容识别链：音频指纹 → AcoustID（不依赖文字线索）。
   final FingerprintPort? fingerprintPort;
@@ -78,10 +85,17 @@ class EnrichmentService {
     // 链内任何失败（如 AcoustID 400/key 无效）→ 回退文字链，绝不炸掉整曲
     // ——否则文字链永远没机会跑，所有曲目全部卡死。
     bool fpAdopted = false;
-    try {
-      fpAdopted = await _fingerprintChain(t);
-    } on Object catch (e) {
-      onSoftError?.call('补全指纹链 · ${t.title}', e);
+    if (!_fingerprintDisabled) {
+      try {
+        fpAdopted = await _fingerprintChain(t);
+      } on AuthError catch (e) {
+        // key 无效（配置级）：本实例禁用指纹链，后续曲目直走文字链；
+        // 只记一次软失败，不逐曲刷屏。
+        _fingerprintDisabled = true;
+        onSoftError?.call('补全指纹链禁用（key 无效） · ${t.title}', e);
+      } on Object catch (e) {
+        onSoftError?.call('补全指纹链 · ${t.title}', e);
+      }
     }
     if (fpAdopted) {
       return true;

@@ -54,6 +54,14 @@ class AcoustidClient {
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
       if (res.statusCode != 200) {
+        final err = _errorMap(text);
+        // code 4 = client key 无效：配置级致命（重试无意义）→ AuthError
+        // 供上层整链禁用；其余 400 仍是单曲网络错误的 NetworkError。
+        if (err?['code'] == 4) {
+          throw AuthError(
+              detail: 'AcoustID key 无效（HTTP ${res.statusCode} · '
+                  '${err?['message'] ?? 'invalid API key'}）');
+        }
         throw NetworkError(
             detail: 'AcoustID 查询失败：HTTP ${res.statusCode} · ${_serverMessage(text)}');
       }
@@ -61,6 +69,10 @@ class AcoustidClient {
       if (decoded is! Map<String, dynamic> || decoded['status'] != 'ok') {
         final err = decoded is Map<String, dynamic> ? decoded['error'] : null;
         final msg = err is Map<String, dynamic> ? err['message'] : null;
+        if (err is Map<String, dynamic> && err['code'] == 4) {
+          throw AuthError(
+              detail: 'AcoustID key 无效（${msg ?? 'invalid API key'}）');
+        }
         throw NetworkError(
             detail: 'AcoustID 查询失败：${msg ?? 'status != ok'}');
       }
@@ -104,11 +116,25 @@ class AcoustidClient {
         }
       }
       return null;
-    } on NetworkError {
+    } on ContractError {
+      // 契约错误（NetworkError/AuthError…）原样放行——兜底只收编野异常。
       rethrow;
     } on Object catch (e, st) {
       Error.throwWithStackTrace(NetworkError(detail: 'AcoustID 查询失败：$e'), st);
     }
+  }
+
+  /// 服务端错误对象（{"error":{...}}），非 JSON → null。
+  Map<String, dynamic>? _errorMap(String body) {
+    try {
+      final j = jsonDecode(body);
+      if (j is Map<String, dynamic> && j['error'] is Map<String, dynamic>) {
+        return j['error'] as Map<String, dynamic>;
+      }
+    } on Object {
+      // 非 JSON：走裸文本分支
+    }
+    return null;
   }
 
   /// 服务端错误原文（{"error":{"message":…}} 或裸文本）。

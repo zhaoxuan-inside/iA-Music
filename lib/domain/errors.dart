@@ -41,3 +41,9 @@ final class StorageError extends ContractError {
 final class NetworkError extends ContractError {
   const NetworkError({required super.detail});
 }
+
+/// 远端服务凭据被拒（如 AcoustID client key 无效，服务端 code 4）。
+/// 重试无意义——调用方应整链禁用而非逐曲重试。
+final class AuthError extends ContractError {
+  const AuthError({required super.detail});
+}
