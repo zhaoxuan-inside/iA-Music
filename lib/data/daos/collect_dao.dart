@@ -7,8 +7,10 @@ import '../database.dart';
 
 part 'collect_dao.g.dart';
 
-/// 收集任务状态：pending → running → done / blocked(待提取引擎) / failed。
-enum CollectStatusCol { pending, running, done, blocked, failed }
+/// 收集任务状态：pending → running → done / blocked(待提取引擎) / failed；
+/// paused = 用户暂停（等待中直接置 paused / 运行中经取消检查点转 paused），
+/// 重启不复活（runner 只挑 pending）。
+enum CollectStatusCol { pending, running, done, blocked, failed, paused }
 
 @DataClassName('CollectTaskRow')
 class CollectTasks extends Table {
@@ -50,6 +52,11 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
               t.status.equals(CollectStatusCol.pending.name) |
               t.status.equals(CollectStatusCol.running.name)))
         .get();
+  }
+
+  Future<CollectTaskRow?> taskById(int id) {
+    return (select(collectTasks)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
   }
 
   /// 僵尸回收：App 中途死亡留下的 running 任务重回队列。
@@ -128,5 +135,41 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
       progress: const Value(0),
       errorText: const Value(null),
     ));
+  }
+
+  /// 单任务暂停（pending/failed → paused；运行中经取消检查点后转 paused）。
+  Future<void> pauseTask(int id) {
+    return (update(collectTasks)..where((t) => t.id.equals(id))).write(
+      CollectTasksCompanion(
+        status: Value(CollectStatusCol.paused),
+        errorText: const Value(null),
+      ),
+    );
+  }
+
+  /// 单任务恢复（paused/failed → pending，重新入队）。
+  Future<void> resumeTask(int id) {
+    return (update(collectTasks)..where((t) => t.id.equals(id))).write(
+      CollectTasksCompanion(
+        status: Value(CollectStatusCol.pending),
+        progress: const Value(0),
+        errorText: const Value(null),
+      ),
+    );
+  }
+
+  /// 删除任务行（记录簿记；音频/歌词文件不动，临时残留由调用方清理）。
+  /// 删除后同 URL 可重新入队（唯一键冲突随之消失）。
+  Future<void> deleteTask(int id) {
+    return (delete(collectTasks)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// 清理任务记录（done+failed 行；音频/歌词文件不动）。
+  Future<int> clearFinished() {
+    return (delete(collectTasks)
+          ..where((t) =>
+              t.status.equals(CollectStatusCol.done.name) |
+              t.status.equals(CollectStatusCol.failed.name)))
+        .go();
   }
 }

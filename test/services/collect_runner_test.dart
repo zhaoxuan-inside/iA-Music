@@ -203,6 +203,69 @@ void main() {
     expect(taskErrors, hasLength(1), reason: '曾经这里是静默吞点');
   });
 
+  test('暂停 pending 任务：runOnce 跳过；resume 后可跑', () async {
+    final id = await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${fileServer.port}/paused.mp3',
+        title: '暂停歌', artist: '');
+    await db.collectDao.pauseTask(id);
+
+    final (processed, failed) = await runner.runOnce();
+
+    expect((processed, failed), (0, 0), reason: 'paused 不入轮');
+    expect((await tasks()).single.status, CollectStatusCol.paused,
+        reason: '下一轮/重启不复活');
+
+    await db.collectDao.resumeTask(id);
+    final (p2, f2) = await runner.runOnce();
+    expect((p2, f2), (1, 0));
+    expect((await tasks()).single.status, CollectStatusCol.done);
+  });
+
+  test('运行中暂停：取消令牌中断下载 → paused + tmp 清理 + 不算失败', () async {
+    // 慢速源：每 300ms 一个 chunk——给取消留时间窗（停滞看门狗 30s 不误伤）
+    final slow = await HttpServer.bind('127.0.0.1', 0);
+    addTearDown(slow.close);
+    slow.listen((req) async {
+      try {
+        for (var i = 0; i < 50; i++) {
+          req.response.add(List<int>.filled(1024, 1));
+          await req.response.flush();
+          await Future<void>.delayed(const Duration(milliseconds: 300));
+        }
+        await req.response.close();
+      } on Object {
+        // 客户端取消后连接断开——服务端侧写失败无害
+      }
+    });
+    final id = await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${slow.port}/slow.mp3',
+        title: '慢歌', artist: '');
+
+    final round = runner.runOnce();
+    // 等任务进入 running（上限 5s 防挂死）
+    for (var i = 0; i < 50; i++) {
+      final row = await db.collectDao.taskById(id);
+      if (row?.status == CollectStatusCol.running) {
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+    expect((await db.collectDao.taskById(id))!.status,
+        CollectStatusCol.running);
+
+    runner.cancelTask(id);
+    final (processed, failed) = await round;
+
+    expect((processed, failed), (1, 0), reason: '取消不算失败');
+    final all = await tasks();
+    expect(all.single.status, CollectStatusCol.paused);
+    expect(taskErrors, isEmpty, reason: '取消不上报错误');
+    expect(
+        rootDir.listSync().where((f) => f.path.contains('dl_direct_$id.')),
+        isEmpty,
+        reason: '取消后临时残留清理');
+  });
+
   test('插件单曲目：resolve → stream → 宿主下载 → 入库 → 归歌单', () async {
     fake().resolvePages = [track(1, 'P1', '测试UP')];
     final playlistId = await db.playlistDao.createPlaylist('提取单');

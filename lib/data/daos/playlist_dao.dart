@@ -73,6 +73,18 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
         .write(PlaylistsCompanion(name: Value(name)));
   }
 
+  /// 歌单 pending 计数回减（提取成功/未完成任务删除时调用；>=0 钳制）。
+  /// 提取任务归属歌单的进度簿记——计数只代表「尚待提取」。
+  Future<void> decrementPending(int playlistId) async {
+    final pl = await (select(playlists)
+          ..where((x) => x.id.equals(playlistId)))
+        .getSingleOrNull();
+    if (pl != null && pl.pending > 0) {
+      await (update(playlists)..where((x) => x.id.equals(playlistId)))
+          .write(PlaylistsCompanion(pending: Value(pl.pending - 1)));
+    }
+  }
+
   /// 设置/清除歌单封面（图片文件路径；null=清除，回到首曲封面/字块）。
   Future<void> setPlaylistCover(int id, String? coverPath) {
     return (update(playlists)..where((p) => p.id.equals(id)))

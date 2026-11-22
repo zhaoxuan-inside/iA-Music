@@ -9,7 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_info.dart';
 import '../../app/theme/design_tokens.dart';
-import '../../data/daos/collect_dao.dart';
+import '../../data/database.dart';
 import '../../domain/entities/track.dart';
 import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
@@ -372,6 +372,7 @@ String _statusLabel(CollectStatusCol status) => switch (status) {
       CollectStatusCol.done => '完成',
       CollectStatusCol.blocked => '待处理',
       CollectStatusCol.failed => '失败',
+      CollectStatusCol.paused => '已暂停',
     };
 
 /// 三态进度条：底灰=待处理；成功绿从左往右；失败红从右往左。
@@ -484,10 +485,60 @@ class ExtractPage extends ConsumerWidget {
   }
 }
 
-/// 提取任务详情：实时任务流逐条列出（状态 + 百分比 + 细进度条）+ 继续/重试。
-/// 由 ExtractPage 的聚合进度条点入。
+/// 提取任务详情：实时任务流逐条列出（状态 + 百分比 + 细进度条 + 行内
+/// 开始/暂停/删除操作）+ 继续/重试/清理记录。由 ExtractPage 的聚合进度条点入。
 class ExtractTasksPage extends ConsumerWidget {
   const ExtractTasksPage({super.key});
+
+  /// 行内操作钮（按状态）：WP 风格 12px 文字钮。
+  List<Widget> _taskActions(
+      BuildContext context, WidgetRef ref, CollectTaskRow t) {
+    final api = ref.read(collectTasksApiProvider);
+    final p = Theme.of(context).extension<IaPalette>()!;
+    void del() => unawaited(api.deleteTask(t.id));
+    final actions = switch (t.status) {
+      CollectStatusCol.pending => [
+          ('暂停', () => unawaited(api.pauseTask(t.id))),
+          ('删除', del),
+        ],
+      CollectStatusCol.running => [
+          ('暂停', () => unawaited(api.pauseTask(t.id))),
+        ],
+      CollectStatusCol.paused => [
+          ('开始', () => unawaited(api.startTask(t.id))),
+          ('删除', del),
+        ],
+      CollectStatusCol.failed => [
+          ('重试', () => unawaited(api.startTask(t.id))),
+          ('删除', del),
+        ],
+      CollectStatusCol.done => [('删除', del)],
+      CollectStatusCol.blocked => [('删除', del)],
+    };
+    return [
+      for (final (label, onTap) in actions)
+        GestureDetector(
+          onTap: onTap,
+          child: Text(label, style: TextStyle(fontSize: 12, color: p.accent)),
+        ),
+    ];
+  }
+
+  /// 行内操作区（无操作返回空，不打间距）。
+  List<Widget> _actionRow(BuildContext context, WidgetRef ref, CollectTaskRow t) {
+    final buttons = _taskActions(context, ref, t);
+    if (buttons.isEmpty) {
+      return const [];
+    }
+    return [
+      const SizedBox(height: IaSpacing.xs),
+      Wrap(
+        spacing: IaSpacing.l,
+        runSpacing: IaSpacing.xs,
+        children: buttons,
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -498,6 +549,8 @@ class ExtractTasksPage extends ConsumerWidget {
         tasks.where((t) => t.status == CollectStatusCol.failed).length;
     final pending =
         tasks.where((t) => t.status == CollectStatusCol.pending).length;
+    final finished = failed +
+        tasks.where((t) => t.status == CollectStatusCol.done).length;
 
     return Scaffold(
       backgroundColor: IaColors.canvas,
@@ -531,6 +584,21 @@ class ExtractTasksPage extends ConsumerWidget {
                         }
                       },
                       child: Text('重试失败 $failed',
+                          style: TextStyle(fontSize: 12, color: p.accent)),
+                    ),
+                  if (finished > 0)
+                    TextButton(
+                      onPressed: () async {
+                        // 清理提取结果 = 只清任务记录行（音频/歌词文件不动）
+                        final n = await ref
+                            .read(collectTasksApiProvider)
+                            .clearFinished();
+                        if (context.mounted) {
+                          showWpToast(context,
+                              title: '提取', message: '已清理 $n 条任务记录');
+                        }
+                      },
+                      child: Text('清理记录 $finished',
                           style: TextStyle(fontSize: 12, color: p.accent)),
                     ),
                 ],
@@ -580,6 +648,7 @@ class ExtractTasksPage extends ConsumerWidget {
                           style: const TextStyle(
                               fontSize: 12, color: IaColors.error)),
                     ],
+                    ..._actionRow(context, ref, t),
                     const SizedBox(height: IaSpacing.s),
                     Stack(
                       children: [

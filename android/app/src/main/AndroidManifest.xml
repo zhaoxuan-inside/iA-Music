@@ -11,6 +11,12 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
+    <!-- 所有文件访问：提取发布（写用户选定音乐目录）/扫描/按路径删除/歌词
+         sidecar 的存储架构依赖——分区存储（targetSdk 30+）下写共享目录
+         必需；系统设置页授权（侧载分发，无商店政策约束） -->
+    <uses-permission
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage"/>
     <application
         android:label="iA Music"
         android:name="${applicationName}"

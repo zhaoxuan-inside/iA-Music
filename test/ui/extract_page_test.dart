@@ -37,10 +37,14 @@ const _stages = [
 ];
 
 void main() {
-  Future<void> pumpPage(WidgetTester tester) async {
+  Future<void> pumpPage(
+    WidgetTester tester, {
+    List<CollectTaskRow>? rows,
+    Widget home = const ExtractPage(),
+  }) async {
     await tester.pumpWidget(ProviderScope(
       overrides: [
-        collectTasksProvider.overrideWith((ref) => Stream.value([
+        collectTasksProvider.overrideWith((ref) => Stream.value(rows ?? [
               _row(1, '完成歌', CollectStatusCol.done, 100),
               _row(2, '失败歌', CollectStatusCol.failed, 40),
               _row(3, '等待歌', CollectStatusCol.pending, 0),
@@ -49,7 +53,7 @@ void main() {
       ],
       child: MaterialApp(
         theme: buildIaTheme(accent: const Color(0xFF207227)),
-        home: const ExtractPage(),
+        home: home,
       ),
     ));
     await tester.pumpAndSettle();
@@ -78,5 +82,29 @@ void main() {
     expect(find.text('direct · 失败 · 40%'), findsOneWidget);
     expect(find.text('继续 1'), findsOneWidget);
     expect(find.text('重试失败 1'), findsOneWidget);
+    expect(find.textContaining('清理记录'), findsOneWidget,
+        reason: '有可清记录时显示清理入口');
+  });
+
+  testWidgets('行内操作钮按状态渲染（暂停/开始/重试/删除）', (tester) async {
+    await pumpPage(
+      tester,
+      rows: [
+        _row(1, '完成歌', CollectStatusCol.done, 100),
+        _row(2, '失败歌', CollectStatusCol.failed, 40),
+        _row(3, '暂停歌', CollectStatusCol.paused, 20),
+        _row(4, '运行歌', CollectStatusCol.running, 60),
+      ],
+      home: const ExtractTasksPage(),
+    );
+
+    expect(find.textContaining('已暂停'), findsOneWidget, reason: 'paused 状态标签');
+    expect(find.textContaining('提取中'), findsOneWidget);
+    expect(find.text('开始'), findsOneWidget, reason: 'paused 行可开始');
+    expect(find.text('暂停'), findsOneWidget, reason: 'running 行可暂停');
+    expect(find.text('重试'), findsOneWidget, reason: 'failed 行可重试');
+    expect(find.text('删除'), findsNWidgets(3),
+        reason: 'done/paused/failed 行可删除（running 不可）');
+    expect(find.textContaining('清理记录'), findsOneWidget);
   });
 }

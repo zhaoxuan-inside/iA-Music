@@ -40,19 +40,27 @@ class CollectRunner {
   /// null = 仅直链可用（测试/最小装配）。
   final SourcePlugins? sources;
 
-  CollectPhase phase = CollectPhase.idle;
-
   /// 单任务硬失败回调（错误原文+栈，供 state 层接诊断/日志追踪）。
   final void Function(String title, Object error, StackTrace? st)? onTaskError;
 
   /// 软失败回调（如歌词缺失——不失败任务，但原因要可见）。
   final void Function(String source, Object error)? onTaskSoftError;
 
+  /// 运行中任务的取消请求集：UI 暂停/删除经 [cancelTask] 登记，
+  /// [_process] 的检查点（下载泵回调/发布前/入库前）触发后转 paused。
+  final Set<int> _cancelRequests = {};
+
+  CollectPhase phase = CollectPhase.idle;
+
   /// 同一链接的 resolve 元数据缓存：多子曲目拆分后 N 个任务只解析一次。
   final Map<String, Map<String, Object?>> _metaCache = {};
 
   CollectDao get _tasks => _db.collectDao;
   PlaylistDao get _playlists => _db.playlistDao;
+
+  /// 请求取消任务（运行中→检查点触发；已结束任务登记无副作用，由
+  /// _process 的 finally 清除）。等待中的任务直接由 DAO 置 paused。
+  void cancelTask(int id) => _cancelRequests.add(id);
 
   /// 处理一轮队列（顺序执行 pending 任务；重复调用安全——运行中直接返回）。
   ///
@@ -109,6 +117,7 @@ class CollectRunner {
   ) async {
     await _tasks.setStatus(id, CollectStatusCol.running);
     try {
+      _ensureNotCancelled(id);
       final root = await _firstRoot();
       if (root == null) {
         // 未配置音乐目录：回 pending，等目录就绪后重跑（本轮回调停止，避免空转）。
@@ -120,12 +129,14 @@ class CollectRunner {
         _ => await _extractViaPlugin(
             id, source, url, title, artist, root.path, playlistId),
       };
+      _ensureNotCancelled(id);
       if (filePath == null) {
         // 防御路径：下载/提取管道已改为失败即抛，到这里说明有未覆盖的空洞。
         throw Exception('提取未产出音频文件：$url');
       }
       // 增量重扫：真实入库（复用扫描链路，音乐目录为根）
       await _scan.scanRoot(root.id, root.path);
+      _ensureNotCancelled(id);
       final track = await _trackByPath(filePath);
       if (track == null) {
         throw Exception('入库扫描未找到文件：$filePath');
@@ -145,23 +156,31 @@ class CollectRunner {
       // 归歌单
       if (playlistId != null) {
         await _playlists.addTrack(playlistId, track.id);
-        final pl = await (_db.select(_db.playlists)
-              ..where((x) => x.id.equals(playlistId)))
-            .getSingleOrNull();
-        if (pl != null && pl.pending > 0) {
-          await (_db.update(_db.playlists)..where((x) => x.id.equals(playlistId)))
-              .write(PlaylistsCompanion(pending: Value(pl.pending - 1)));
-        }
+        await _playlists.decrementPending(playlistId);
       }
       await _tasks.setStatus(id, CollectStatusCol.done, filePath: filePath);
+      return (true, false);
+    } on CollectCancelledException {
+      // 运行中暂停/删除：转 paused（不重跑、不算失败、不上报），残留清理
+      await cleanupTaskTmp(cacheDir, id);
+      await _tasks.setStatus(id, CollectStatusCol.paused);
       return (true, false);
     } on Object catch (e, st) {
       // 失败原因必须可见：错误原文落任务行（UI 可读）+ 回调上抛（state 层
       // 接诊断/日志追踪）——曾经的裸 catch 让所有提取失败无声蒸发。
+      await cleanupTaskTmp(cacheDir, id);
       await _tasks.setStatus(id, CollectStatusCol.failed,
           errorText: _errorText(e));
       onTaskError?.call(title, e, st);
       return (true, true);
+    } finally {
+      _cancelRequests.remove(id);
+    }
+  }
+
+  void _ensureNotCancelled(int id) {
+    if (_cancelRequests.contains(id)) {
+      throw const CollectCancelledException();
     }
   }
 
@@ -212,6 +231,8 @@ class CollectRunner {
             url: _withTrack(baseUrl, 1),
             title: '${first['title'] ?? ''}',
             artist: '${first['artist'] ?? ''}');
+      } on CollectCancelledException {
+        rethrow;
       } on Object {
         // 唯一键冲突等：保留原任务，继续按首曲提取。
       }
@@ -255,7 +276,9 @@ class CollectRunner {
     // 先下到应用私有缓存（必然可写），再发布进音乐目录——
     // 共享存储里可能有异主文件（重装后旧 uid 残留），直接写会挂死。
     final tmp = '$cacheDir/dl_${source}_$taskId.$ext';
-    await _downloadTo(streamUrl, headers, tmp, onProgress: (received, total) {
+    await _downloadStreamWithRetry(
+        handle, trackId, streamUrl, headers, taskId, tmp,
+        onProgress: (received, total) {
       if (total > 0) {
         _tasks.setProgress(taskId, 20 + (received / total * 65).floor());
       }
@@ -278,6 +301,8 @@ class CollectRunner {
         await File(lrcTmp).writeAsString(text, flush: true);
         lrcPath = await _publish(lrcTmp, lrcTarget);
       }
+    } on CollectCancelledException {
+      rethrow;
     } on Object catch (e) {
       // 歌词缺失不阻断提取——但失败原因要可见（软失败，进日志追踪；
       // 插件超时/异常与「真没歌词」由此可区分）。
@@ -298,6 +323,39 @@ class CollectRunner {
 
   String _withTrack(String baseUrl, int n) => '$baseUrl#ia-track=$n';
 
+  /// 插件音频下载（失败重取一次直链）：部分上游 CDN 节点拒绝无 Range 的
+  /// 裸 GET（B 站 upos 实证 403）——重取 playurl 会重新分配节点，通常可下。
+  /// 取消异常原样上抛不重试；重试前清残留半截 tmp。
+  Future<void> _downloadStreamWithRetry(
+      SourcePluginHandle handle,
+      String trackId,
+      String streamUrl,
+      Map<String, String> headers,
+      int taskId,
+      String tmp,
+      {required void Function(int received, int total) onProgress}) async {
+    try {
+      await _downloadTo(streamUrl, headers, tmp,
+          onProgress: onProgress, cancelled: () => _cancelRequests.contains(taskId));
+    } on CollectCancelledException {
+      rethrow;
+    } on Object {
+      final retry = await handle.stream(trackId) ??
+          (throw Exception('插件未返回音频直链（重试）'));
+      final retryUrl = '${retry['url'] ?? ''}';
+      if (retryUrl.isEmpty) {
+        throw Exception('插件音频直链为空（重试）');
+      }
+      final retryHeaders =
+          (retry['headers'] as Map<Object?, Object?>? ?? const {})
+              .cast<String, String>();
+      await cleanupTaskTmp(cacheDir, taskId);
+      await _downloadTo(retryUrl, retryHeaders, tmp,
+          onProgress: onProgress,
+          cancelled: () => _cancelRequests.contains(taskId));
+    }
+  }
+
   /// ── 直链下载 ─────────────────────────────────────────────────────
 
   Future<(String?, ({String title, String artist}), String?)> _downloadDirect(
@@ -310,26 +368,31 @@ class CollectRunner {
     final tmp = '$cacheDir/dl_direct_$taskId.$ext';
     // 不吞异常：HTTP 状态码/停滞看门狗/磁盘 IO 的真实原因冒泡到
     // _process 的失败记录点（曾经在这里换成 null filePath，失败无声）。
-    await _downloadTo(url, const {}, tmp, onProgress: (r, total) {
-      if (total > 0) {
-        _tasks.setProgress(taskId, (r / total * 90).floor());
-      }
-    });
+    await _downloadTo(url, const {}, tmp,
+        onProgress: (r, total) {
+          if (total > 0) {
+            _tasks.setProgress(taskId, (r / total * 90).floor());
+          }
+        },
+        cancelled: () => _cancelRequests.contains(taskId));
     final filePath = await _publish(tmp, target);
     await _tasks.setProgress(taskId, 95);
     return (filePath, (title: title, artist: artist), null);
   }
 
-  /// 宿主侧媒体 IO：HTTP 下载到临时文件（停滞看门狗 + 进度）。
+  /// 宿主侧媒体 IO：HTTP 下载到临时文件（停滞看门狗 + 进度 + 取消令牌）。
   Future<void> _downloadTo(
       String url, Map<String, String> headers, String filePath,
-      {void Function(int received, int total)? onProgress}) async {
+      {void Function(int received, int total)? onProgress,
+      bool Function()? cancelled}) async {
     final client = HttpClient();
     try {
       final req = await client.getUrl(Uri.parse(url));
       headers.forEach((k, v) => req.headers.set(k, v));
+      // 部分 CDN 节点拒绝无 Range 的裸 GET（B 站 upos 实证 403）
+      req.headers.set(HttpHeaders.rangeHeader, 'bytes=0-');
       final res = await req.close();
-      if (res.statusCode != 200) {
+      if (res.statusCode != 200 && res.statusCode != 206) {
         throw Exception('音频流下载失败：HTTP ${res.statusCode}');
       }
       final total = res.contentLength > 0 ? res.contentLength : 0;
@@ -339,6 +402,7 @@ class CollectRunner {
           source: res,
           sink: sink,
           onChunk: (r) async => onProgress?.call(r, total),
+          cancelled: cancelled,
         );
       } finally {
         await sink.flush();
@@ -371,9 +435,22 @@ class CollectRunner {
     try {
       return (await src.rename(target)).path;
     } on Object {
-      await src.copy(target);
-      await src.delete();
-      return target;
+      try {
+        await src.copy(target);
+        await src.delete();
+        return target;
+      } on Object {
+        // copy 也被拒（分区存储 EPERM——需「所有文件访问」/磁盘满）：
+        // 半截 target 可能已创建，清掉避免残留垃圾，错误原文上抛。
+        try {
+          if (t.existsSync()) {
+            t.deleteSync();
+          }
+        } on Object {
+          // 删不掉就留着（错误原文已随任务失败可见）
+        }
+        rethrow;
+      }
     }
   }
 

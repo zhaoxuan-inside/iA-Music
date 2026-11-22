@@ -7,12 +7,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
 import '../services/collect/collect_service.dart';
+import '../services/collect/download_guard.dart';
 import '../services/collect/source_plugins.dart';
 import '../services/github/github_playlist_service.dart';
 import 'diagnostics.dart';
 import 'enrich_controller.dart';
 import 'plugin_providers.dart';
 import 'providers.dart';
+import 'scan_controller.dart';
 
 /// 收集任务实时流（提取进度子页的数据源）。
 final collectTasksProvider = StreamProvider(
@@ -114,6 +116,15 @@ class CollectTasksApi {
 
   /// 驱动执行器跑一轮（异步、可重复调用）。
   Future<void> drive() async {
+    // 发布目标是用户选定的音乐目录（共享存储）——分区存储下需要
+    // 「所有文件访问」；未授予则本轮直接停（任务留在队列原样不动）。
+    final granted =
+        await _ref.read(scanProvider.notifier).ensureAudioPermission();
+    if (!granted) {
+      unawaited(_ref.read(diagnosticsProvider.notifier).record('提取',
+          '存储权限未授予——系统设置里允许「所有文件访问」后重试'));
+      return;
+    }
     final runner = await _ref.read(collectRunnerProvider.future);
     try {
       final (processed, failed) = await runner.runOnce();
@@ -136,6 +147,55 @@ class CollectTasksApi {
 
   /// 批量任务失败重试。
   Future<int> retryFailed() => _db.collectDao.retryFailed();
+
+  /// 单任务暂停：pending/failed → paused（DAO）；running → 登记取消
+  /// （下载泵检查点触发转 paused）并即时置 paused 反馈。
+  Future<void> pauseTask(int id) async {
+    final row = await _db.collectDao.taskById(id);
+    if (row == null) {
+      return;
+    }
+    if (row.status == CollectStatusCol.running) {
+      (await _ref.read(collectRunnerProvider.future)).cancelTask(id);
+    }
+    await _db.collectDao.pauseTask(id);
+  }
+
+  /// 单任务开始/重试：回 pending 重新入队并驱动一轮。
+  Future<void> startTask(int id) async {
+    await _db.collectDao.resumeTask(id);
+    await drive();
+  }
+
+  /// 删除任务：运行中先登记取消；记录行删除（音频/歌词文件不动）；
+  /// 临时残留清理；GitHub 歌单未完成任务回减 pending 计数。
+  Future<void> deleteTask(int id) async {
+    final row = await _db.collectDao.taskById(id);
+    if (row == null) {
+      return;
+    }
+    if (row.status == CollectStatusCol.running) {
+      (await _ref.read(collectRunnerProvider.future)).cancelTask(id);
+    }
+    if (row.playlistId != null && row.status != CollectStatusCol.done) {
+      // 删除未完成的歌单任务：回减 pending 计数（仅成功路径减过）
+      await _db.playlistDao.decrementPending(row.playlistId!);
+    }
+    await _db.collectDao.deleteTask(id);
+    final dirs = await _ref.read(cacheDirsProvider.future);
+    await cleanupTaskTmp(dirs.lyrics, id);
+  }
+
+  /// 清理任务记录（done+failed 行；音频/歌词文件不动）。
+  Future<int> clearFinished() async {
+    final n = await _db.collectDao.clearFinished();
+    if (n > 0) {
+      unawaited(_ref
+          .read(diagnosticsProvider.notifier)
+          .record('提取', '已清理 $n 条任务记录'));
+    }
+    return n;
+  }
 }
 
 final collectTasksApiProvider =

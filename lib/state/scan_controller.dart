@@ -85,20 +85,27 @@ class ScanController extends Notifier<ScanState> {
     return [for (final p in kPresetMusicDirs) if (Directory(p).existsSync()) p];
   }
 
-  /// 请求音频读取权限（Android）。
+  /// 请求音频读取权限 + 所有文件访问（Android）。
+  ///
+  /// 发布（写用户选定的音乐目录）需要「所有文件访问」：直接文件 IO 是
+  /// 全 app 的存储架构（扫描/watch/按路径删除/歌词 sidecar 均依赖），
+  /// Android 11+ 分区存储下裸写共享目录 = EPERM。低版本自动视为已授予。
   Future<bool> ensureAudioPermission() async {
     if (!Platform.isAndroid) {
       return true;
     }
-    var status = await Permission.audio.status;
-    if (!status.isGranted) {
-      status = await Permission.audio.request();
+    var audio = await Permission.audio.status;
+    if (!audio.isGranted) {
+      audio = await Permission.audio.request();
     }
-    if (status.isGranted) {
-      return true;
+    if (!audio.isGranted) {
+      final legacy = await Permission.storage.request();
+      if (!legacy.isGranted) {
+        return false;
+      }
     }
-    final legacy = await Permission.storage.request();
-    return legacy.isGranted;
+    final manage = await Permission.manageExternalStorage.request();
+    return manage.isGranted;
   }
 
   Future<String> addRoot(String path) async {

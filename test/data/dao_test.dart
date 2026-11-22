@@ -243,5 +243,36 @@ void main() {
       expect(re.status, CollectStatusCol.pending);
       expect(re.errorText, isNull, reason: '重排必须清空失败原因');
     });
+
+    test('pause/resume/delete/clearFinished 往返', () async {
+      final keep = await db.collectDao
+          .enqueue('direct', 'http://x/keep.mp3', title: '保留歌');
+      await db.collectDao.setStatus(keep, CollectStatusCol.done);
+      final gone = await db.collectDao
+          .enqueue('direct', 'http://x/gone.mp3', title: '清理歌');
+      await db.collectDao.setStatus(gone, CollectStatusCol.failed,
+          errorText: 'HTTP 403');
+      final paused = await db.collectDao
+          .enqueue('direct', 'http://x/paused.mp3', title: '暂停歌');
+
+      // 暂停/恢复
+      await db.collectDao.pauseTask(paused);
+      var row = await db.collectDao.taskById(paused);
+      expect(row!.status, CollectStatusCol.paused);
+      await db.collectDao.resumeTask(paused);
+      row = await db.collectDao.taskById(paused);
+      expect(row!.status, CollectStatusCol.pending);
+
+      // 清理记录：只清 done+failed（等待/暂停保留）
+      final cleared = await db.collectDao.clearFinished();
+      expect(cleared, 2);
+      expect(await db.collectDao.taskById(keep), isNull);
+      expect(await db.collectDao.taskById(gone), isNull);
+      expect(await db.collectDao.taskById(paused), isNotNull);
+
+      // 删除任务行
+      await db.collectDao.deleteTask(paused);
+      expect(await db.collectDao.taskById(paused), isNull);
+    });
   });
 }
