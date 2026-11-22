@@ -78,6 +78,9 @@ class EnrichController extends Notifier<EnrichState> {
           onError: (title, e) => unawaited(ref
               .read(diagnosticsProvider.notifier)
               .record('补全 · $title', e)),
+          // 指纹链软失败（如 AcoustID 400）→ 只记日志不炸曲，文字链接管
+          onSoftError: (source, e) => unawaited(
+              ref.read(diagnosticsProvider.notifier).record(source, e)),
         );
         adopted += ok;
         final remain = await library.countNeedsEnrichment();

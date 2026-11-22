@@ -2,6 +2,7 @@
 /// 锁死「抛错不标记不计完成（不再原地打转卡 0/N）」与「高置信采纳写回」。
 library;
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -9,7 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ia_music/data/database.dart';
 import 'package:ia_music/domain/entities/track.dart';
 import 'package:ia_music/domain/errors.dart';
+import 'package:ia_music/domain/ports/fingerprint_port.dart';
 import 'package:ia_music/domain/ports/lyrics_port.dart';
+import 'package:ia_music/services/acoustid/acoustid_client.dart';
 import 'package:ia_music/services/enrich/enrichment_service.dart';
 
 /// 按查询内容路由：含「坏」→ 抛网络错；含「投名状」→ 3 条同键高置信候选；
@@ -116,4 +119,43 @@ void main() {
     expect(t.enrichedAt, isNotNull);
     expect(t.needsMeta, isFalse);
   });
+
+  test('指纹链 AcoustID 400 → 软失败回退文字链，不再炸掉整曲', () async {
+    // 400 服务器：曾经的黑屏级事故（JSON 请求被官方接口拒收）形态
+    final server = await HttpServer.bind('127.0.0.1', 0);
+    addTearDown(server.close);
+    server.listen((req) async {
+      req.response.statusCode = 400;
+      req.response
+          .add(utf8.encode('{"error":{"message":"invalid client key"}}'));
+      await req.response.close();
+    });
+    final svcFp = EnrichmentService(db, _FakeLyrics(),
+        cacheDir: cacheDir.path,
+        fingerprintPort: _FakeFpPort(),
+        acoustid: AcoustidClient(
+            apiKey: 'k', baseUrl: 'http://127.0.0.1:${server.port}'));
+
+    final soft = <String>[];
+    final (ok, completed) = await svcFp.enrichPending(
+        limit: 20,
+        onSoftError: (s, e) => soft.add('$s: $e'));
+
+    // 指纹链 400 软失败 → 文字链接管：无候选/采纳路径照常结论
+    expect(ok, 1);
+    expect(completed, 2);
+    expect(soft, hasLength(3), reason: '每曲一次指纹链软失败记录');
+    expect(soft.first, contains('400'));
+    final t = await trackByTitle('投名状 (live)');
+    expect(t.artist, '歌手', reason: '文字链接管后采纳不受指纹链影响');
+  });
+}
+
+/// 会吐指纹的假指纹端口（指纹链必走 AcoustID）。
+class _FakeFpPort implements FingerprintPort {
+  @override
+  Future<AudioFingerprint?> fingerprint(String path,
+      {required int durationMs}) async {
+    return AudioFingerprint(fingerprint: 'FPBASE64', durationMs: durationMs);
+  }
 }

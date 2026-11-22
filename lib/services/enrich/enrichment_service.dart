@@ -50,14 +50,15 @@ class EnrichmentService {
   Future<(int, int)> enrichPending(
       {int limit = 20,
       void Function(String currentTitle, int done, int total)? onProgress,
-      void Function(String title, Object error)? onError}) async {
+      void Function(String title, Object error)? onError,
+      void Function(String source, Object error)? onSoftError}) async {
     final pending = await _library.watchNeedsEnrichment(limit: limit).first;
     var ok = 0;
     var completed = 0;
     for (final t in pending) {
       onProgress?.call(t.title, completed, pending.length);
       try {
-        if (await _enrichOne(t)) {
+        if (await _enrichOne(t, onSoftError: onSoftError)) {
           ok++;
         }
         completed++;
@@ -71,9 +72,17 @@ class EnrichmentService {
     return (ok, completed);
   }
 
-  Future<bool> _enrichOne(Track t) async {
-    // 指纹优先链：真·音频内容识别（不依赖任何文字线索）
-    final fpAdopted = await _fingerprintChain(t);
+  Future<bool> _enrichOne(Track t,
+      {void Function(String source, Object error)? onSoftError}) async {
+    // 指纹优先链：真·音频内容识别（不依赖任何文字线索）。
+    // 链内任何失败（如 AcoustID 400/key 无效）→ 回退文字链，绝不炸掉整曲
+    // ——否则文字链永远没机会跑，所有曲目全部卡死。
+    bool fpAdopted = false;
+    try {
+      fpAdopted = await _fingerprintChain(t);
+    } on Object catch (e) {
+      onSoftError?.call('补全指纹链 · ${t.title}', e);
+    }
     if (fpAdopted) {
       return true;
     }
