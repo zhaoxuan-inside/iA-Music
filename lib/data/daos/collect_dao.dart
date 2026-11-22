@@ -23,6 +23,7 @@ class CollectTasks extends Table {
   IntColumn get progress => integer().withDefault(const Constant(0))();
   TextColumn get filePath => text().nullable()(); // 音频落盘路径（直链下载完成）
   TextColumn get lyricsPath => text().nullable()(); // 歌词落盘路径（拉取即写）
+  TextColumn get errorText => text().nullable()(); // 失败原因原文（截断 400，重排时清空）
   IntColumn get playlistId => integer().nullable()(); // 归属歌单（GitHub 拉取建的歌单）
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
@@ -59,6 +60,7 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
         .write(CollectTasksCompanion(
       status: Value(CollectStatusCol.pending),
       progress: const Value(0),
+      errorText: const Value(null),
     ));
   }
 
@@ -94,11 +96,13 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
         .write(CollectTasksCompanion(progress: Value(progress.clamp(0, 100))));
   }
 
-  Future<void> setStatus(int id, CollectStatusCol status, {String? filePath}) {
+  Future<void> setStatus(int id, CollectStatusCol status,
+      {String? filePath, String? errorText}) {
     return (update(collectTasks)..where((t) => t.id.equals(id))).write(
       CollectTasksCompanion(
         status: Value(status),
         filePath: filePath == null ? const Value.absent() : Value(filePath),
+        errorText: errorText == null ? const Value.absent() : Value(errorText),
       ),
     );
   }
@@ -122,6 +126,7 @@ class CollectDao extends DatabaseAccessor<IaDatabase> with _$CollectDaoMixin {
         .write(CollectTasksCompanion(
       status: Value(CollectStatusCol.pending),
       progress: const Value(0),
+      errorText: const Value(null),
     ));
   }
 }

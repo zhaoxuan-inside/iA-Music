@@ -10,11 +10,16 @@ import 'dart:io';
 import '../../data/database.dart';
 
 class RootWatcher {
-  RootWatcher(this._db, this._onDirty, {this.debounce = const Duration(seconds: 3)});
+  RootWatcher(this._db, this._onDirty,
+      {this.debounce = const Duration(seconds: 3), this.onWatchError});
 
   final IaDatabase _db;
   final void Function(int rootId, String rootPath) _onDirty;
   final Duration debounce;
+
+  /// watch 流运行期错误回调——流错误后增量扫描静默失聪，必须留痕。
+  final void Function(String rootPath, Object error, StackTrace? st)?
+      onWatchError;
 
   final Map<int, (StreamSubscription<FileSystemEvent>, String)> _subs = {};
   Timer? _timer;
@@ -38,10 +43,13 @@ class RootWatcher {
       try {
         final sub = Directory(entry.value)
             .watch(recursive: true)
-            .listen((_) => _markDirty(entry.key, entry.value), onError: (_) {});
+            .listen((_) => _markDirty(entry.key, entry.value),
+                onError: (Object e, StackTrace st) =>
+                    onWatchError?.call(entry.value, e, st));
         _subs[entry.key] = (sub, entry.value);
-      } on Object {
-        // watch 不可用（平台/挂载点限制）：跳过，不阻断启动
+      } on Object catch (e, st) {
+        // watch 不可用（平台/挂载点限制）：跳过，不阻断启动——但留痕
+        onWatchError?.call(entry.value, e, st);
       }
     }
   }

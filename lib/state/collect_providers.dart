@@ -26,7 +26,10 @@ final githubPlaylistServiceProvider =
 final sourcePluginsProvider = FutureProvider<SourcePlugins>((ref) async {
   final registry = await ref.watch(pluginRegistryProvider.future);
   final runtime = await ref.watch(pluginRuntimeProvider.future);
-  return SourcePlugins(registry, runtime);
+  return SourcePlugins(registry, runtime,
+      // 插件 match 抛错（崩/超时）→ 日志可见，不再伪装成「无法识别」
+      onMatchError: (id, e, st) => unawaited(
+          ref.read(diagnosticsProvider.notifier).record('插件路由 · $id', e, st)));
 });
 
 /// 登录态/插件变更信号：登录、退出、装/卸插件后 bump。
@@ -113,7 +116,13 @@ class CollectTasksApi {
   Future<void> drive() async {
     final runner = await _ref.read(collectRunnerProvider.future);
     try {
-      await runner.runOnce();
+      final (processed, failed) = await runner.runOnce();
+      // 轮次汇总进日志（失败明细由 onTaskError 逐条记录，不在此重复）
+      if (processed > 0 || failed > 0) {
+        unawaited(_ref
+            .read(diagnosticsProvider.notifier)
+            .record('提取', '本轮完成 $processed · 失败 $failed'));
+      }
     } on Object catch (e, st) {
       // 队列执行的野错误必须收口：记入诊断，僵尸任务由下一轮回收重跑。
       unawaited(_ref
@@ -138,7 +147,13 @@ final collectRunnerProvider = FutureProvider<CollectRunner>((ref) async {
   final dirs = await ref.watch(cacheDirsProvider.future);
   final sources = await ref.watch(sourcePluginsProvider.future);
   return CollectRunner(ref.watch(dbProvider), scan,
-      cacheDir: dirs.lyrics, sources: sources);
+      cacheDir: dirs.lyrics,
+      sources: sources,
+      // 单任务失败原因不再蒸发：错误原文进日志追踪（任务行另有 errorText）
+      onTaskError: (title, e, st) => unawaited(
+          ref.read(diagnosticsProvider.notifier).record('提取 · $title', e, st)),
+      onTaskSoftError: (source, e) =>
+          unawaited(ref.read(diagnosticsProvider.notifier).record(source, e)));
 });
 
 /// 音频指纹端口（MediaCodec 解码 + chromaprint FFI）→ AcoustID 客户端 →

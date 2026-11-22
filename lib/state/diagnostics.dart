@@ -39,6 +39,9 @@ class DiagEntry {
 class DiagnosticsController extends Notifier<DiagEntry?> {
   @override
   DiagEntry? build() {
+    // keepAlive：诊断是 app 级单例——auto-dispose 会在无监听者时（后台记录
+    // 场景，如补全/提取回调）把 record 中途的 ref 用法炸掉，日志静默丢失。
+    ref.keepAlive();
     _load();
     return null;
   }
@@ -112,6 +115,9 @@ class TraceLogController extends Notifier<TraceLogState> {
 
   @override
   TraceLogState build() {
+    // keepAlive：同 DiagnosticsController——后台记录场景下 auto-dispose
+    // 会让日志入册中途炸掉（记录静默丢失）。
+    ref.keepAlive();
     _load();
     return const TraceLogState();
   }

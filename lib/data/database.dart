@@ -46,7 +46,7 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -94,6 +94,14 @@ class IaDatabase extends _$IaDatabase {
                 'artist_matched_at = CAST(strftime(\'%s\',\'now\') AS INTEGER), '
                 'lyrics_at = CAST(strftime(\'%s\',\'now\') AS INTEGER) '
                 'WHERE enriched_at IS NOT NULL');
+          }
+          if (from < 7) {
+            // v7：收集任务失败原因原文——提取失败从「只标 failed 无处可查」
+            // 到任务行可见 + 日志追踪可复制；重排（重试/僵尸回收）时清空。
+            // 极老库可能缺 collect_tasks 表：createAll 幂等建表（IF NOT
+            // EXISTS）后再加列，否则 ALTER 撞 no such table。
+            await m.createAll();
+            await ensureCol('collect_tasks', 'error_text', 'error_text TEXT');
           }
         },
         beforeOpen: (details) async {

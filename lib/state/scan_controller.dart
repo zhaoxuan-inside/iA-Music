@@ -62,8 +62,10 @@ class ScanController extends Notifier<ScanState> {
   Future<void> _attachWatcher() async {
     try {
       await _syncWatcher();
-    } on Object {
-      // watcher 不可用不阻断
+    } on Object catch (e, st) {
+      // watcher 不可用不阻断——但必须留痕（watcher 挂不上 = 增量扫描永久失效）
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('扫描 watcher', e, st));
     }
   }
 
@@ -71,8 +73,10 @@ class ScanController extends Notifier<ScanState> {
   Future<void> _syncWatcher() async {
     try {
       await ref.read(rootWatcherProvider).sync();
-    } on Object {
-      // watch 不可用（平台/挂载点限制）
+    } on Object catch (e, st) {
+      // watch 不可用（平台/挂载点限制）——注释承诺「仅记录」，兑现它
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('扫描 watcher', e, st));
     }
   }
 
@@ -141,6 +145,17 @@ class ScanController extends Notifier<ScanState> {
             'miss=${summary.missing} rev=${summary.revived}',
         lastError: null,
       );
+      // 轮次汇总进日志（损坏件另有明细条目）
+      unawaited(ref
+          .read(diagnosticsProvider.notifier)
+          .record('扫描', '完成 ins=${summary.inserted} upd=${summary.updated} '
+              'miss=${summary.missing} rev=${summary.revived} '
+              '坏=${summary.failedFiles}'));
+      if (summary.failedFiles > 0) {
+        unawaited(ref
+            .read(diagnosticsProvider.notifier)
+            .record('扫描 · 损坏文件', summary.failedSamples.join('\n')));
+      }
       // 扫完即补全：元数据缺失件自动入补全队列（补全进度见收集页）
       unawaited(ref.read(enrichProvider.notifier).runOnce());
     } on Object catch (e, st) {
@@ -172,6 +187,17 @@ class ScanController extends Notifier<ScanState> {
             'miss=${summary.missing} rev=${summary.revived}',
         lastError: null,
       );
+      // 轮次汇总进日志（损坏件另有明细条目）
+      unawaited(ref
+          .read(diagnosticsProvider.notifier)
+          .record('扫描', '完成 ins=${summary.inserted} upd=${summary.updated} '
+              'miss=${summary.missing} rev=${summary.revived} '
+              '坏=${summary.failedFiles}'));
+      if (summary.failedFiles > 0) {
+        unawaited(ref
+            .read(diagnosticsProvider.notifier)
+            .record('扫描 · 损坏文件', summary.failedSamples.join('\n')));
+      }
       // 扫完即补全：元数据缺失件自动入补全队列
       unawaited(ref.read(enrichProvider.notifier).runOnce());
     } on Object catch (e, st) {

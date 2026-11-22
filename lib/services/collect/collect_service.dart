@@ -23,16 +23,30 @@ import 'source_plugins.dart';
 enum CollectPhase { idle, running }
 
 class CollectRunner {
-  CollectRunner(this._db, this._scan, {required this.cacheDir, required this.sources});
+  CollectRunner(
+    this._db,
+    this._scan, {
+    required this.cacheDir,
+    required this.sources,
+    this.onTaskError,
+    this.onTaskSoftError,
+  });
 
   final IaDatabase _db;
   final ScanService _scan;
   final String cacheDir;
 
   /// 音频源插件门面（已启用插件枚举 + 契约调用）。
-  final SourcePlugins sources;
+  /// null = 仅直链可用（测试/最小装配）。
+  final SourcePlugins? sources;
 
   CollectPhase phase = CollectPhase.idle;
+
+  /// 单任务硬失败回调（错误原文+栈，供 state 层接诊断/日志追踪）。
+  final void Function(String title, Object error, StackTrace? st)? onTaskError;
+
+  /// 软失败回调（如歌词缺失——不失败任务，但原因要可见）。
+  final void Function(String source, Object error)? onTaskSoftError;
 
   /// 同一链接的 resolve 元数据缓存：多子曲目拆分后 N 个任务只解析一次。
   final Map<String, Map<String, Object?>> _metaCache = {};
@@ -45,10 +59,13 @@ class CollectRunner {
   /// 开轮先回收僵尸：App 中途死亡留下的 running 任务重置为 pending 重跑。
   /// 多曲目拆分会在处理中新增 pending 任务，所以这里循环取队首，
   /// 直到没有新的 pending；遇到「没有音乐目录」则停手，等目录就绪后再跑。
-  Future<void> runOnce() async {
+  /// 返回 (处理数, 失败数)：调用方据此记轮次汇总（记录点在 state 层）。
+  Future<(int, int)> runOnce() async {
     if (phase == CollectPhase.running) {
-      return;
+      return (0, 0);
     }
+    var processed = 0;
+    var failed = 0;
     phase = CollectPhase.running;
     try {
       await _tasks.requeueRunning();
@@ -64,8 +81,13 @@ class CollectRunner {
         if (next == null) {
           break;
         }
-        final cont = await _process(next.id, next.source, next.url, next.title,
-            next.artist, next.lyricsPath, next.playlistId);
+        final (cont, taskFailed) = await _process(
+            next.id, next.source, next.url, next.title, next.artist,
+            next.lyricsPath, next.playlistId);
+        processed++;
+        if (taskFailed) {
+          failed++;
+        }
         if (!cont) {
           break;
         }
@@ -73,9 +95,10 @@ class CollectRunner {
     } finally {
       phase = CollectPhase.idle;
     }
+    return (processed, failed);
   }
 
-  Future<bool> _process(
+  Future<(bool, bool)> _process(
     int id,
     String source,
     String url,
@@ -90,7 +113,7 @@ class CollectRunner {
       if (root == null) {
         // 未配置音乐目录：回 pending，等目录就绪后重跑（本轮回调停止，避免空转）。
         await _tasks.setStatus(id, CollectStatusCol.pending);
-        return false;
+        return (false, false);
       }
       final (filePath, meta, lrc) = switch (source) {
         'direct' => await _downloadDirect(id, url, title, artist, root.path),
@@ -98,15 +121,14 @@ class CollectRunner {
             id, source, url, title, artist, root.path, playlistId),
       };
       if (filePath == null) {
-        await _tasks.setStatus(id, CollectStatusCol.failed);
-        return true;
+        // 防御路径：下载/提取管道已改为失败即抛，到这里说明有未覆盖的空洞。
+        throw Exception('提取未产出音频文件：$url');
       }
       // 增量重扫：真实入库（复用扫描链路，音乐目录为根）
       await _scan.scanRoot(root.id, root.path);
       final track = await _trackByPath(filePath);
       if (track == null) {
-        await _tasks.setStatus(id, CollectStatusCol.failed);
-        return true;
+        throw Exception('入库扫描未找到文件：$filePath');
       }
       // 歌词：提取期拉到的 LRC 优先；GitHub 拉取随带的其次
       final lrcPath = lrc ?? lyricsPath;
@@ -132,10 +154,14 @@ class CollectRunner {
         }
       }
       await _tasks.setStatus(id, CollectStatusCol.done, filePath: filePath);
-      return true;
-    } on Object {
-      await _tasks.setStatus(id, CollectStatusCol.failed);
-      return true;
+      return (true, false);
+    } on Object catch (e, st) {
+      // 失败原因必须可见：错误原文落任务行（UI 可读）+ 回调上抛（state 层
+      // 接诊断/日志追踪）——曾经的裸 catch 让所有提取失败无声蒸发。
+      await _tasks.setStatus(id, CollectStatusCol.failed,
+          errorText: _errorText(e));
+      onTaskError?.call(title, e, st);
+      return (true, true);
     }
   }
 
@@ -149,11 +175,15 @@ class CollectRunner {
       String artist,
       String rootDir,
       int? playlistId) async {
-    final handle = await sources.byId(source) ??
+    final plugins = sources;
+    if (plugins == null) {
+      throw Exception('来源插件未安装或未启用：$source');
+    }
+    final handle = await plugins.byId(source) ??
         // 清单旧别名/插件换名兜底：按 URL 让插件重新认领一次
-        (await sources.routeUrl(url) == null
+        (await plugins.routeUrl(url) == null
             ? null
-            : await sources.byId((await sources.routeUrl(url))!));
+            : await plugins.byId((await plugins.routeUrl(url))!));
     if (handle == null) {
       throw Exception('来源插件未安装或未启用：$source');
     }
@@ -248,8 +278,10 @@ class CollectRunner {
         await File(lrcTmp).writeAsString(text, flush: true);
         lrcPath = await _publish(lrcTmp, lrcTarget);
       }
-    } on Object {
-      // 歌词缺失不阻断提取
+    } on Object catch (e) {
+      // 歌词缺失不阻断提取——但失败原因要可见（软失败，进日志追踪；
+      // 插件超时/异常与「真没歌词」由此可区分）。
+      onTaskSoftError?.call('提取歌词 · $useTitle', e);
     }
     await _tasks.setProgress(taskId, 90);
     return (filePath, (title: useTitle, artist: useArtist), lrcPath);
@@ -276,18 +308,16 @@ class CollectRunner {
     final safe = _fileName(artist, title, ext, taskId);
     final target = '$rootDir${Platform.pathSeparator}$safe';
     final tmp = '$cacheDir/dl_direct_$taskId.$ext';
-    try {
-      await _downloadTo(url, const {}, tmp, onProgress: (r, total) {
-        if (total > 0) {
-          _tasks.setProgress(taskId, (r / total * 90).floor());
-        }
-      });
-      final filePath = await _publish(tmp, target);
-      await _tasks.setProgress(taskId, 95);
-      return (filePath, (title: title, artist: artist), null);
-    } on Object {
-      return (null, (title: title, artist: artist), null);
-    }
+    // 不吞异常：HTTP 状态码/停滞看门狗/磁盘 IO 的真实原因冒泡到
+    // _process 的失败记录点（曾经在这里换成 null filePath，失败无声）。
+    await _downloadTo(url, const {}, tmp, onProgress: (r, total) {
+      if (total > 0) {
+        _tasks.setProgress(taskId, (r / total * 90).floor());
+      }
+    });
+    final filePath = await _publish(tmp, target);
+    await _tasks.setProgress(taskId, 95);
+    return (filePath, (title: title, artist: artist), null);
   }
 
   /// 宿主侧媒体 IO：HTTP 下载到临时文件（停滞看门狗 + 进度）。
@@ -360,6 +390,12 @@ class CollectRunner {
       name = 'collect-$taskId';
     }
     return '$name.$ext';
+  }
+
+  /// 任务行落库的错误原文（截断防超长栈/URL 撑爆行显示）。
+  String _errorText(Object e) {
+    final s = '$e';
+    return s.length <= 400 ? s : '${s.substring(0, 400)}…';
   }
 
   Future<RepositoryRoot?> _firstRoot() async {

@@ -47,6 +47,11 @@ void main() {
     // 01-10 是有效音频；10_broken_probe / 11_empty_probe 应被跳过。
     expect(summary.inserted, 10,
         reason: '01-10 共 10 首有效音频；损坏探针应跳过');
+    // 损坏件从此可计数、原因带文件名（曾经静默消失，只能靠数量对不上发现）
+    expect(summary.failedFiles, 2, reason: '两个损坏探针');
+    expect(summary.failedSamples, hasLength(2));
+    expect(summary.failedSamples.join('\n'), contains('probe'),
+        reason: '失败原因带文件名（日志可定位）');
     final tracks = await db.libraryDao.watchTracks(sort: TrackSort.title).first;
     expect(tracks, hasLength(10));
     // ignore: avoid_print

@@ -221,4 +221,27 @@ void main() {
       expect(pls.where((p) => p.id == plId).single.trackCount, 0);
     });
   });
+
+  group('收集任务 DAO', () {
+    test('setStatus(failed, errorText) 落库 + retryFailed 清空', () async {
+      final id = await db.collectDao
+          .enqueue('direct', 'http://x/a.mp3', title: '失败歌');
+      await db.collectDao.setStatus(id, CollectStatusCol.failed,
+          errorText: '音频流下载失败：HTTP 403');
+
+      final row = await (db.select(db.collectTasks)
+            ..where((t) => t.id.equals(id)))
+          .getSingle();
+      expect(row.status, CollectStatusCol.failed);
+      expect(row.errorText, '音频流下载失败：HTTP 403');
+
+      // 重试重排：状态回 pending，失败原因清空（旧原因不再误导新一轮）
+      await db.collectDao.retryFailed();
+      final re = await (db.select(db.collectTasks)
+            ..where((t) => t.id.equals(id)))
+          .getSingle();
+      expect(re.status, CollectStatusCol.pending);
+      expect(re.errorText, isNull, reason: '重排必须清空失败原因');
+    });
+  });
 }

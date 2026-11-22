@@ -1,12 +1,15 @@
 /// 拉取歌单页：URL 输入 → 拉取 → 预览 → 导入 → 队列。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/design_tokens.dart';
 import '../../../services/github/github_playlist_service.dart';
 import '../../../state/collect_providers.dart';
+import '../../../state/diagnostics.dart';
 import '../../../state/providers.dart';
 import '../../shared/ui_kit.dart';
 
@@ -181,7 +184,11 @@ class _GithubPageState extends ConsumerState<GithubPage> {
         return;
       }
       setState(() => _result = result);
-    } on Object catch (e) {
+    } on Object catch (e, st) {
+      // 失败进日志追踪（页面 _error 只是临时的，页面销毁即失）
+      unawaited(ref
+          .read(diagnosticsProvider.notifier)
+          .record('GitHub 歌单', e, st));
       if (mounted) {
         setState(() => _error = e.toString());
       }
@@ -218,7 +225,11 @@ class _GithubPageState extends ConsumerState<GithubPage> {
           }
         });
       }
-    } on Object catch (e) {
+    } on Object catch (e, st) {
+      // 失败进日志追踪（页面 _error 只是临时的，页面销毁即失）
+      unawaited(ref
+          .read(diagnosticsProvider.notifier)
+          .record('GitHub 歌单', e, st));
       if (mounted) {
         setState(() => _error = e.toString());
       }

@@ -3491,6 +3491,17 @@ class $CollectTasksTable extends CollectTasks
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _errorTextMeta = const VerificationMeta(
+    'errorText',
+  );
+  @override
+  late final GeneratedColumn<String> errorText = GeneratedColumn<String>(
+    'error_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _playlistIdMeta = const VerificationMeta(
     'playlistId',
   );
@@ -3526,6 +3537,7 @@ class $CollectTasksTable extends CollectTasks
     progress,
     filePath,
     lyricsPath,
+    errorText,
     playlistId,
     createdAt,
   ];
@@ -3600,6 +3612,12 @@ class $CollectTasksTable extends CollectTasks
         lyricsPath.isAcceptableOrUnknown(data['lyrics_path']!, _lyricsPathMeta),
       );
     }
+    if (data.containsKey('error_text')) {
+      context.handle(
+        _errorTextMeta,
+        errorText.isAcceptableOrUnknown(data['error_text']!, _errorTextMeta),
+      );
+    }
     if (data.containsKey('playlist_id')) {
       context.handle(
         _playlistIdMeta,
@@ -3667,6 +3685,10 @@ class $CollectTasksTable extends CollectTasks
         DriftSqlType.string,
         data['${effectivePrefix}lyrics_path'],
       ),
+      errorText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_text'],
+      ),
       playlistId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}playlist_id'],
@@ -3698,6 +3720,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
   final int progress;
   final String? filePath;
   final String? lyricsPath;
+  final String? errorText;
   final int? playlistId;
   final DateTime createdAt;
   const CollectTaskRow({
@@ -3711,6 +3734,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
     required this.progress,
     this.filePath,
     this.lyricsPath,
+    this.errorText,
     this.playlistId,
     required this.createdAt,
   });
@@ -3735,6 +3759,9 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
     if (!nullToAbsent || lyricsPath != null) {
       map['lyrics_path'] = Variable<String>(lyricsPath);
     }
+    if (!nullToAbsent || errorText != null) {
+      map['error_text'] = Variable<String>(errorText);
+    }
     if (!nullToAbsent || playlistId != null) {
       map['playlist_id'] = Variable<int>(playlistId);
     }
@@ -3758,6 +3785,9 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
       lyricsPath: lyricsPath == null && nullToAbsent
           ? const Value.absent()
           : Value(lyricsPath),
+      errorText: errorText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorText),
       playlistId: playlistId == null && nullToAbsent
           ? const Value.absent()
           : Value(playlistId),
@@ -3783,6 +3813,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
       progress: serializer.fromJson<int>(json['progress']),
       filePath: serializer.fromJson<String?>(json['filePath']),
       lyricsPath: serializer.fromJson<String?>(json['lyricsPath']),
+      errorText: serializer.fromJson<String?>(json['errorText']),
       playlistId: serializer.fromJson<int?>(json['playlistId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -3803,6 +3834,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
       'progress': serializer.toJson<int>(progress),
       'filePath': serializer.toJson<String?>(filePath),
       'lyricsPath': serializer.toJson<String?>(lyricsPath),
+      'errorText': serializer.toJson<String?>(errorText),
       'playlistId': serializer.toJson<int?>(playlistId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -3819,6 +3851,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
     int? progress,
     Value<String?> filePath = const Value.absent(),
     Value<String?> lyricsPath = const Value.absent(),
+    Value<String?> errorText = const Value.absent(),
     Value<int?> playlistId = const Value.absent(),
     DateTime? createdAt,
   }) => CollectTaskRow(
@@ -3832,6 +3865,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
     progress: progress ?? this.progress,
     filePath: filePath.present ? filePath.value : this.filePath,
     lyricsPath: lyricsPath.present ? lyricsPath.value : this.lyricsPath,
+    errorText: errorText.present ? errorText.value : this.errorText,
     playlistId: playlistId.present ? playlistId.value : this.playlistId,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -3849,6 +3883,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
       lyricsPath: data.lyricsPath.present
           ? data.lyricsPath.value
           : this.lyricsPath,
+      errorText: data.errorText.present ? data.errorText.value : this.errorText,
       playlistId: data.playlistId.present
           ? data.playlistId.value
           : this.playlistId,
@@ -3869,6 +3904,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
           ..write('progress: $progress, ')
           ..write('filePath: $filePath, ')
           ..write('lyricsPath: $lyricsPath, ')
+          ..write('errorText: $errorText, ')
           ..write('playlistId: $playlistId, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -3887,6 +3923,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
     progress,
     filePath,
     lyricsPath,
+    errorText,
     playlistId,
     createdAt,
   );
@@ -3904,6 +3941,7 @@ class CollectTaskRow extends DataClass implements Insertable<CollectTaskRow> {
           other.progress == this.progress &&
           other.filePath == this.filePath &&
           other.lyricsPath == this.lyricsPath &&
+          other.errorText == this.errorText &&
           other.playlistId == this.playlistId &&
           other.createdAt == this.createdAt);
 }
@@ -3919,6 +3957,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
   final Value<int> progress;
   final Value<String?> filePath;
   final Value<String?> lyricsPath;
+  final Value<String?> errorText;
   final Value<int?> playlistId;
   final Value<DateTime> createdAt;
   const CollectTasksCompanion({
@@ -3932,6 +3971,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
     this.progress = const Value.absent(),
     this.filePath = const Value.absent(),
     this.lyricsPath = const Value.absent(),
+    this.errorText = const Value.absent(),
     this.playlistId = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
@@ -3946,6 +3986,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
     this.progress = const Value.absent(),
     this.filePath = const Value.absent(),
     this.lyricsPath = const Value.absent(),
+    this.errorText = const Value.absent(),
     this.playlistId = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : source = Value(source),
@@ -3963,6 +4004,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
     Expression<int>? progress,
     Expression<String>? filePath,
     Expression<String>? lyricsPath,
+    Expression<String>? errorText,
     Expression<int>? playlistId,
     Expression<DateTime>? createdAt,
   }) {
@@ -3977,6 +4019,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
       if (progress != null) 'progress': progress,
       if (filePath != null) 'file_path': filePath,
       if (lyricsPath != null) 'lyrics_path': lyricsPath,
+      if (errorText != null) 'error_text': errorText,
       if (playlistId != null) 'playlist_id': playlistId,
       if (createdAt != null) 'created_at': createdAt,
     });
@@ -3993,6 +4036,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
     Value<int>? progress,
     Value<String?>? filePath,
     Value<String?>? lyricsPath,
+    Value<String?>? errorText,
     Value<int?>? playlistId,
     Value<DateTime>? createdAt,
   }) {
@@ -4007,6 +4051,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
       progress: progress ?? this.progress,
       filePath: filePath ?? this.filePath,
       lyricsPath: lyricsPath ?? this.lyricsPath,
+      errorText: errorText ?? this.errorText,
       playlistId: playlistId ?? this.playlistId,
       createdAt: createdAt ?? this.createdAt,
     );
@@ -4047,6 +4092,9 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
     if (lyricsPath.present) {
       map['lyrics_path'] = Variable<String>(lyricsPath.value);
     }
+    if (errorText.present) {
+      map['error_text'] = Variable<String>(errorText.value);
+    }
     if (playlistId.present) {
       map['playlist_id'] = Variable<int>(playlistId.value);
     }
@@ -4069,6 +4117,7 @@ class CollectTasksCompanion extends UpdateCompanion<CollectTaskRow> {
           ..write('progress: $progress, ')
           ..write('filePath: $filePath, ')
           ..write('lyricsPath: $lyricsPath, ')
+          ..write('errorText: $errorText, ')
           ..write('playlistId: $playlistId, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -6879,6 +6928,7 @@ typedef $$CollectTasksTableCreateCompanionBuilder =
       Value<int> progress,
       Value<String?> filePath,
       Value<String?> lyricsPath,
+      Value<String?> errorText,
       Value<int?> playlistId,
       Value<DateTime> createdAt,
     });
@@ -6894,6 +6944,7 @@ typedef $$CollectTasksTableUpdateCompanionBuilder =
       Value<int> progress,
       Value<String?> filePath,
       Value<String?> lyricsPath,
+      Value<String?> errorText,
       Value<int?> playlistId,
       Value<DateTime> createdAt,
     });
@@ -6955,6 +7006,11 @@ class $$CollectTasksTableFilterComposer
 
   ColumnFilters<String> get lyricsPath => $composableBuilder(
     column: $table.lyricsPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorText => $composableBuilder(
+    column: $table.errorText,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7028,6 +7084,11 @@ class $$CollectTasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get errorText => $composableBuilder(
+    column: $table.errorText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get playlistId => $composableBuilder(
     column: $table.playlistId,
     builder: (column) => ColumnOrderings(column),
@@ -7080,6 +7141,9 @@ class $$CollectTasksTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get errorText =>
+      $composableBuilder(column: $table.errorText, builder: (column) => column);
+
   GeneratedColumn<int> get playlistId => $composableBuilder(
     column: $table.playlistId,
     builder: (column) => column,
@@ -7130,6 +7194,7 @@ class $$CollectTasksTableTableManager
                 Value<int> progress = const Value.absent(),
                 Value<String?> filePath = const Value.absent(),
                 Value<String?> lyricsPath = const Value.absent(),
+                Value<String?> errorText = const Value.absent(),
                 Value<int?> playlistId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => CollectTasksCompanion(
@@ -7143,6 +7208,7 @@ class $$CollectTasksTableTableManager
                 progress: progress,
                 filePath: filePath,
                 lyricsPath: lyricsPath,
+                errorText: errorText,
                 playlistId: playlistId,
                 createdAt: createdAt,
               ),
@@ -7158,6 +7224,7 @@ class $$CollectTasksTableTableManager
                 Value<int> progress = const Value.absent(),
                 Value<String?> filePath = const Value.absent(),
                 Value<String?> lyricsPath = const Value.absent(),
+                Value<String?> errorText = const Value.absent(),
                 Value<int?> playlistId = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => CollectTasksCompanion.insert(
@@ -7171,6 +7238,7 @@ class $$CollectTasksTableTableManager
                 progress: progress,
                 filePath: filePath,
                 lyricsPath: lyricsPath,
+                errorText: errorText,
                 playlistId: playlistId,
                 createdAt: createdAt,
               ),

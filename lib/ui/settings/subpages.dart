@@ -570,6 +570,16 @@ class ExtractTasksPage extends ConsumerWidget {
                                         : IaColors.textLow)),
                       ],
                     ),
+                    if (t.status == CollectStatusCol.failed &&
+                        (t.errorText ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: IaSpacing.xs),
+                      // 失败原因原文（任务行 errorText，重试后清空）
+                      Text(t.errorText!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, color: IaColors.error)),
+                    ],
                     const SizedBox(height: IaSpacing.s),
                     Stack(
                       children: [

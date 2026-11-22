@@ -4,6 +4,7 @@
 /// 操作完成后重读列表（与 EnrichController 的显式状态风格一致）。
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,6 +15,7 @@ import '../plugins/plugin_manifest.dart';
 import '../plugins/plugin_registry.dart';
 import '../plugins/plugin_runtime.dart';
 import '../plugins/quickjs_plugin_runtime.dart';
+import 'diagnostics.dart';
 import 'providers.dart';
 
 /// 市场索引 URL（可指向自建仓库；默认空 = 未配置市场）。
@@ -93,11 +95,18 @@ class PluginsController extends Notifier<PluginsState> {
       final message = await op();
       await _reloadInstalled();
       state = state.copyWith(busy: false, message: message);
-    } on PluginManifestException catch (e) {
+    } on PluginManifestException catch (e, st) {
+      // 失败进日志追踪——「详见诊断」文案从此名副其实
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('插件管理', e, st));
       state = state.copyWith(busy: false, message: '$e');
-    } on PluginInstallException catch (e) {
+    } on PluginInstallException catch (e, st) {
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('插件管理', e, st));
       state = state.copyWith(busy: false, message: '$e');
-    } on Object {
+    } on Object catch (e, st) {
+      unawaited(
+          ref.read(diagnosticsProvider.notifier).record('插件管理', e, st));
       state = state.copyWith(busy: false, message: '操作失败（详见诊断）');
     }
   }

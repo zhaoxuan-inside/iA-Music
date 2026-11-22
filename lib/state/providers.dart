@@ -31,6 +31,7 @@ import '../services/playback/playback_service.dart';
 import '../services/scan/root_watcher.dart';
 import '../services/scan/scan_service.dart';
 import '../services/settings/settings_service.dart';
+import 'diagnostics.dart';
 
 final dbProvider = Provider<IaDatabase>((ref) {
   final db = IaDatabase(openAppDatabase());
@@ -145,9 +146,23 @@ final playbackServiceProvider = Provider<PlaybackService>((ref) {
 final rootWatcherProvider = Provider<RootWatcher>((ref) {
   final db = ref.watch(dbProvider);
   final scan = ref.watch(scanServiceProvider);
-  final watcher = RootWatcher(db, (rootId, rootPath) {
-    unawaited(scan.scanRoot(rootId, rootPath));
-  });
+  final watcher = RootWatcher(
+    db,
+    // 文件变更增量扫描：失败归属到扫描域日志（曾经是野错误漂进「未捕获」）
+    (rootId, rootPath) {
+      unawaited(() async {
+        try {
+          await scan.scanRoot(rootId, rootPath);
+        } on Object catch (e, st) {
+          unawaited(ref
+              .read(diagnosticsProvider.notifier)
+              .record('扫描 · watcher 增量', e, st));
+        }
+      }());
+    },
+    onWatchError: (rootPath, e, st) => unawaited(
+        ref.read(diagnosticsProvider.notifier).record('根目录监听 · $rootPath', e, st)),
+  );
   ref.onDispose(watcher.dispose);
   return watcher;
 });

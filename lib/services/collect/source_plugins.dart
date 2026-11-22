@@ -111,10 +111,15 @@ class SourcePluginHandle {
 
 /// 已启用音频源插件的枚举与路由。
 class SourcePlugins {
-  SourcePlugins(this._registry, this._runtime);
+  SourcePlugins(this._registry, this._runtime, {this.onMatchError});
 
   final PluginRegistry _registry;
   final PluginRuntimePort _runtime;
+
+  /// 插件 match() 抛错回调（插件崩/会话打不开/超时）——路由失败不再伪装成
+  /// 「无人认领」：state 层接诊断/日志追踪。
+  final void Function(String pluginId, Object error, StackTrace? st)?
+      onMatchError;
 
   final List<SourcePluginHandle> _handles = [];
 
@@ -155,8 +160,9 @@ class SourcePlugins {
         if (await h.match(url) != null) {
           return h.id;
         }
-      } on Object {
-        // 单插件路由失败不影响其余插件
+      } on Object catch (e, st) {
+        // 单插件路由失败不影响其余插件——但必须有痕迹（经回调记录）
+        onMatchError?.call(h.id, e, st);
       }
     }
     return null;

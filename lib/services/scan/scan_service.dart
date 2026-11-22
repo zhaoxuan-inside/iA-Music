@@ -31,12 +31,20 @@ class ScanSummary {
     required this.updated,
     required this.missing,
     required this.revived,
+    this.failedFiles = 0,
+    this.failedSamples = const [],
   });
 
   final int inserted;
   final int updated;
   final int missing;
   final int revived;
+
+  /// 解析失败件数（损坏/不可读——不入库；数量对不上的真相）。
+  final int failedFiles;
+
+  /// 前 5 条失败原因原文（带相对路径），供日志追踪。
+  final List<String> failedSamples;
 
   int get touched => inserted + updated + missing + revived;
 }
@@ -90,6 +98,15 @@ class ScanService {
     final toRevive = <int>[];
     final toMissing = <int>[];
     final toParse = <String>[]; // relPath（新文件或 size 变化）
+    var failedFiles = 0;
+    final failedSamples = <String>[]; // 前 5 条失败原因（日志追踪用）
+    void recordFailure(String detail) {
+      failedFiles++;
+      if (failedSamples.length < 5) {
+        failedSamples.add(detail);
+      }
+    }
+
     for (final e in existing) {
       final diskPath = _abs(rootPath, e.relPath);
       final exists = onDiskSet.contains(e.relPath);
@@ -97,8 +114,11 @@ class ScanService {
         if (e.missing) {
           toRevive.add(e.id);
         }
-        final size = File(diskPath).lengthSync();
-        if (size != e.sizeBytes) {
+        // walk 与 stat 之间文件可能被删/不可达：单件失败不炸整轮，计损坏件
+        final size = _safeLength(diskPath);
+        if (size == null) {
+          recordFailure('stat 失败：${e.relPath}');
+        } else if (size != e.sizeBytes) {
           toParse.add(e.relPath); // 变化件：重解析重哈希
         }
       } else {
@@ -128,7 +148,12 @@ class ScanService {
       final rows = <TrackUpsert>[];
       for (final out in outs) {
         if (!out.ok) {
-          continue; // 损坏/不可读：不入库（探针件永不污染曲库）
+          // 损坏/不可读：不入库（探针件永不污染曲库）——但必须留痕，
+          // 否则损坏文件静默消失，用户只能靠「数量对不上」发现。
+          recordFailure(out.error == null
+              ? '解析失败：${out.relPath}'
+              : '解析失败：${out.relPath} · ${out.error}');
+          continue;
         }
         final existed = byRel[out.relPath];
         rows.add(TrackUpsert(
@@ -162,7 +187,18 @@ class ScanService {
       updated: updated,
       missing: toMissing.length,
       revived: toRevive.length,
+      failedFiles: failedFiles,
+      failedSamples: List.unmodifiable(failedSamples),
     );
+  }
+
+  /// stat 守卫：walk 与 stat 之间文件被删/不可达 → null（计损坏件不炸整轮）。
+  int? _safeLength(String path) {
+    try {
+      return File(path).lengthSync();
+    } on Object {
+      return null;
+    }
   }
 
   /// 递归收集音频相对路径；跳过隐藏目录与符号链接环。

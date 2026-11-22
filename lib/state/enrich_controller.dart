@@ -125,6 +125,10 @@ class EnrichController extends Notifier<EnrichState> {
         currentTitle: '',
         lastSummary: adopted > 0 ? '补全完成 · 采纳 $adopted 首' : '补全完成 · 无新匹配',
       );
+      // 轮次汇总进日志（与「补全中断」对称；单曲成败各有独立记录）
+      unawaited(ref
+          .read(diagnosticsProvider.notifier)
+          .record('补全', '完成 · 采纳 $adopted / $total'));
     } on Object catch (e, st) {
       state = state.copyWith(
           running: false, currentTitle: '', lastSummary: '补全中断：$e');

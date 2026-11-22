@@ -107,9 +107,15 @@ void main() {
   late CollectRunner runner;
   late HttpServer fileServer;
 
+  /// 回调捕获：失败/软失败原文（此前这些错误无声蒸发）
+  final taskErrors = <String>[];
+  final softErrors = <String>[];
+
   FakeSession fake() => runtime.session;
 
   setUp(() async {
+    taskErrors.clear();
+    softErrors.clear();
     db = IaDatabase.connect(NativeDatabase.memory());
     await db.customSelect('SELECT 1').get();
     rootDir = Directory.systemTemp.createTempSync('ia_collect');
@@ -118,7 +124,9 @@ void main() {
     runtime = FakeRuntime();
     sources = SourcePlugins(registry, runtime);
     runner = CollectRunner(db, ScanService(db),
-        cacheDir: rootDir.path, sources: sources);
+        cacheDir: rootDir.path, sources: sources,
+        onTaskError: (title, e, st) => taskErrors.add('$title: $e'),
+        onTaskSoftError: (source, e) => softErrors.add('$source: $e'));
     await db.libraryDao.addRoot(rootDir.path);
     await registry
         .installFromSource(_fakePluginSource)
@@ -157,6 +165,42 @@ void main() {
     expect(all.single.status, CollectStatusCol.done);
     expect(all.single.filePath, isNotNull);
     expect(await tracks(), hasLength(1));
+  });
+
+  test('插件失败：onTaskError 带错误原文 + 任务行 errorText 落库', () async {
+    fake().failResolve = true;
+    await db.collectDao
+        .enqueue('test.fake-source', 'https://fake.test/video/BV1FAIL1');
+
+    final (processed, failed) = await runner.runOnce();
+
+    expect((processed, failed), (1, 1), reason: 'runOnce 返回轮次统计');
+    final all = await tasks();
+    expect(all.single.status, CollectStatusCol.failed);
+    expect(all.single.errorText, contains('插件解析失败'),
+        reason: '失败原因原文落任务行（详情页可见）');
+    expect(taskErrors, hasLength(1), reason: '失败原文经回调上抛（state 层接日志）');
+    expect(taskErrors.single, contains('插件解析失败'));
+    expect(softErrors, isEmpty);
+  });
+
+  test('直链死地址：下载异常不再被吞——回调 + errorText 双落', () async {
+    // 已关闭的端口：连接拒绝（真实网络失败形态）
+    final dead = await HttpServer.bind('127.0.0.1', 0);
+    final deadPort = dead.port;
+    await dead.close();
+
+    await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:$deadPort/gone.mp3',
+        title: '死链歌', artist: '');
+
+    final (processed, failed) = await runner.runOnce();
+
+    expect((processed, failed), (1, 1));
+    final all = await tasks();
+    expect(all.single.status, CollectStatusCol.failed);
+    expect(all.single.errorText, isNotNull, reason: '下载失败原文落任务行');
+    expect(taskErrors, hasLength(1), reason: '曾经这里是静默吞点');
   });
 
   test('插件单曲目：resolve → stream → 宿主下载 → 入库 → 归歌单', () async {

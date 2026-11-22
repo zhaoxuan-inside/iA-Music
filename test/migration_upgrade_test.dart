@@ -57,7 +57,7 @@ void main() {
     return [for (final r in cols) r.data['name'] as String];
   }
 
-  test('v4 → v6：加列幂等、回填生效、二次打开不炸', () async {
+  test('v4 → v7：加列幂等、回填生效、二次打开不炸', () async {
     final db = IaDatabase.connect(NativeDatabase(dbFile));
     // 迁移已在打开时执行
     final cols = await trackColumns(db);
@@ -68,6 +68,11 @@ void main() {
       'lyrics_at',
       'enrich_attempts',
     ]));
+
+    // v7：collect_tasks 表缺失时 createAll 幂等补建，error_text 到位
+    final taskCols = await db.customSelect('PRAGMA table_info(collect_tasks)').get();
+    expect([for (final r in taskCols) r.data['name']], contains('error_text'),
+        reason: '夹具 v4 无 collect_tasks——迁移须幂等补表再加列');
 
     // 回填：旧行三阶段时刻已写（整数秒）且非空
     final row = await db
@@ -85,7 +90,7 @@ void main() {
     await db2.close();
   });
 
-  test('全新安装：onCreate 直接 v6 schema，无迁移路径', () async {
+  test('全新安装：onCreate 直接 v7 schema，无迁移路径', () async {
     final db = IaDatabase.connect(NativeDatabase.memory());
     final cols = await trackColumns(db);
     expect(cols, containsAll(['title_matched_at', 'enrich_attempts']));

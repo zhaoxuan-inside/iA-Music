@@ -12,8 +12,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ia_music/data/database.dart';
 import 'package:ia_music/domain/ports/lyrics_port.dart';
 import 'package:ia_music/services/enrich/enrichment_service.dart';
+import 'package:ia_music/state/diagnostics.dart';
 import 'package:ia_music/state/enrich_controller.dart';
 import 'package:ia_music/state/providers.dart';
+
+/// 捕获型诊断控制器：同步记录（真 record 有 async 间隙，测试断言会与
+/// unawaited 记录竞态；也避免在测试里触平台目录 IO）。
+final diagRecords = <String>[];
+
+class _CapturingDiag extends DiagnosticsController {
+  @override
+  DiagEntry? build() => null;
+
+  @override
+  Future<void> record(String source, Object error, [StackTrace? st]) async {
+    diagRecords.add('$source: $error');
+  }
+
+  @override
+  Future<void> clear() async {}
+}
 
 /// 全程无候选：补全走「无匹配 → 标记 enrichedAt」路径。
 class _NoMatchLyrics implements LyricTextSearchPort {
@@ -35,6 +53,7 @@ void main() {
   late Directory cacheDir;
 
   setUp(() async {
+    diagRecords.clear();
     db = IaDatabase.connect(NativeDatabase.memory());
     await db.customSelect('SELECT 1').get();
     cacheDir = await Directory.systemTemp.createTemp('enrich_ctl_test');
@@ -43,6 +62,8 @@ void main() {
       // 覆盖组合根的补全服务：不触指纹/网络，纯文字链在内存库上跑
       enrichmentServiceProvider.overrideWith((ref) async =>
           EnrichmentService(db, _NoMatchLyrics(), cacheDir: cacheDir.path)),
+      // 诊断同步捕获：断言与 unawaited 记录无竞态
+      diagnosticsProvider.overrideWith(_CapturingDiag.new),
     ]);
     addTearDown(() async {
       container.dispose();
@@ -90,5 +111,33 @@ void main() {
     final track = (await db.libraryDao.trackById(row.id))!;
     expect(track.enrichedAt, isNotNull, reason: '无候选也标记已尝试');
     expect(track.needsMeta, isFalse);
+  });
+
+  test('补全完成：轮次汇总进诊断记录（与「补全中断」对称）', () async {
+    final rootId = await db.libraryDao.addRoot('/music');
+    await db.libraryDao.upsertScannedBatch([
+      TrackUpsert(
+        rootId: rootId,
+        relPath: 't2.mp3',
+        path: '/music/t2.mp3',
+        title: '汇总歌',
+        artist: '',
+        album: '',
+        genre: '',
+        needsMeta: true,
+        trackNo: 2,
+        durationMs: 60000,
+        sizeBytes: 10,
+        contentHash: 'h2',
+        audioFormat: 'mp3',
+      ),
+    ]);
+
+    await container.read(enrichProvider.notifier).resumeIfNeeded();
+
+    final summaryLines =
+        diagRecords.where((r) => r.startsWith('补全:')).toList();
+    expect(summaryLines, hasLength(1), reason: '完成轮次汇总一条');
+    expect(summaryLines.single, contains('采纳 0 / 1'));
   });
 }
