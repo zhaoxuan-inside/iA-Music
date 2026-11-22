@@ -484,7 +484,7 @@ class _QuickplayEmpty extends StatelessWidget {
       child: InkWell(
         onTap: () =>
             Navigator.of(context)
-                .push(zuneRoute<void>(builder: (_) => const CollectSubPage())),
+                .push(zuneRoute<void>(builder: (_) => const PluginsPage())),
         child: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -515,7 +515,7 @@ class _QuickplayEmpty extends StatelessWidget {
               ),
               const SizedBox(height: IaSpacing.s),
               const Text(
-                '去收集音乐 ›',
+                '去「插件」装音频源 ›',
                 style: TextStyle(fontSize: 12, color: IaColors.textMid),
               ),
             ],

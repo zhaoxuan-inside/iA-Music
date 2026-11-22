@@ -63,6 +63,8 @@ class SourceAuthStatus {
 final sourceAuthStatusProvider =
     FutureProvider.family<SourceAuthStatus, String>((ref, pluginId) async {
   ref.watch(sourceEpochProvider);
+  // 安装/启停/卸载即时刷新（pluginsProvider 状态变化也是登录态变更通道）
+  ref.watch(pluginsProvider);
   final handles = await ref.watch(sourceHandlesProvider.future);
   final h = handles.where((x) => x.id == pluginId).firstOrNull;
   if (h == null) {
@@ -75,6 +77,9 @@ final sourceAuthStatusProvider =
 /// 登录方式（qr / cookie / none）——收集页按它决定打开哪种登录页。
 final sourceAuthKindProvider =
     FutureProvider.family<String, String>((ref, pluginId) async {
+  ref.watch(sourceEpochProvider);
+  // 安装/启停/卸载即时刷新（bump 之外的通道）
+  ref.watch(pluginsProvider);
   final handles = await ref.watch(sourceHandlesProvider.future);
   final h = handles.where((x) => x.id == pluginId).firstOrNull;
   if (h == null) {

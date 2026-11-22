@@ -286,8 +286,8 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
             style: const TextStyle(fontSize: 12, color: IaColors.error)),
         TextButton(
           onPressed: () => Navigator.of(context).push(
-              zuneRoute<void>(builder: (_) => const CollectSubPage())),
-          child: const Text('去设置 · 收集',
+              zuneRoute<void>(builder: (_) => const PluginsPage())),
+          child: const Text('去「插件」管理音频源',
               style: TextStyle(fontSize: 12, color: IaColors.textLow)),
         ),
       ],

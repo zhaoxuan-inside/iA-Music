@@ -1,4 +1,4 @@
-/// 设置页（菜单 → 各项独立子页）：主题色 / 存储 / 收集 / 关于。
+/// 设置页（菜单 → 各项独立子页）：主题色 / 存储 / 插件 / 关于。
 library;
 
 import 'package:flutter/material.dart';
@@ -22,15 +22,13 @@ class SettingsPage extends ConsumerWidget {
         .map((w) => w.name)
         .firstOrNull;
     final trackCount = ref.watch(trackCountProvider).value ?? 0;
-    final sourceCount =
-        ref.watch(sourceHandlesProvider).value?.length ?? 0;
     final taskCount = ref.watch(collectTasksProvider).value?.length ?? 0;
 
     return HubPage(
       header: const PageHeader(
         kicker: '应用',
         title: '设置',
-        subtitle: '个性化 · 存储与收集 · 关于',
+        subtitle: '个性化 · 存储 · 提取 · 关于',
       ),
       children: [
         BigRow(
@@ -44,14 +42,6 @@ class SettingsPage extends ConsumerWidget {
           subtitle: '目录 · $trackCount 首',
           onTap: () => Navigator.of(context).push(
               zuneRoute<void>(builder: (_) => const StorageSubPage())),
-        ),
-        BigRow(
-          title: '收集',
-          subtitle: sourceCount > 0
-              ? '音频源插件 $sourceCount 个 · 后台自动运行'
-              : '音频源来自插件 · 去安装',
-          onTap: () => Navigator.of(context).push(
-              zuneRoute<void>(builder: (_) => const CollectSubPage())),
         ),
         BigRow(
           title: '提取与补全进度',
