@@ -82,14 +82,17 @@ class IaDatabase extends _$IaDatabase {
           if (from < 6) {
             // v6：补全三阶段时刻（进度持久化，跨重启不从头）；
             //     旧管线已补全的行按已处理回填。
+            //     列名必须用 drift 生成的蛇形名（title_matched_at…）——
+            //     驼峰会让迁移抛 no such column，数据库打不开 → 启动黑屏。
             await m.addColumn(tracks, tracks.titleMatchedAt);
             await m.addColumn(tracks, tracks.artistMatchedAt);
             await m.addColumn(tracks, tracks.lyricsAt);
             await m.addColumn(tracks, tracks.enrichAttempts);
             await customStatement(
-                'UPDATE tracks SET titleMatchedAt = CURRENT_TIMESTAMP, '
-                'artistMatchedAt = CURRENT_TIMESTAMP, lyricsAt = CURRENT_TIMESTAMP '
-                'WHERE enrichedAt IS NOT NULL');
+                'UPDATE tracks SET title_matched_at = CURRENT_TIMESTAMP, '
+                'artist_matched_at = CURRENT_TIMESTAMP, '
+                'lyrics_at = CURRENT_TIMESTAMP '
+                'WHERE enriched_at IS NOT NULL');
           }
         },
         beforeOpen: (details) async {
