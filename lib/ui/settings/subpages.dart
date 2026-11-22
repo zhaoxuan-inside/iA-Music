@@ -374,9 +374,120 @@ String _statusLabel(CollectStatusCol status) => switch (status) {
       CollectStatusCol.failed => '失败',
     };
 
-/// 提取与补全进度子页：任务实时流 + 元数据补全（唯一入口 = 设置页直达）。
+/// 三态进度条：底灰=待处理；成功绿从左往右；失败红从右往左。
+/// 补全三阶段（_EnrichSection.stageRow）与提取聚合条共用。
+class _TriStateBar extends StatelessWidget {
+  const _TriStateBar(
+      {required this.successFraction, required this.failedFraction});
+
+  final double successFraction;
+  final double failedFraction;
+
+  @override
+  Widget build(BuildContext context) {
+    const okGreen = Color(0xFF60A917);
+    return Stack(children: [
+      Container(height: 6, color: IaColors.hairlineStrong),
+      Align(
+        alignment: Alignment.centerRight,
+        child: FractionallySizedBox(
+          widthFactor: failedFraction.clamp(0.0, 1.0),
+          child: Container(height: 6, color: IaColors.error),
+        ),
+      ),
+      FractionallySizedBox(
+        widthFactor: successFraction.clamp(0.0, 1.0),
+        child: Container(height: 6, color: okGreen),
+      ),
+    ]);
+  }
+}
+
+/// 提取与补全进度子页：补全三态进度置顶 + 提取聚合进度（点入任务详情）。
+/// 唯一入口 = 设置页直达。
 class ExtractPage extends ConsumerWidget {
   const ExtractPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tasks = ref.watch(collectTasksProvider).value ?? const [];
+    final edge = edgeInsets(context);
+    final p = Theme.of(context).extension<IaPalette>()!;
+    final done = tasks.where((t) => t.status == CollectStatusCol.done).length;
+    final failed =
+        tasks.where((t) => t.status == CollectStatusCol.failed).length;
+
+    return Scaffold(
+      backgroundColor: IaColors.canvas,
+      body: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
+          children: [
+            const _SubHeader(title: '提取与补全进度'),
+            const SizedBox(height: IaSpacing.s),
+            // ── 补全进度区块（置顶）：歌名/歌手/歌词 三条独立阶段进度（持久化） ──
+            const SectionLabel('补全进度（元数据三阶段）'),
+            const SizedBox(height: IaSpacing.s),
+            const Text(
+                '缺失歌名 / 歌手的曲目自动入队，逐条给出三阶段结论；进度已落库，中断重启不从头。'
+                '绿从左进=成功 · 红从右进=失败 · 中灰=待处理',
+                style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+            const SizedBox(height: IaSpacing.m),
+            const _EnrichSection(),
+            const SizedBox(height: IaSpacing.l),
+            // ── 提取进度：聚合三态条（绿=完成 红=失败 灰=进行中/等待），点入详情 ──
+            const SectionLabel('提取进度'),
+            const SizedBox(height: IaSpacing.s),
+            if (tasks.isEmpty)
+              const Text('当前没有进行中的任务——提取与补全都在后台自动运行',
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow))
+            else
+              InkWell(
+                onTap: () => Navigator.of(context).push(
+                    zuneRoute<void>(builder: (_) => const ExtractTasksPage())),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: IaSpacing.s),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                                '${tasks.length} 项任务 · 完成 $done · 失败 $failed · '
+                                '进行中/等待 ${tasks.length - done - failed}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: IaType.list,
+                                    color: IaColors.textHi)),
+                          ),
+                          Text('详情 ›',
+                              style:
+                                  TextStyle(fontSize: 12, color: p.accent)),
+                        ],
+                      ),
+                      const SizedBox(height: IaSpacing.s),
+                      _TriStateBar(
+                        successFraction: done / tasks.length,
+                        failedFraction: failed / tasks.length,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: IaSpacing.l),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 提取任务详情：实时任务流逐条列出（状态 + 百分比 + 细进度条）+ 继续/重试。
+/// 由 ExtractPage 的聚合进度条点入。
+class ExtractTasksPage extends ConsumerWidget {
+  const ExtractTasksPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -394,9 +505,7 @@ class ExtractPage extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
           children: [
-            const _SubHeader(title: '提取与补全进度'),
-            const SizedBox(height: IaSpacing.s),
-            const SectionLabel('提取进度'),
+            _SubHeader(title: '提取详情'),
             const SizedBox(height: IaSpacing.s),
             Text('${tasks.length} 项任务 · 完成后自动入库',
                 style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
@@ -481,15 +590,6 @@ class ExtractPage extends ConsumerWidget {
               ),
               const SizedBox(height: IaSpacing.m),
             ],
-            // ── 补全进度区块：歌名/歌手/歌词 三条独立阶段进度（持久化） ──
-            const SizedBox(height: IaSpacing.l),
-            const SectionLabel('补全进度（元数据三阶段）'),
-            const SizedBox(height: IaSpacing.s),
-            Text('缺失歌名 / 歌手的曲目自动入队，逐条给出三阶段结论；进度已落库，中断重启不从头。'
-                '绿从左进=成功 · 红从右进=失败 · 中灰=待处理',
-                style: const TextStyle(fontSize: 12, color: IaColors.textLow)),
-            const SizedBox(height: IaSpacing.m),
-            const _EnrichSection(),
             const SizedBox(height: IaSpacing.l),
           ],
         ),
@@ -533,22 +633,9 @@ class _EnrichSection extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: IaSpacing.s),
-            Stack(
-              children: [
-                Container(height: 6, color: IaColors.hairlineStrong),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FractionallySizedBox(
-                    widthFactor: s.failedFraction,
-                    child: Container(height: 6, color: IaColors.error),
-                  ),
-                ),
-                FractionallySizedBox(
-                  widthFactor: s.successFraction,
-                  child: Container(height: 6, color: okGreen),
-                ),
-              ],
-            ),
+            _TriStateBar(
+                successFraction: s.successFraction,
+                failedFraction: s.failedFraction),
           ],
         ),
       );

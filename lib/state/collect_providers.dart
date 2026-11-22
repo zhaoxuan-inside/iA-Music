@@ -5,17 +5,12 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../adapters/fingerprint/media_codec_chromaprint_adapter.dart';
-import '../../app/config/acoustid_config.dart';
 import '../../data/database.dart';
-import '../../domain/ports/fingerprint_port.dart';
-import '../services/acoustid/acoustid_client.dart';
 import '../services/collect/collect_service.dart';
 import '../services/collect/source_plugins.dart';
-import '../services/enrich/enrichment_service.dart';
-import '../services/enrich/query_nlp.dart';
 import '../services/github/github_playlist_service.dart';
 import 'diagnostics.dart';
+import 'enrich_controller.dart';
 import 'plugin_providers.dart';
 import 'providers.dart';
 
@@ -125,6 +120,9 @@ class CollectTasksApi {
           .read(diagnosticsProvider.notifier)
           .record('收集队列', e, st));
     }
+    // 队列清空即续跑补全：新入库的缺元数据件不等下次扫描/启动
+    // （resumeIfNeeded 自带运行中/空池守卫，重复调用安全）。
+    unawaited(_ref.read(enrichProvider.notifier).resumeIfNeeded());
   }
 
   /// 批量任务失败重试。
@@ -143,27 +141,9 @@ final collectRunnerProvider = FutureProvider<CollectRunner>((ref) async {
       cacheDir: dirs.lyrics, sources: sources);
 });
 
-/// 音频指纹端口（MediaCodec 解码 + chromaprint FFI；原生库缺失 → null）。
-final fingerprintPortProvider = FutureProvider<FingerprintPort?>((ref) async {
-  return MediaCodecChromaprintAdapter();
-});
-
-/// AcoustID 查询客户端。
-final acoustidClientProvider = Provider<AcoustidClient>(
-    (ref) => AcoustidClient(apiKey: kAcoustidClientKey));
-
-/// 元数据反向重建服务：指纹优先链（真·内容识别）→ NLP+网络搜索回退链。
-final enrichmentServiceProvider = FutureProvider<EnrichmentService>((ref) async {
-  final dirs = await ref.watch(cacheDirsProvider.future);
-  final fp = await ref.watch(fingerprintPortProvider.future);
-  return EnrichmentService(ref.watch(dbProvider),
-      ref.watch(lyricSearchProvider),
-      cacheDir: dirs.lyrics,
-      nlp: const QueryNlp(),
-      fingerprintPort: fp,
-      acoustid: ref.watch(acoustidClientProvider));
-});
-
+/// 音频指纹端口（MediaCodec 解码 + chromaprint FFI）→ AcoustID 客户端 →
+/// 元数据反向重建服务：三个补全 provider 已迁往组合根 providers.dart
+/// （纪律：具体实现的构造只允许出现在组合根）。
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }

@@ -57,3 +57,4 @@ third_party/chromaprint-ffi/android/.cxx/
 # iA-Music：分发产物与调试残留
 /dist/
 bili_view*.json
+.zcode/

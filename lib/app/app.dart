@@ -1,12 +1,15 @@
 /// 应用根：纯黑单主题（accent 来自设置）+ 开箱门 + edge-to-edge（曲面屏适配）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../state/enrich_controller.dart';
 import '../state/settings_controller.dart';
 import '../ui/onboarding/onboarding_page.dart';
 import '../ui/shell/hub_shell.dart';
@@ -31,6 +34,9 @@ class _IaAppState extends ConsumerState<IaApp> {
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarIconBrightness: Brightness.light,
     ));
+    // 启动续跑补全：池里有待补曲目就接着跑（进度已落库，中断重启不从头
+    // ——兑现「提取与补全进度」页的承诺；空池/运行中由守卫拦住）。
+    unawaited(ref.read(enrichProvider.notifier).resumeIfNeeded());
   }
 
   @override

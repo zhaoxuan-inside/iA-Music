@@ -11,14 +11,20 @@ import 'package:path_provider/path_provider.dart';
 
 import '../adapters/covers/cover_fetch_adapter.dart';
 import '../adapters/engine/just_audio_engine_adapter.dart';
+import '../adapters/fingerprint/media_codec_chromaprint_adapter.dart';
 import '../adapters/lyrics/lrclib_adapter.dart';
 import '../adapters/metadata/metadata_reader_adapter.dart';
+import '../app/config/acoustid_config.dart';
 import '../data/database.dart';
 import '../domain/ports/cover_port.dart';
 import '../domain/ports/engine_port.dart';
+import '../domain/ports/fingerprint_port.dart';
 import '../domain/ports/lyrics_port.dart';
 import '../domain/ports/metadata_port.dart';
+import '../services/acoustid/acoustid_client.dart';
 import '../services/covers/cover_chain.dart';
+import '../services/enrich/enrichment_service.dart';
+import '../services/enrich/query_nlp.dart';
 import '../services/log/log_file_writer.dart';
 import '../services/lyrics/lyrics_pipeline.dart';
 import '../services/playback/playback_service.dart';
@@ -144,4 +150,25 @@ final rootWatcherProvider = Provider<RootWatcher>((ref) {
   });
   ref.onDispose(watcher.dispose);
   return watcher;
+});
+
+/// 音频指纹端口（MediaCodec 解码 + chromaprint FFI；原生库缺失 → null）。
+final fingerprintPortProvider = FutureProvider<FingerprintPort?>((ref) async {
+  return MediaCodecChromaprintAdapter();
+});
+
+/// AcoustID 查询客户端。
+final acoustidClientProvider = Provider<AcoustidClient>(
+    (ref) => AcoustidClient(apiKey: kAcoustidClientKey));
+
+/// 元数据反向重建服务：指纹优先链（真·内容识别）→ NLP+网络搜索回退链。
+final enrichmentServiceProvider = FutureProvider<EnrichmentService>((ref) async {
+  final dirs = await ref.watch(cacheDirsProvider.future);
+  final fp = await ref.watch(fingerprintPortProvider.future);
+  return EnrichmentService(ref.watch(dbProvider),
+      ref.watch(lyricSearchProvider),
+      cacheDir: dirs.lyrics,
+      nlp: const QueryNlp(),
+      fingerprintPort: fp,
+      acoustid: ref.watch(acoustidClientProvider));
 });

@@ -51,6 +51,9 @@ const Object _unset = Object();
 class ScanController extends Notifier<ScanState> {
   @override
   ScanState build() {
+    // keepAlive：扫描进度页同理（与 enrichController 一致）——离开页面即
+    // 销毁会让进行中的扫描进度回调炸掉，扫完即补全的触发也随之丢失。
+    ref.keepAlive();
     // 挂根目录监听（一次性；根集合变化由调用方 sync）
     unawaited(_attachWatcher());
     return const ScanState();

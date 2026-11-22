@@ -8,7 +8,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/entities/track.dart';
-import 'collect_providers.dart';
 import 'diagnostics.dart';
 import 'providers.dart';
 
@@ -45,7 +44,27 @@ class EnrichState {
 
 class EnrichController extends Notifier<EnrichState> {
   @override
-  EnrichState build() => const EnrichState();
+  EnrichState build() {
+    // keepAlive：本 provider 唯一的监听者是「提取与补全进度」页——离开页面
+    // 即销毁会让补全循环随 notifier 静默死亡（曾表现为只补 ~100 首就
+    // 「队列空闲」）。补全是后台长任务，生命周期与页面解耦。
+    ref.keepAlive();
+    return const EnrichState();
+  }
+
+  /// 启动续跑 / 扫描与收集入库后的按需补全：运行中或池空一律 no-op
+  /// ——空池直接 runOnce 会跑出假的「补全中断 0/0」。
+  Future<void> resumeIfNeeded() async {
+    if (state.running) {
+      return;
+    }
+    final pending =
+        await ref.read(dbProvider).libraryDao.countNeedsEnrichment();
+    if (pending == 0) {
+      return;
+    }
+    await runOnce();
+  }
 
   /// 跑一轮补全：分批（20/批）循环直到待补全清空；重复调用在跑时忽略。
   ///
