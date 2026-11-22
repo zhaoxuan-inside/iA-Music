@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +19,14 @@ class FakeEngine implements EnginePort {
   int loadCount = 0;
   int restoreCount = 0;
   int jumpCount = 0;
+  int playCount = 0;
   double? lastVolume;
+
+  /// 注入失败（自愈路径测试）：下一次 restore/loadAndPlay 抛一次。
+  bool failRestoreOnce = false;
+  bool failLoadOnce = false;
+  final List<int> restoreIndexes = [];
+  final List<int> restorePositions = [];
 
   @override
   Stream<EngineEvent> get events => _events.stream;
@@ -32,15 +40,25 @@ class FakeEngine implements EnginePort {
   Future<void> loadAndPlay(List<QueueItem> queue, int startIndex) async {
     loadCount++;
     startIndexes.add(startIndex);
+    if (failLoadOnce) {
+      failLoadOnce = false;
+      throw StateError('load failed');
+    }
   }
 
   @override
   Future<void> restore(List<QueueItem> queue, int startIndex, int positionMs) async {
     restoreCount++;
+    restoreIndexes.add(startIndex);
+    restorePositions.add(positionMs);
+    if (failRestoreOnce) {
+      failRestoreOnce = false;
+      throw StateError('restore failed');
+    }
   }
 
   @override
-  Future<void> play() async {}
+  Future<void> play() async => playCount++;
   @override
   Future<void> pause() async {}
   @override
@@ -70,6 +88,7 @@ void main() {
   late FakeEngine engine;
   late PlaybackService service;
   late List<Track> tracks;
+  final recordedErrors = <String>[];
 
   setUp(() async {
     db = IaDatabase.connect(NativeDatabase.memory());
@@ -95,13 +114,38 @@ void main() {
     ]);
     tracks = await db.libraryDao.availableTracks();
     engine = FakeEngine();
+    recordedErrors.clear();
     service = PlaybackService(
       engine: engine,
       db: db,
       settings: SettingsService(db.settingsDao),
+      onError: (source, e, [st]) => recordedErrors.add('$source: $e'),
     );
     await service.start(resumeSession: false);
   });
+
+  /// 重启服务做会话恢复测试（setUp 的服务不恢复）。
+  Future<PlaybackService> restartedService({bool failRestore = false}) async {
+    await service.dispose();
+    engine = FakeEngine()..failRestoreOnce = failRestore;
+    return service = PlaybackService(
+      engine: engine,
+      db: db,
+      settings: SettingsService(db.settingsDao),
+      onError: (source, e, [st]) => recordedErrors.add('$source: $e'),
+    );
+  }
+
+  /// 预写会话快照（全部曲目，起播 [index]，断点 [positionMs]）。
+  Future<void> writeSession(int index, int positionMs) async {
+    await db.settingsDao.setValue(
+        SettingKeys.session,
+        jsonEncode({
+          'paths': [for (final t in tracks) t.path],
+          'index': index,
+          'positionMs': positionMs,
+        }));
+  }
 
   tearDown(() async {
     await service.dispose();
@@ -243,5 +287,50 @@ void main() {
     expect(engine.lastVolume, 66);
     final raw = await db.settingsDao.valueOf(SettingKeys.volume);
     expect(raw, isNotNull);
+  });
+
+  test('恢复失败 → 快照留队列但引擎空壳；play() 自愈重载接断点', () async {
+    await writeSession(1, 30000);
+    final svc = await restartedService(failRestore: true);
+    await svc.start(resumeSession: true);
+    // 快照恢复了（底部栏可见），但引擎装载失败：状态可辨、故障已上报
+    expect(svc.snapshot.current?.id, tracks[1].id);
+    expect(svc.snapshot.loading, isFalse);
+    expect(engine.restoreCount, 1);
+    expect(recordedErrors.where((e) => e.startsWith('播放 · 会话恢复失败')),
+        hasLength(1));
+    // 空壳引擎下点播放 → 自愈重载（不是无效的裸 play），接回会话断点
+    await svc.play();
+    expect(engine.restoreCount, 2);
+    expect(engine.restoreIndexes.last, 1);
+    expect(engine.restorePositions.last, 30000);
+    expect(engine.playCount, 0);
+    // 已装载后恢复裸播放语义
+    await svc.play();
+    expect(engine.playCount, 1);
+  });
+
+  test('恢复失败 → next() 按目标索引自愈重载', () async {
+    await writeSession(1, 0);
+    final svc = await restartedService(failRestore: true);
+    await svc.start(resumeSession: true);
+    await svc.next();
+    expect(engine.restoreCount, 2, reason: 'jumpTo 对空壳引擎无效，改为重载');
+    expect(engine.restoreIndexes.last, 2);
+    expect(engine.restorePositions.last, 0);
+    expect(svc.snapshot.index, 2);
+  });
+
+  test('装载失败 → loading 清除 + 上报；play() 自愈重载当前曲', () async {
+    engine.failLoadOnce = true;
+    await service.playTracks(tracks, startIndex: 2);
+    expect(service.snapshot.loading, isFalse, reason: '装载失败不留悬挂 loading');
+    expect(service.snapshot.current?.id, tracks[2].id);
+    expect(recordedErrors.where((e) => e.startsWith('播放 · 装载队列')),
+        hasLength(1));
+    await service.play();
+    expect(engine.restoreCount, 1);
+    expect(engine.restoreIndexes.single, 2);
+    expect(engine.restorePositions.single, 0);
   });
 }

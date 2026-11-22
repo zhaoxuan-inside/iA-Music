@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../adapters/covers/cover_fetch_adapter.dart';
@@ -109,6 +110,11 @@ final cacheDirsProvider = FutureProvider<CacheDirs>((ref) async {
   return dirs;
 });
 
+/// 安装包版本元数据（pubspec version 的构建产物 versionName/versionCode）。
+/// 关于页展示用——不再手写同步常量（曾连续 13 个发版漂移显示 v0.0.4）。
+final packageInfoProvider = FutureProvider<PackageInfo>(
+    (ref) => PackageInfo.fromPlatform());
+
 final coverChainProvider = FutureProvider<CoverChain>((ref) async {
   final dirs = await ref.watch(cacheDirsProvider.future);
   return CoverChain(
@@ -138,6 +144,9 @@ final playbackServiceProvider = Provider<PlaybackService>((ref) {
     engine: ref.watch(engineProvider),
     db: ref.watch(dbProvider),
     settings: ref.watch(settingsServiceProvider),
+    // 播放域故障不再蒸发：恢复/装载失败（冷启动播放钮无反应这类）进诊断
+    onError: (source, e, [st]) => unawaited(
+        ref.read(diagnosticsProvider.notifier).record(source, e, st)),
   );
   ref.onDispose(service.dispose);
   return service;

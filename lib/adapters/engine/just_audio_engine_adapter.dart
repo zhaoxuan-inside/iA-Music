@@ -67,9 +67,14 @@ class JustAudioEngineAdapter implements EnginePort {
       throw StateError('EnginePort.init 双重调用');
     }
     _inited = true;
-    // 后台服务就绪后再建播放器（通知栏/锁屏才有 MediaSession）；
-    // 只等一小段：服务绑定异常时也要能播。
-    await ensureAudioService().timeout(kAudioServiceGrace, onTimeout: () {});
+    // 后台服务绑定完成后再建播放器（通知栏/锁屏才有 MediaSession）。
+    // 必须等绑定完成，不能只等一小段：绑定在途时建播放器/装带 tag 的源，
+    // just_audio_background 内部 `late _audioHandler` 尚未赋值 → 装载抛
+    // LateInitializationError 且包内单实例锁被毒化，进程内再也装不进
+    // 队列——冷启动恢复会话后播放钮永远无反应（杀死 APP 重进复现）。
+    // 「服务没起来也要能播」在 just_audio_background 架构下本就不成立；
+    // 内部自带 10s 超时 + 异常兜底，绑定异常时此处最迟十几秒放行。
+    await ensureAudioService().timeout(kAudioServiceBind, onTimeout: () {});
     final player = _player = AudioPlayer();
     _subs
       ..add(player.playerStateStream.listen(_onPlayerState))

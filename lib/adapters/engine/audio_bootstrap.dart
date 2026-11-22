@@ -16,8 +16,9 @@ Future<void>? _future;
 /// 幂等启动；多次调用共享同一个 future。
 Future<void> ensureAudioService() => _future ??= _init();
 
-/// 播放引擎起播前的等待上限：后台服务没起来也要能播。
-const Duration kAudioServiceGrace = Duration(seconds: 3);
+/// 播放引擎等待后台服务绑定的上限：内部（JustAudioBackground.init）自带
+/// 10s 超时 + 异常兜底，正常总会在此之前返回；此上限只兜内部链路卡死。
+const Duration kAudioServiceBind = Duration(seconds: 12);
 
 Future<void> _init() async {
   try {

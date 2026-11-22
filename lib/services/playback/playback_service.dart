@@ -5,6 +5,8 @@
 /// * 手动 next/previous → 记当前曲 completed=false 历史 → jumpTo。
 /// * 缺失/损坏件 → 标 missing + 通知横幅（引擎已自动推进）。
 /// * 会话快照节流写 settings；冷启动 restore（自动续播）。
+/// * 装载态跟踪：快照有队列≠引擎有真歌，restore/装载失败后所有播放
+///   入口走自愈重载（_relaunchAt），失败经 onError 上报（不再静默）。
 library;
 
 import 'dart:async';
@@ -20,6 +22,7 @@ class PlaybackService {
     required EnginePort engine,
     required IaDatabase db,
     required SettingsService settings,
+    this.onError,
   })  : _engine = engine,
         _library = db.libraryDao,
         _history = db.historyDao,
@@ -32,6 +35,9 @@ class PlaybackService {
   final PlaylistDao _playlists;
   final SettingsService _settings;
 
+  /// 播放域故障上报（组合根接诊断）：装载/恢复失败不再静默蒸发。
+  final void Function(String source, Object error, [StackTrace? st])? onError;
+
   final _state = StreamController<PlaybackSnapshot>.broadcast();
   final _notices = StreamController<String>.broadcast();
   StreamSubscription<EngineEvent>? _sub;
@@ -42,6 +48,13 @@ class PlaybackService {
   double? _preSleepVolume;
   bool _inited = false;
   bool _disposed = false;
+
+  /// 引擎是否真的装载了队列（快照有队列≠引擎有真歌：恢复/装载失败后
+  /// 引擎是空壳，裸 play()/jumpTo() 全部无效，播放钮表现为「点了没反应」）。
+  bool _engineLoaded = false;
+
+  /// 自愈起播位置：恢复失败时保留的会话断点，下一次播放重载时接上。
+  int _resumePositionMs = 0;
 
   Stream<PlaybackSnapshot> get stream => _state.stream;
   Stream<String> get notices => _notices.stream;
@@ -105,7 +118,19 @@ class PlaybackService {
     }
     _snap = _snap.copyWith(queue: playable, index: index, ended: false, loading: true, shuffle: useShuffle);
     _emit();
-    await _engine.loadAndPlay(_toItems(playable), index);
+    try {
+      await _engine.loadAndPlay(_toItems(playable), index);
+      _engineLoaded = true;
+      _resumePositionMs = 0;
+    } on Object catch (e, st) {
+      // 装载失败（文件瞬时不可读/后台服务异常）：快照留队列、loading 清除，
+      // 引擎保持空壳态——下一次播放走自愈重载，而不是无效的裸 play()。
+      _engineLoaded = false;
+      _snap = _snap.copyWith(loading: false);
+      onError?.call('播放 · 装载队列', e, st);
+      _emit();
+      return;
+    }
     await _recordHistory(playable[index], completed: false);
     await _publishMediaSession();
     _emit();
@@ -133,7 +158,14 @@ class PlaybackService {
   Future<void> togglePlay() =>
       _snap.playing || _snap.loading ? pause() : play();
 
-  Future<void> play() => _engine.play();
+  /// 引擎空壳时自愈重载（恢复/装载失败的唯一救活路径），否则裸播放。
+  Future<void> play() async {
+    if (!_engineLoaded) {
+      await _relaunchAt(_snap.index);
+      return;
+    }
+    await _engine.play();
+  }
 
   Future<void> pause() => _engine.pause();
 
@@ -143,7 +175,7 @@ class PlaybackService {
       await _recordHistory(_snap.queue[i], completed: false);
       _snap = _snap.copyWith(index: i + 1, ended: false, positionMs: 0);
       _emit();
-      await _engine.jumpTo(i + 1);
+      await _jumpEngine(i + 1);
       await _publishMediaSession();
     }
   }
@@ -157,8 +189,36 @@ class PlaybackService {
       }
       _snap = _snap.copyWith(index: i - 1, ended: false, positionMs: 0);
       _emit();
-      await _engine.jumpTo(i - 1);
+      await _jumpEngine(i - 1);
       await _publishMediaSession();
+    }
+  }
+
+  /// 引擎跳条：未装载时改为按目标索引重载（jumpTo 对空壳引擎无效）。
+  Future<void> _jumpEngine(int target) async {
+    if (_engineLoaded) {
+      await _engine.jumpTo(target);
+      return;
+    }
+    await _relaunchAt(target);
+  }
+
+  /// 自愈：把快照里的队列重装进引擎并从 [index] 起播（接会话断点）。
+  /// 任何原因导致的空壳（后台服务未绑定/文件瞬时不可读）都从这里救活。
+  Future<void> _relaunchAt(int index) async {
+    final q = _snap.queue;
+    if (q.isEmpty || index < 0 || index >= q.length) {
+      return;
+    }
+    try {
+      await _engine.restore(_toItems(q), index, _resumePositionMs);
+      _engineLoaded = true;
+      _resumePositionMs = 0;
+      await _publishMediaSession();
+    } on Object catch (e, st) {
+      onError?.call('播放 · 重载队列', e, st);
+      _snap = _snap.copyWith(loading: false);
+      _emit();
     }
   }
 
@@ -290,6 +350,8 @@ class PlaybackService {
 
   Future<void> clearQueue() async {
     _snap = _snap.copyWith(queue: const [], index: -1, ended: true, positionMs: 0);
+    _engineLoaded = false;
+    _resumePositionMs = 0;
     _emit();
     await _engine.stopAll();
     await _settings.setJsonObject(SettingKeys.session, {});
@@ -442,8 +504,17 @@ class PlaybackService {
     _snap = _snap.copyWith(queue: tracks, index: index, ended: false, loading: true);
     try {
       await _engine.restore(_toItems(tracks), index, positionMs);
-    } on Object {
+      _engineLoaded = true;
+      onError?.call('播放 · 会话恢复',
+          'n=${tracks.length} index=$index pos=${positionMs}ms');
+    } on Object catch (e, st) {
+      // 恢复失败不再静默：快照留队列（底部栏可见）、断点保留（自愈接上），
+      // 引擎保持空壳——下一次播放/切歌走 _relaunchAt 重装真歌。
+      _engineLoaded = false;
+      _resumePositionMs = positionMs;
       _snap = _snap.copyWith(loading: false);
+      onError?.call('播放 · 会话恢复失败', e, st);
+      _emit();
     }
   }
 

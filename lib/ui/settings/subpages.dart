@@ -1246,6 +1246,8 @@ class AboutSubPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final edge = edgeInsets(context);
+    // 版本读安装包元数据（pubspec version 的构建产物）；加载未完成显示占位
+    final pkg = ref.watch(packageInfoProvider).value;
     return Scaffold(
       backgroundColor: IaColors.canvas,
       body: SafeArea(
@@ -1265,8 +1267,12 @@ class AboutSubPage extends ConsumerWidget {
                 style: const TextStyle(
                     fontSize: 12.5, height: 1.5, color: IaColors.textMid)),
             const SizedBox(height: IaSpacing.xl),
-            _InfoRow(label: '版本', value: kAppVersionLabel),
-            _InfoRow(label: '版本号', value: '$kAppVersionCode'),
+            _InfoRow(
+                label: '版本',
+                value: pkg == null
+                    ? '…'
+                    : 'v${pkg.version} (${pkg.buildNumber})'),
+            _InfoRow(label: '版本号', value: pkg?.buildNumber ?? '…'),
             _InfoRow(label: '平台', value: kAppPlatform),
             const SizedBox(height: IaSpacing.xl),
             const _TraceLogBlock(),
