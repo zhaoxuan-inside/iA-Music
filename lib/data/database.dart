@@ -55,26 +55,21 @@ class IaDatabase extends _$IaDatabase {
           await customStatement(kFtsDdl);
         },
         onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            // v2：tracks.genre（真实标签解析入库；无标签为空串）
-            //    + playlists.pending（GitHub 拉取歌单待提取数）
-            //    + collect_tasks（GitHub 歌单拉取/提取队列，落库）
-            await m.addColumn(tracks, tracks.genre);
-            await m.addColumn(playlists, playlists.pending);
-            await m.createTable(collectTasks);
+          // 幂等加列：失败迁移可能已加列但版本号未推进（黑屏修复场景），
+          // 直接 addColumn 会撞 duplicate column——先 PRAGMA 查存在性。
+          Future<void> ensureCol(
+              String table, String column, String ddl) async {
+            final rows = await customSelect('PRAGMA table_info($table)').get();
+            final names = [for (final r in rows) r.data['name'] as String];
+            if (!names.contains(column)) {
+              await customStatement('ALTER TABLE $table ADD COLUMN $ddl');
+            }
           }
-          if (from < 3) {
-            // v3：元数据补全（根据歌曲时长反向重建 歌名/歌手/歌词）
-            await m.addColumn(tracks, tracks.needsMeta);
-            await m.addColumn(tracks, tracks.enrichedAt);
-          }
-          if (from < 4) {
-            // v4：歌单自定义封面
-            await m.addColumn(playlists, playlists.coverPath);
-          }
+
           if (from < 5) {
             // v5：播放次数物化（常听面不再全表聚合）+ 历史计数回填
-            await m.addColumn(tracks, tracks.plays);
+            await ensureCol('tracks', 'plays',
+                'plays INTEGER NOT NULL DEFAULT 0');
             await customStatement(
                 'UPDATE tracks SET plays = '
                 '(SELECT COUNT(*) FROM play_history WHERE track_id = tracks.id)');
@@ -84,14 +79,20 @@ class IaDatabase extends _$IaDatabase {
             //     旧管线已补全的行按已处理回填。
             //     列名必须用 drift 生成的蛇形名（title_matched_at…）——
             //     驼峰会让迁移抛 no such column，数据库打不开 → 启动黑屏。
-            await m.addColumn(tracks, tracks.titleMatchedAt);
-            await m.addColumn(tracks, tracks.artistMatchedAt);
-            await m.addColumn(tracks, tracks.lyricsAt);
-            await m.addColumn(tracks, tracks.enrichAttempts);
+            await ensureCol('tracks', 'title_matched_at',
+                'title_matched_at INTEGER');
+            await ensureCol('tracks', 'artist_matched_at',
+                'artist_matched_at INTEGER');
+            await ensureCol('tracks', 'lyrics_at', 'lyrics_at INTEGER');
+            await ensureCol('tracks', 'enrich_attempts',
+                'enrich_attempts INTEGER NOT NULL DEFAULT 0');
+            // drift DateTime 默认存整数秒——回填必须写 int（CURRENT_TIMESTAMP
+            // 是文本，读回会解析失败）。
             await customStatement(
-                'UPDATE tracks SET title_matched_at = CURRENT_TIMESTAMP, '
-                'artist_matched_at = CURRENT_TIMESTAMP, '
-                'lyrics_at = CURRENT_TIMESTAMP '
+                'UPDATE tracks SET '
+                'title_matched_at = CAST(strftime(\'%s\',\'now\') AS INTEGER), '
+                'artist_matched_at = CAST(strftime(\'%s\',\'now\') AS INTEGER), '
+                'lyrics_at = CAST(strftime(\'%s\',\'now\') AS INTEGER) '
                 'WHERE enriched_at IS NOT NULL');
           }
         },
