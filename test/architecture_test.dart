@@ -24,6 +24,8 @@ const Map<String, List<String>> _forbidden = {
   'lib/ui/': [
     'lib/adapters/',
     'lib/data/',
+    'lib/plugins/',
+    'lib/services/',
     'package:drift/',
     'package:sqlite3/',
   ],

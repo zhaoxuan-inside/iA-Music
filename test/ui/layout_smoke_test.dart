@@ -20,7 +20,7 @@ import 'package:ia_music/state/playlist_providers.dart';
 import 'package:ia_music/state/quickplay_providers.dart';
 import 'package:ia_music/ui/detail/detail_page.dart';
 import 'package:ia_music/ui/library/songs_page.dart';
-import 'package:ia_music/ui/play/now_playing.dart';
+import 'package:ia_music/ui/play/now_playing/now_playing_page.dart';
 import 'package:ia_music/ui/playing/playing_page.dart';
 import 'package:ia_music/ui/quickplay/quickplay_page.dart';
 import 'package:ia_music/ui/search/search_page.dart';

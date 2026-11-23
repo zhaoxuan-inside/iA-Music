@@ -16,6 +16,9 @@ import '../plugins/plugin_manifest.dart';
 import '../plugins/plugin_registry.dart';
 import 'diagnostics.dart';
 
+/// UI 可见的插件类型（UI 禁 import plugins——类型经 state 门面）。
+export '../plugins/plugin_registry.dart' show InstalledPlugin, MarketEntry;
+
 final marketUrlProvider = FutureProvider<String>((ref) async {
   final settings = ref.watch(settingsServiceProvider);
   return await settings.getString(marketUrlKey) ?? '';

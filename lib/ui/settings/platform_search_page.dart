@@ -118,7 +118,7 @@ class _PlatformSearchPageState extends ConsumerState<PlatformSearchPage> {
                                           fontSize: IaType.list,
                                           color: IaColors.textHi)),
                                   const SizedBox(height: IaSpacing.xs),
-                                  Text('$author · ${_dur(dur)}',
+                                  Text('$author · ${formatDuration(dur * 1000)}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
@@ -201,7 +201,4 @@ class _PlatformSearchPageState extends ConsumerState<PlatformSearchPage> {
       showWpToast(context, title: '收集', message: '已加入提取队列：$title');
     }
   }
-
-  static String _dur(int sec) =>
-      '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 }

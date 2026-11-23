@@ -9,7 +9,10 @@ import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
-import 'subpages.dart';
+import 'about_page.dart';
+import 'extract_page.dart';
+import 'plugins_page.dart';
+import 'storage_page.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});

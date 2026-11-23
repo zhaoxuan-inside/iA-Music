@@ -14,7 +14,8 @@ import 'package:ia_music/data/database.dart';
 import 'package:ia_music/domain/entities/track.dart';
 import 'package:ia_music/state/collect_providers.dart';
 import 'package:ia_music/state/enrich_controller.dart';
-import 'package:ia_music/ui/settings/subpages.dart';
+import 'package:ia_music/ui/settings/extract_page.dart';
+import 'package:ia_music/ui/settings/extract_tasks_page.dart';
 
 CollectTaskRow _row(int id, String title, CollectStatusCol status,
         int progress) =>

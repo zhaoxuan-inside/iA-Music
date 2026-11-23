@@ -16,7 +16,7 @@ import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../detail/detail_page.dart';
-import '../play/now_playing.dart';
+import '../play/now_playing/now_playing_page.dart';
 import '../shared/ambient.dart';
 import '../shared/cover.dart';
 import '../shared/search_action.dart';
@@ -187,12 +187,12 @@ class _NowHeroState extends ConsumerState<_NowHero> {
         Row(
           children: [
             Text(
-              _fmt(snap.positionMs),
+              formatDuration(snap.positionMs),
               style: const TextStyle(fontSize: 11, color: IaColors.textLow),
             ),
             const Spacer(),
             Text(
-              _fmt(snap.durationMs),
+              formatDuration(snap.durationMs),
               style: const TextStyle(fontSize: 11, color: IaColors.textLow),
             ),
           ],
@@ -230,11 +230,6 @@ class _NowHeroState extends ConsumerState<_NowHero> {
         ),
       ],
     );
-  }
-
-  String _fmt(int ms) {
-    final s = (ms / 1000).round();
-    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 }
 

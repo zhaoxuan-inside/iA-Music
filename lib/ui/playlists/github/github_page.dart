@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/providers.dart';
 import '../../../app/theme/design_tokens.dart';
-import '../../../services/github/github_playlist_service.dart';
+import '../../../state/collect_providers.dart';
 import '../../../state/diagnostics.dart';
 import '../../shared/ui_kit.dart';
 

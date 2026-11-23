@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
 import '../shared/ui_kit.dart';
 

@@ -20,7 +20,7 @@ import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
 import '../../state/quickplay_providers.dart';
 import '../detail/detail_page.dart';
-import '../settings/subpages.dart';
+import '../settings/plugins_page.dart';
 import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 import '../shared/wp_motion.dart';

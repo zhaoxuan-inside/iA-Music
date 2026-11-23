@@ -16,6 +16,7 @@ import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
 import '../detail/detail_page.dart';
 import '../shared/actions.dart';
+import '../shared/album_tile.dart';
 import '../shared/cover.dart';
 import '../shared/ui_kit.dart';
 
@@ -307,42 +308,11 @@ class _AlbumsGrid extends ConsumerWidget {
           mainAxisSpacing: 18,
           childAspectRatio: 0.76),
       itemCount: albums.length,
-      itemBuilder: (_, i) => _AlbumTile(album: albums[i]),
-    );
-  }
-}
-
-class _AlbumTile extends ConsumerWidget {
-  const _AlbumTile({required this.album});
-
-  final AlbumGroup album;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tracks = ref.watch(albumTracksProvider(albumKey(album.album))).value ?? const <Track>[];
-    final first = tracks.firstOrNull;
-    return InkWell(
-      onTap: () => Navigator.of(context).push(zuneRoute<void>(
-          builder: (_) => DetailPage(type: DetailType.album, id: albumKey(album.album)))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AspectRatio(
-            aspectRatio: 1,
-            child: first == null
-                ? Container(color: IaColors.hairline)
-                : CoverArt(track: first, size: double.infinity),
-          ),
-          const SizedBox(height: IaSpacing.s),
-          Text(album.album,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, color: IaColors.textHi)),
-          Text(album.artist,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, color: IaColors.textLow)),
-        ],
+      itemBuilder: (_, i) => AlbumTile(
+        album: albums[i],
+        onTap: () => Navigator.of(context).push(zuneRoute<void>(
+            builder: (_) => DetailPage(
+                type: DetailType.album, id: albumKey(albums[i].album)))),
       ),
     );
   }

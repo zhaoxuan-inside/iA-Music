@@ -11,14 +11,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
-import '../../services/collect/source_plugins.dart';
 import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
 import '../detail/detail_page.dart';
-import '../settings/subpages.dart';
+import '../settings/link_extract_page.dart';
+import '../settings/plugins_page.dart';
 import '../shared/actions.dart';
 import '../shared/cover.dart';
 import '../shared/ui_kit.dart';
@@ -474,7 +474,7 @@ class _OnlineRow extends StatelessWidget {
                         style: const TextStyle(
                             fontSize: IaType.list, color: IaColors.textHi)),
                     const SizedBox(height: IaSpacing.xs),
-                    Text('$source · $author · ${_dur(dur)}',
+                    Text('$source · $author · ${formatDuration(dur * 1000)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -491,7 +491,4 @@ class _OnlineRow extends StatelessWidget {
       ),
     );
   }
-
-  static String _dur(int sec) =>
-      '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 }

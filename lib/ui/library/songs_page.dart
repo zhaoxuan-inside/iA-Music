@@ -15,7 +15,7 @@ import '../../state/letter.dart';
 import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
 import '../music/music_menu.dart';
-import '../settings/subpages.dart';
+import '../settings/storage_page.dart';
 import '../shared/actions.dart';
 import '../shared/cover.dart';
 import '../shared/search_action.dart';

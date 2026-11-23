@@ -16,6 +16,10 @@ import 'enrich_controller.dart';
 import 'plugin_providers.dart';
 import 'scan_controller.dart';
 
+/// UI 可见的收集域服务类型（UI 禁 import services——类型经 state 门面）。
+export '../services/collect/source_plugins.dart' show SourcePluginHandle;
+export '../services/github/github_playlist_service.dart' show GithubTrack;
+
 /// 收集任务实时流（提取进度子页的数据源）。
 final collectTasksProvider = StreamProvider(
     (ref) => ref.watch(dbProvider).collectDao.watchAll());

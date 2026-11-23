@@ -13,7 +13,7 @@ import '../added/added_page.dart';
 import '../library/songs_page.dart';
 import '../listen/listen_page.dart';
 import '../play/mini_player.dart';
-import '../play/now_playing.dart';
+import '../play/now_playing/now_playing_page.dart';
 import '../played/played_page.dart';
 import '../playing/playing_page.dart';
 import '../playlists/playlists_page.dart';
