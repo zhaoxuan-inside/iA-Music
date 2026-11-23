@@ -6,9 +6,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../app/theme/design_tokens.dart';
 import '../services/settings/settings_service.dart';
-import 'providers.dart';
 
 abstract final class LocaleMode {
   static const system = 'system';

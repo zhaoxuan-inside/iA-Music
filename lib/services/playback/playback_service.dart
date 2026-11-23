@@ -132,7 +132,6 @@ class PlaybackService {
       return;
     }
     await _recordHistory(playable[index], completed: false);
-    await _publishMediaSession();
     _emit();
   }
 
@@ -176,7 +175,6 @@ class PlaybackService {
       _snap = _snap.copyWith(index: i + 1, ended: false, positionMs: 0);
       _emit();
       await _jumpEngine(i + 1);
-      await _publishMediaSession();
     }
   }
 
@@ -190,7 +188,6 @@ class PlaybackService {
       _snap = _snap.copyWith(index: i - 1, ended: false, positionMs: 0);
       _emit();
       await _jumpEngine(i - 1);
-      await _publishMediaSession();
     }
   }
 
@@ -214,7 +211,6 @@ class PlaybackService {
       await _engine.restore(_toItems(q), index, _resumePositionMs);
       _engineLoaded = true;
       _resumePositionMs = 0;
-      await _publishMediaSession();
     } on Object catch (e, st) {
       onError?.call('播放 · 重载队列', e, st);
       _snap = _snap.copyWith(loading: false);
@@ -379,7 +375,6 @@ class PlaybackService {
         if (queueIndex >= 0 && queueIndex < _snap.queue.length) {
           _snap = _snap.copyWith(
               index: queueIndex, positionMs: 0, ended: false);
-          unawaited(_publishMediaSession());
         }
       case EngineFailed(:final error):
         _onEngineError(error);
@@ -398,7 +393,6 @@ class PlaybackService {
     final nextIndex = queueIndex + 1;
     if (nextIndex < _snap.queue.length) {
       _snap = _snap.copyWith(index: nextIndex, positionMs: 0);
-      unawaited(_publishMediaSession());
       unawaited(_recordHistory(_snap.queue[nextIndex], completed: false));
       unawaited(_saveSession());
     } else {
@@ -418,7 +412,6 @@ class PlaybackService {
     final nextIndex = failedIndex + 1;
     if (nextIndex < _snap.queue.length) {
       _snap = _snap.copyWith(index: nextIndex, positionMs: 0);
-      unawaited(_publishMediaSession());
     } else {
       _snap = _snap.copyWith(ended: true);
     }
@@ -528,18 +521,6 @@ class PlaybackService {
     }
   }
 
-  Future<void> _publishMediaSession() async {
-    final t = _snap.current;
-    if (t == null) {
-      return;
-    }
-    await _engine.updateMediaSession(MediaSessionInfo(
-      title: t.title,
-      artist: t.artist,
-      durationMs: t.durationMs,
-    ));
-  }
-
   List<QueueItem> _toItems(List<Track> tracks) => [
         for (final t in tracks)
           QueueItem(
@@ -550,6 +531,7 @@ class PlaybackService {
               durationMs: t.durationMs,
               coverPath: t.coverPath),
       ];
+
 
   void _emit() {
     if (!_state.isClosed) {

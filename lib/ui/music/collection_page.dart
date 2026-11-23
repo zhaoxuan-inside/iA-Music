@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
@@ -13,7 +14,6 @@ import '../../state/letter.dart';
 import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
-import '../../state/providers.dart';
 import '../detail/detail_page.dart';
 import '../shared/actions.dart';
 import '../shared/cover.dart';

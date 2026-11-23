@@ -3,10 +3,9 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/database.dart';
+import '../app/providers.dart';
 import '../domain/entities/playlist.dart';
 import '../domain/entities/track.dart';
-import 'providers.dart';
 
 final playlistListProvider = StreamProvider<List<Playlist>>(
     (ref) => ref.watch(dbProvider).playlistDao.watchPlaylists());

@@ -62,26 +62,9 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     return q.watch().map((rows) => rows.map(_map).toList());
   }
 
-  Stream<List<Track>> watchTracksByIds(List<int> ids) {
-    if (ids.isEmpty) {
-      return Stream.value(const <Track>[]);
-    }
-    return (select(tracks)..where((t) => t.id.isIn(ids))).watch().map(
-          (rows) => rows.map(_map).toList(),
-        );
-  }
-
   Future<Track?> trackById(int id) async {
     final row = await (select(tracks)..where((t) => t.id.equals(id))).getSingleOrNull();
     return row == null ? null : _map(row);
-  }
-
-  Future<List<Track>> tracksByIds(List<int> ids) async {
-    if (ids.isEmpty) {
-      return const <Track>[];
-    }
-    final rows = await (select(tracks)..where((t) => t.id.isIn(ids))).get();
-    return rows.map(_map).toList();
   }
 
   /// 会话恢复用：按绝对路径批量取曲目（保序）。

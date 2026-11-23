@@ -11,9 +11,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
-import '../../state/providers.dart';
 import '../shared/ui_kit.dart';
 
 /// 歌单编辑菜单（重命名 / 设置封面；系统歌单不给重命名）。

@@ -7,9 +7,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../domain/entities/track.dart';
 import 'diagnostics.dart';
-import 'providers.dart';
 
 class EnrichState {
   const EnrichState({

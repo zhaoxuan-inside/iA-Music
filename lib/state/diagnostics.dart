@@ -10,7 +10,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'providers.dart';
+import '../app/providers.dart';
 
 class DiagEntry {
   const DiagEntry({

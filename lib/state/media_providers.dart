@@ -5,10 +5,8 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../domain/entities/lyrics.dart';
-import '../domain/entities/track.dart';
-import 'playback_controller.dart';
-import 'providers.dart';
 
 /// 封面决议结果。键含 coverPath：DB 缓存位变化 → 新键 → 重新决议。
 /// keepAlive：决议一次全会话复用——autoDispose 会在滚动中反复建/销，
@@ -27,11 +25,7 @@ final coverProvider = FutureProvider.family<File?, (int, String?)>((ref, key) as
   return chain.coverFor(track, allowOnline: true);
 });
 
-/// 当前播放曲目 id（歌词决议的触发点；位置变化不触发）。
-final currentTrackProvider = Provider<Track?>((ref) {
-  return ref.watch(playbackProvider.select((s) => s.current));
-});
-
+/// 歌词决议（按 trackId；封面/歌词变更经键控重决议）。
 final trackLyricsProvider = FutureProvider.autoDispose
     .family<LyricsResult?, int>((ref, trackId) async {
   final pipeline = await ref.watch(lyricsPipelineProvider.future);

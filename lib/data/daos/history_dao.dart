@@ -52,8 +52,6 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
         }).toList());
   }
 
-  Future<void> clearAll() => delete(playHistory).go();
-
   Track _toTrack(TrackRow r) => Track(
         id: r.id,
         rootId: r.rootId,

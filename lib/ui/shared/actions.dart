@@ -6,13 +6,13 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/playlist.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 // 引用面收口：只经 providers 取 DAO 实例，不 import data 层类型
 import '../../state/playback_controller.dart';
-import '../../state/providers.dart';
 import '../detail/detail_page.dart';
 import 'ui_kit.dart';
 

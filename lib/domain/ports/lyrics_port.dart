@@ -38,9 +38,6 @@ abstract class LyricTextSearchPort {
     int? durationMs,
   });
 
-  /// 关键词模糊检索；未命中/网络失败 → null 或抛 [NetworkError]。
-  Future<LyricHit?> search(String query);
-
   /// 候选检索（含 trackName/artistName/duration），供元数据补全反向匹配。
   /// 网络失败 → 抛 [NetworkError]。
   Future<List<LrcMatch>> searchMatches(String query);

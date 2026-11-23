@@ -32,9 +32,6 @@ class _FakeLyrics implements LyricTextSearchPort {
   }
 
   @override
-  Future<LyricHit?> search(String query) async => null;
-
-  @override
   Future<List<LrcMatch>> searchMatches(String query) async {
     if (query.contains('坏')) {
       throw const NetworkError(detail: 'offline');

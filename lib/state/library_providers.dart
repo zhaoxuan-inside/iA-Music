@@ -3,9 +3,8 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/database.dart';
+import '../app/providers.dart';
 import '../domain/entities/track.dart';
-import 'providers.dart';
 
 final tracksProvider = StreamProvider.family<List<Track>, TrackSort>((ref, sort) {
   return ref.watch(dbProvider).libraryDao.watchTracks(sort: sort);
@@ -32,11 +31,6 @@ final albumTracksProvider =
 final artistTracksProvider =
     StreamProvider.family<List<Track>, String>((ref, artistNorm) {
   return ref.watch(dbProvider).libraryDao.watchArtistTracks(artistNorm);
-});
-
-final searchResultsProvider =
-    StreamProvider.autoDispose.family<List<Track>, String>((ref, query) {
-  return ref.watch(dbProvider).libraryDao.watchSearchResults(query);
 });
 
 final trackCountProvider = StreamProvider.autoDispose<int>((ref) {

@@ -9,12 +9,12 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ia_music/app/providers.dart';
 import 'package:ia_music/data/database.dart';
 import 'package:ia_music/domain/ports/lyrics_port.dart';
 import 'package:ia_music/services/enrich/enrichment_service.dart';
 import 'package:ia_music/state/diagnostics.dart';
 import 'package:ia_music/state/enrich_controller.dart';
-import 'package:ia_music/state/providers.dart';
 
 /// 捕获型诊断控制器：同步记录（真 record 有 async 间隙，测试断言会与
 /// unawaited 记录竞态；也避免在测试里触平台目录 IO）。
@@ -39,9 +39,6 @@ class _NoMatchLyrics implements LyricTextSearchPort {
   Future<LyricHit?> getByFields(
           {required String title, required String artist, int? durationMs}) =>
       Future.value(null);
-
-  @override
-  Future<LyricHit?> search(String query) => Future.value(null);
 
   @override
   Future<List<LrcMatch>> searchMatches(String query) async => const [];

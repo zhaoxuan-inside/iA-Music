@@ -62,18 +62,6 @@ double bottomInset(BuildContext context) {
 /// 状态栏高度（edge-to-edge 下 Hub 页内容首行需要让开）。
 double topInset(BuildContext context) => MediaQuery.of(context).padding.top;
 
-/// Hub 页内容外边距：左右曲面安全区 + 顶部状态栏让位 + 底部迷你条让位。
-/// 各页 ListView 统一取此边距，杜绝与状态栏/迷你条重叠。
-EdgeInsets hubPadding(BuildContext context) {
-  final e = edgeInsets(context);
-  return EdgeInsets.fromLTRB(
-    e.left,
-    topInset(context) + IaSpacing.l,
-    e.right,
-    140,
-  );
-}
-
 /// 小节标签（accent 小字 + 宽字距）。
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});

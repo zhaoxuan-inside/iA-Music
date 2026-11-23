@@ -5,10 +5,9 @@ library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/database.dart';
+import '../app/providers.dart';
 import '../domain/entities/track.dart';
 import 'library_providers.dart';
-import 'providers.dart';
 
 /// 听法取材与浏览查询的真实数据门面（UI 只调方法，不触库）。
 class ListenLibrary {

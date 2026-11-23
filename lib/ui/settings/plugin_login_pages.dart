@@ -21,10 +21,6 @@ Future<SourcePluginHandle?> _handleOf(WidgetRef ref, String pluginId) async {
   return handles.where((h) => h.id == pluginId).firstOrNull;
 }
 
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}
-
 // ── 扫码登录 ──────────────────────────────────────────────────────────
 
 class PluginQrLoginPage extends ConsumerStatefulWidget {

@@ -8,9 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../app/config/collect_config.dart';
+import '../app/providers.dart';
 import 'diagnostics.dart';
 import 'enrich_controller.dart';
-import 'providers.dart';
 
 class ScanState {
   const ScanState({

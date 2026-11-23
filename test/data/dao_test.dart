@@ -108,9 +108,9 @@ void main() {
       expect(lists.single.trackCount, 1);
       expect(lists.single.kind, PlaylistKind.favorites);
 
-      expect(await dao.watchFavorite(track.id).first, isTrue);
+      expect(await dao.isFavorite(track.id), isTrue);
       await dao.setFavorite(track.id, false);
-      expect(await dao.watchFavorite(track.id).first, isFalse);
+      expect(await dao.isFavorite(track.id), isFalse);
     });
 
     test('用户歌单 CRUD', () async {
@@ -170,9 +170,6 @@ void main() {
       final items = await db.historyDao.watchRecent().first;
       expect(items.single.track.id, t.id);
       expect(items.single.completed, isTrue);
-
-      await db.historyDao.clearAll();
-      expect(await db.historyDao.watchRecent().first, isEmpty);
     });
 
     test('watchTopTracks 单曲粒度聚合播放次数', () async {

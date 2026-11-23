@@ -58,16 +58,6 @@ final class EngineMediaCommand extends EngineEvent {
   final int? offsetMs;
 }
 
-/// 媒体会话元数据（随曲更新；favorite=null=不变）。
-final class MediaSessionInfo {
-  const MediaSessionInfo({this.title, this.artist, this.durationMs, this.favorite});
-
-  final String? title;
-  final String? artist;
-  final int? durationMs;
-  final bool? favorite;
-}
-
 /// 队列条目（引擎只消费的最小面）。
 class QueueItem {
   const QueueItem({
@@ -127,9 +117,6 @@ abstract class EnginePort {
 
   /// 停止并清空引擎队列。
   Future<void> stopAll();
-
-  /// 更新媒体会话元数据（不重夺会话所有权）。
-  Future<void> updateMediaSession(MediaSessionInfo info);
 
   Stream<EngineEvent> get events;
 

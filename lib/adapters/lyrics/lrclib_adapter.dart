@@ -63,26 +63,6 @@ class LrclibAdapter implements LyricTextSearchPort {
     return null;
   }
 
-  @override
-  Future<LyricHit?> search(String query) async {
-    final q = query.trim();
-    if (q.isEmpty) {
-      return null;
-    }
-    for (final items in [
-      await _searchList(_get('/api/search', {'q': q})),
-    ]) {
-      for (final it in items) {
-        final hit = _toHit(it);
-        if (hit != null &&
-            (hit.syncedLrc.trim().isNotEmpty || hit.plainLrc.trim().isNotEmpty)) {
-          return hit;
-        }
-      }
-    }
-    return null;
-  }
-
   bool _accept(Map<String, dynamic> cand, int? durationMs) {
     final hasLyric =
         ((cand['syncedLyrics'] as String?)?.trim().isNotEmpty ?? false) ||

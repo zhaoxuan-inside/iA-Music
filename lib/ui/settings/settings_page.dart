@@ -365,5 +365,3 @@ class _AccentPickerPageState extends ConsumerState<AccentPickerPage> {
     );
   }
 }
-
-/// 收集子页见 subpages.dart（登录 / 链接提取 / 进度的唯一实现）。

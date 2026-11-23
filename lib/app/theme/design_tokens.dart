@@ -77,7 +77,6 @@ final class IaPalette extends ThemeExtension<IaPalette> {
   Color get error => IaColors.error;
 
   /// accent 的暗衬底（长按菜单遮罩、选中底色用透明度而非新色值）。
-  Color get accentDim => accent.withValues(alpha: 0.16);
 
   @override
   IaPalette copyWith({Color? accent}) => IaPalette(accent: accent ?? this.accent);
@@ -110,7 +109,6 @@ abstract final class IaType {
   static const double pivotCur = 24; // pivot 当前项
   static const double pivotIdle = 16; // pivot 非当前项
   static const double list = 15; // 列表主文字
-  static const double lyricCur = 20; // 歌词当前行
   static const double menu = 18; // 长按菜单项
 
   static const FontWeight light = FontWeight.w300;
@@ -134,8 +132,6 @@ abstract final class IaSpacing {
   static const double xxl = 32;
 
   static const double coverSmall = 48;
-  static const double coverDetail = 120;
-  static const double coverNp = 280;
 
   /// 在播大封面：随屏宽收缩，但不超过 340。
   static const double coverHeroMax = 340;
@@ -147,11 +143,9 @@ abstract final class IaSpacing {
   static const double gutter = 24;
 
   /// 迷你条高度 / 进度线厚度 / 分隔厚度。
-  static const double miniHeight = 56;
   static const double progressHairline = 2;
   static const double hairline = 1;
 
-  static const double radiusS = 2;
   static const double railLetter = 9.5;
 }
 

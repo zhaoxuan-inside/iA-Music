@@ -5,21 +5,24 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../domain/entities/playback.dart';
 import '../domain/entities/track.dart';
 import '../services/playback/playback_service.dart';
-import 'providers.dart';
 
 class PlaybackController extends Notifier<PlaybackSnapshot> {
   @override
   PlaybackSnapshot build() {
     final service = ref.watch(playbackServiceProvider);
     unawaited(service.start(resumeSession: true));
-    service.stream.listen((s) {
+    // 订阅收口：存引用并在 provider 销毁时取消（裸 listen 会永久挂在对
+    // 广播流上——Notifier 重建一次就多一份泄漏监听者）。
+    final sub = service.stream.listen((s) {
       if (state != s) {
         state = s;
       }
     });
+    ref.onDispose(sub.cancel);
     return service.snapshot;
   }
 
@@ -49,8 +52,3 @@ class PlaybackController extends Notifier<PlaybackSnapshot> {
 
 final playbackProvider =
     NotifierProvider<PlaybackController, PlaybackSnapshot>(PlaybackController.new);
-
-/// 缺失/损坏跳过等播报横幅流。
-final playbackNoticeProvider = StreamProvider<String>((ref) {
-  return ref.watch(playbackServiceProvider).notices;
-});

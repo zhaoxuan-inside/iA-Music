@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/quickplay.dart';
 import '../../domain/entities/track.dart';
@@ -16,7 +17,6 @@ import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
-import '../../state/providers.dart';
 import '../../state/quickplay_providers.dart';
 import '../playlists/playlist_edit.dart';
 import '../search/search_page.dart';

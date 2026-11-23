@@ -5,9 +5,9 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../domain/entities/quickplay.dart';
 import '../services/settings/settings_service.dart';
-import 'providers.dart';
 
 class QuickplayState {
   const QuickplayState({this.pins = const [], this.loaded = false});

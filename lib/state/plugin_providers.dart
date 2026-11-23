@@ -10,35 +10,11 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/providers.dart';
 import '../plugins/default_plugins.dart';
 import '../plugins/plugin_manifest.dart';
 import '../plugins/plugin_registry.dart';
-import '../plugins/plugin_runtime.dart';
-import '../plugins/quickjs_plugin_runtime.dart';
 import 'diagnostics.dart';
-import 'providers.dart';
-
-/// 市场索引 URL（可指向自建仓库；默认空 = 未配置市场）。
-const String marketUrlKey = 'plugins.market.url';
-
-final pluginRegistryProvider = FutureProvider<PluginRegistry>((ref) async {
-  final dirs = await ref.watch(cacheDirsProvider.future);
-  final registry = PluginRegistry(dir: dirs.plugins);
-  // 默认插件就位（幂等；版本升级覆盖；用户卸载过的跳过）
-  final skipRaw =
-      await ref.watch(settingsServiceProvider).getString(defaultUninstalledKey) ??
-          '[]';
-  final skip = (jsonDecode(skipRaw) as List?)
-          ?.whereType<String>()
-          .toSet() ??
-      const <String>{};
-  await ensureDefaultPlugins(registry, skip);
-  return registry;
-});
-
-final pluginRuntimeProvider = FutureProvider<PluginRuntimePort>((ref) async {
-  return QuickJsPluginRuntime(registry: await ref.watch(pluginRegistryProvider.future));
-});
 
 final marketUrlProvider = FutureProvider<String>((ref) async {
   final settings = ref.watch(settingsServiceProvider);

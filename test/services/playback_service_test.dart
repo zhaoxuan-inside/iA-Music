@@ -78,8 +78,6 @@ class FakeEngine implements EnginePort {
   @override
   Future<void> stopAll() async {}
   @override
-  Future<void> updateMediaSession(MediaSessionInfo info) async {}
-  @override
   Future<void> dispose() async => _events.close();
 }
 

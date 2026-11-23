@@ -304,12 +304,6 @@ class JustAudioEngineAdapter implements EnginePort {
   }
 
   @override
-  Future<void> updateMediaSession(MediaSessionInfo info) async {
-    // just_audio_background 的标题/歌手来自队列 MediaItem；
-    // 收藏态不进系统通知（保持通知栏控件最小集）。
-  }
-
-  @override
   Future<void> dispose() async {
     _disposed = true;
     _suppressTimer?.cancel();

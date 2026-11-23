@@ -1,38 +1,24 @@
-/// 收集域 providers：任务流 / GitHub 服务 / 执行服务 / 音频源插件门面 / NLP 查询。
+/// 收集域状态：任务流 / 提取任务提交门面 / 音频源登录态。
+///
+/// 具体实现（GitHub 服务 / SourcePlugins / CollectRunner）的装配在组合根
+/// app/providers.dart——本文件只有 provider 与 Ref 持有的 API 门面。
 library;
 
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/database.dart';
-import '../services/collect/collect_service.dart';
+import '../app/providers.dart';
 import '../services/collect/download_guard.dart';
 import '../services/collect/source_plugins.dart';
-import '../services/github/github_playlist_service.dart';
 import 'diagnostics.dart';
 import 'enrich_controller.dart';
 import 'plugin_providers.dart';
-import 'providers.dart';
 import 'scan_controller.dart';
 
 /// 收集任务实时流（提取进度子页的数据源）。
 final collectTasksProvider = StreamProvider(
     (ref) => ref.watch(dbProvider).collectDao.watchAll());
-
-/// GitHub 歌单拉取服务（单例；HttpClient 复用）。
-final githubPlaylistServiceProvider =
-    Provider<GithubPlaylistService>((ref) => GithubPlaylistService(ref.watch(dbProvider)));
-
-/// 音频源插件门面（QuickJS 运行时 + 注册表之上的契约封装）。
-final sourcePluginsProvider = FutureProvider<SourcePlugins>((ref) async {
-  final registry = await ref.watch(pluginRegistryProvider.future);
-  final runtime = await ref.watch(pluginRuntimeProvider.future);
-  return SourcePlugins(registry, runtime,
-      // 插件 match 抛错（崩/超时）→ 日志可见，不再伪装成「无法识别」
-      onMatchError: (id, e, st) => unawaited(
-          ref.read(diagnosticsProvider.notifier).record('插件路由 · $id', e, st)));
-});
 
 /// 登录态/插件变更信号：登录、退出、装/卸插件后 bump。
 class SourceEpoch extends Notifier<int> {
@@ -205,25 +191,3 @@ class CollectTasksApi {
 
 final collectTasksApiProvider =
     Provider<CollectTasksApi>(CollectTasksApi.new);
-
-/// 收集执行服务（依赖扫描服务做下载后的真实入库）。
-final collectRunnerProvider = FutureProvider<CollectRunner>((ref) async {
-  final scan = ref.watch(scanServiceProvider);
-  final dirs = await ref.watch(cacheDirsProvider.future);
-  final sources = await ref.watch(sourcePluginsProvider.future);
-  return CollectRunner(ref.watch(dbProvider), scan,
-      cacheDir: dirs.lyrics,
-      sources: sources,
-      // 单任务失败原因不再蒸发：错误原文进日志追踪（任务行另有 errorText）
-      onTaskError: (title, e, st) => unawaited(
-          ref.read(diagnosticsProvider.notifier).record('提取 · $title', e, st)),
-      onTaskSoftError: (source, e) =>
-          unawaited(ref.read(diagnosticsProvider.notifier).record(source, e)));
-});
-
-/// 音频指纹端口（MediaCodec 解码 + chromaprint FFI）→ AcoustID 客户端 →
-/// 元数据反向重建服务：三个补全 provider 已迁往组合根 providers.dart
-/// （纪律：具体实现的构造只允许出现在组合根）。
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}

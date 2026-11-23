@@ -205,7 +205,3 @@ class _PlatformSearchPageState extends ConsumerState<PlatformSearchPage> {
   static String _dur(int sec) =>
       '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 }
-
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}

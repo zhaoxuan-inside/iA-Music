@@ -157,10 +157,6 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
     ));
   }
 
-  Stream<bool> watchFavorite(int trackId) {
-    return watchPlaylistIdsOfTrack(trackId).map((ids) => ids.isNotEmpty);
-  }
-
   /// 全库收藏集合（favorites 歌单内全部 trackId，单流）。
   /// 列表页按集合查询红心，不再每行开一条查询流。
   Stream<Set<int>> watchFavoriteTrackIds() async* {

@@ -8,8 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/config/app_info.dart';
+import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
-import '../../data/database.dart';
 import '../../domain/entities/track.dart';
 import '../../plugins/plugin_registry.dart';
 import '../../services/collect/source_plugins.dart';
@@ -18,7 +18,6 @@ import '../../state/diagnostics.dart';
 import '../../state/enrich_controller.dart';
 import '../../state/library_providers.dart';
 import '../../state/plugin_providers.dart';
-import '../../state/providers.dart';
 import '../../state/scan_controller.dart';
 import '../../state/settings_controller.dart';
 import '../shared/ui_kit.dart';
