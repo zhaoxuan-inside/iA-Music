@@ -45,7 +45,6 @@ class NowPlayingPage extends ConsumerStatefulWidget {
 
 class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
   int _pane = 0; // 0 播放 1 歌词 2 队列
-  double? _dragValue;
   Offset? _panStart;
   bool _swiped = false;
 
@@ -53,9 +52,9 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final snap = ref.watch(playbackProvider);
+    // select：进度心跳不进本页——切歌（current 引用变化）才重建壳层。
+    final cur = ref.watch(playbackProvider.select((s) => s.current));
     final edge = edgeInsets(context);
-    final cur = snap.current;
 
     if (cur == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,8 +74,6 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
             _NpHeader(
               pane: _pane,
               edge: edge,
-              index: snap.index,
-              total: snap.queue.length,
               onPick: (i) => setState(() => _pane = i),
             ),
             Expanded(
@@ -124,17 +121,8 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
                       2 => const NpQueuePane(key: ValueKey('q')),
                       _ => NpPlayPane(
                         key: const ValueKey('play'),
-                        snap: snap,
                         cur: cur,
                         edge: edge,
-                        dragValue: _dragValue,
-                        onSeek: (v) => setState(() => _dragValue = v),
-                        onSeekEnd: (v) {
-                          ref
-                              .read(playbackProvider.notifier)
-                              .seekTo((v * snap.durationMs).round());
-                          setState(() => _dragValue = null);
-                        },
                       ),
                     },
                   ),
@@ -149,23 +137,22 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
 
 /* ── 页头：Zune pivot ─────────────────────────────────────────────── */
 
-class _NpHeader extends StatelessWidget {
+class _NpHeader extends ConsumerWidget {
   const _NpHeader({
     required this.pane,
     required this.edge,
-    required this.index,
-    required this.total,
     required this.onPick,
   });
 
   final int pane;
   final EdgeInsets edge;
-  final int index;
-  final int total;
   final ValueChanged<int> onPick;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // select：index/队列长度只在切歌与队列编辑时变化。
+    final (index, total) = ref
+        .watch(playbackProvider.select((s) => (s.index, s.queue.length)));
     final p = Theme.of(context).extension<IaPalette>()!;
     return Padding(
       padding: EdgeInsets.fromLTRB(edge.left, 8, edge.right, 0),

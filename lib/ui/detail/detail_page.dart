@@ -42,10 +42,10 @@ class DetailPage extends ConsumerWidget {
     final AsyncValue<List<Track>> tracksAsync;
     String title = '';
     String subtitle = '';
-    Widget? extra;
     var likeTarget = '';
     var typeLabel = '专辑';
     String? plCover;
+    var genreAlbums = const <AlbumGroup>[];
 
     switch (type) {
       case DetailType.album:
@@ -78,35 +78,14 @@ class DetailPage extends ConsumerWidget {
         plCover = pl?.coverPath;
         break;
       case DetailType.genre:
-        final albums = ref.watch(genreAlbumsProvider(id)).value ?? const <AlbumGroup>[];
-        final count = albums.fold<int>(0, (s, a) => s + a.trackCount);
+        genreAlbums =
+            ref.watch(genreAlbumsProvider(id)).value ?? const <AlbumGroup>[];
+        final count =
+            genreAlbums.fold<int>(0, (s, a) => s + a.trackCount);
         title = id;
-        subtitle = '${albums.length} 张专辑 · $count 首';
+        subtitle = '${genreAlbums.length} 张专辑 · $count 首';
         tracksAsync = const AsyncValue.data(<Track>[]);
         typeLabel = '流派';
-        extra = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: IaSpacing.l),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.76),
-              itemCount: albums.length,
-              itemBuilder: (_, i) => AlbumTile(
-                album: albums[i],
-                onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                    builder: (_) =>
-                        DetailPage(type: DetailType.album, id: albumKey(albums[i].album)))),
-              ),
-            ),
-          ],
-        );
         break;
     }
 
@@ -196,22 +175,48 @@ class DetailPage extends ConsumerWidget {
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DetailHero(
-                      typeLabel: typeLabel,
-                      title: title,
-                      subtitle: subtitle,
-                      trackCount: tracks.length,
-                      total: total,
-                      track: first,
-                      coverPath: plCover,
+                child: DetailHero(
+                  typeLabel: typeLabel,
+                  title: title,
+                  subtitle: subtitle,
+                  trackCount: tracks.length,
+                  total: total,
+                  track: first,
+                  coverPath: plCover,
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: IaSpacing.xl)),
+            // 流派 = 专辑网格（SliverGrid 虚拟化）；其余 = 编号曲目列表
+            // （SliverList 虚拟化——原 SliverToBoxAdapter 内整列 eager build）。
+            if (type == DetailType.genre)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 0),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 14,
+                      childAspectRatio: 0.76),
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: genreAlbums.length,
+                    (context, i) => AlbumTile(
+                      album: genreAlbums[i],
+                      onTap: () => Navigator.of(context).push(zuneRoute<void>(
+                          builder: (_) => DetailPage(
+                              type: DetailType.album,
+                              id: albumKey(genreAlbums[i].album)))),
                     ),
-                    const SizedBox(height: IaSpacing.xl),
-                    if (extra != null)
-                      extra
-                    else ...[
+                  ),
+                ),
+              )
+            else ...[
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 0),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       SectionHead(
                         label: '曲目',
                         meta: tracks.isEmpty
@@ -219,27 +224,37 @@ class DetailPage extends ConsumerWidget {
                             : '${tracks.length} 首 · $total',
                       ),
                       const SizedBox(height: IaSpacing.xs),
-                      for (var i = 0; i < tracks.length; i++)
-                        DetailTrackLine(
-                          track: tracks[i],
-                          index: i + 1,
-                          showCover: type == DetailType.playlist,
-                          isPlaying: ref.watch(playbackProvider
-                              .select((s) => s.current?.id == tracks[i].id)),
-                          isLiked: favs.contains(tracks[i].id),
-                          onTap: () => ref
-                              .read(playbackProvider.notifier)
-                              .playTrack(tracks[i], queue: tracks),
-                          onLongPress: () => type == DetailType.playlist
-                              ? _playlistTrackMenu(
-                                  context, ref, int.tryParse(id) ?? 0, tracks[i])
-                              : showTrackMenu(context, ref, tracks[i]),
-                        ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(edge.left, 0, edge.right, 0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: tracks.length,
+                    (context, i) {
+                      final t = tracks[i];
+                      return DetailTrackLine(
+                        track: t,
+                        index: i + 1,
+                        showCover: type == DetailType.playlist,
+                        isPlaying: ref.watch(playbackProvider
+                            .select((s) => s.current?.id == t.id)),
+                        isLiked: favs.contains(t.id),
+                        onTap: () => ref
+                            .read(playbackProvider.notifier)
+                            .playTrack(t, queue: tracks),
+                        onLongPress: () => type == DetailType.playlist
+                            ? _playlistTrackMenu(
+                                context, ref, int.tryParse(id) ?? 0, t)
+                            : showTrackMenu(context, ref, t),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),

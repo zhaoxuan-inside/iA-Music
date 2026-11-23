@@ -191,6 +191,38 @@ class HubPage extends StatelessWidget {
   }
 }
 
+/// Hub 页固定骨架（sliver 版）：需要列表虚拟化的屏用这个变体——
+/// 固定页头 + CustomScrollView，网格/长列表按可视区构建（不再
+/// shrinkWrap 全量 eager build）。
+class HubSliverPage extends StatelessWidget {
+  const HubSliverPage({required this.header, required this.slivers, super.key});
+
+  final PageHeader header;
+  final List<Widget> slivers;
+
+  @override
+  Widget build(BuildContext context) {
+    final edge = edgeInsets(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            edge.left,
+            topInset(context) + IaSpacing.l,
+            edge.right,
+            0,
+          ),
+          child: header,
+        ),
+        Expanded(
+          child: CustomScrollView(slivers: slivers),
+        ),
+      ],
+    );
+  }
+}
+
 /// 分区头：accent 小节标签 + 弱计数 + 右侧操作。
 class SectionHead extends StatelessWidget {
   const SectionHead({required this.label, this.meta, this.trailing, super.key});

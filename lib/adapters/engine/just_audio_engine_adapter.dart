@@ -154,11 +154,18 @@ class JustAudioEngineAdapter implements EnginePort {
     });
   }
 
+  /// 封面存在性缓存（existsSync 是同步 stat；大队列装载一次 = N 次 stat，
+  /// 同一路径会话内不重查——文件变更场景极罕见，代价是重启进程才可见）。
+  final Map<String, bool> _coverExists = {};
+
   AudioSource _audioSource(QueueItem item) {
     Uri? art;
     final cover = item.coverPath;
-    if (cover != null && cover.isNotEmpty && File(cover).existsSync()) {
-      art = Uri.file(cover);
+    if (cover != null && cover.isNotEmpty) {
+      final ok = _coverExists[cover] ??= File(cover).existsSync();
+      if (ok) {
+        art = Uri.file(cover);
+      }
     }
     return AudioSource.uri(
       Uri.file(item.path),

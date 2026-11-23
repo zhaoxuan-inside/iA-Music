@@ -11,7 +11,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/track.dart';
-import '../../state/letter.dart';
 import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
 import '../music/music_menu.dart';
@@ -24,26 +23,6 @@ import '../shared/wp_motion.dart';
 
 /// 列表槽位定高（封面 48 + 上下 12 边距；组头 / 音乐页入口同槽）。
 const double _slotH = 72;
-
-/// 展平槽位：字母组头 / 歌曲行。
-sealed class _Slot {
-  const _Slot();
-}
-
-class _Header extends _Slot {
-  const _Header(this.letter);
-  final String letter;
-}
-
-class _Song extends _Slot {
-  const _Song(this.track);
-  final Track track;
-}
-
-/// 曲库列表尾部的「音乐页」入口。
-class _MusicPageEntry extends _Slot {
-  const _MusicPageEntry();
-}
 
 class SongsPage extends ConsumerStatefulWidget {
   const SongsPage({super.key});
@@ -82,33 +61,14 @@ class _SongsPageState extends ConsumerState<SongsPage> {
     final p = Theme.of(context).extension<IaPalette>()!;
     final tracks =
         ref.watch(tracksProvider(TrackSort.title)).value ?? const <Track>[];
+    final grouped = ref.watch(songSlotsProvider);
+    final slots = grouped.slots;
+    // 分组缓存于 songSlotsProvider（曲目数据变化才重算）；页头槽位号
+    // 随分组刷新（槽位定高故偏移可精确算出）。
+    _headerSlots = grouped.headerSlots;
     final playingId = ref.watch(playbackProvider.select((s) => s.current?.id));
     final favs = ref.watch(favoritesSetProvider).value ?? const <int>{};
     final edge = edgeInsets(context);
-
-    // 显示序在 Dart 侧自排：SQL 按 titleNorm 码点序（中文≠拼音序），
-    // 直接用会让同组歌曲散落、组头只在首现处出现。按（拼音首字母，歌名）
-    // 排序后一遍建槽，组才真正连续、字母轨才能跳到整组。点播不依赖任何
-    // 定位——只交出被点的曲目，按 id 对位收口在 [PlaybackService.playTrack]。
-    final display = [
-      for (final t in tracks) (t, letterKey(t.title)),
-    ]..sort((a, b) {
-      final c = a.$2.compareTo(b.$2);
-      return c != 0 ? c : a.$1.title.toLowerCase().compareTo(b.$1.title.toLowerCase());
-    });
-    final headerSlots = <String, int>{};
-    final letters = <String>[];
-    final slots = <_Slot>[];
-    for (final (t, key) in display) {
-      if (!headerSlots.containsKey(key)) {
-        headerSlots[key] = slots.length;
-        letters.add(key);
-        slots.add(_Header(key));
-      }
-      slots.add(_Song(t));
-    }
-    slots.add(const _MusicPageEntry());
-    _headerSlots = headerSlots;
 
     final header = PageHeader(
       kicker: '音乐仓库',
@@ -161,11 +121,25 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                   edge.right,
                   140,
                 ),
-                itemCount: slots.length,
+                // 末槽 = 「音乐页」入口（与组头/歌曲同高）。
+                itemCount: slots.length + 1,
                 itemBuilder: (context, i) {
+                  if (i == slots.length) {
+                    return FeatherIn(
+                      index: i,
+                      child: BigRow(
+                        title: '音乐页 · 全部艺人 / 专辑 / 歌单',
+                        onTap: () => Navigator.of(context).push(
+                          zuneRoute<void>(
+                            builder: (_) => const MusicMenuPage(),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
                   final slot = slots[i];
                   final child = switch (slot) {
-                    _Header(:final letter) => Align(
+                    SongSlot(letter: final letter?) => Align(
                       alignment: Alignment.bottomLeft,
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: IaSpacing.s),
@@ -180,7 +154,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                         ),
                       ),
                     ),
-                    _Song(:final track) => SongRow(
+                    SongSlot(track: final track?) => SongRow(
                       track: track,
                       leading: CoverArt(
                         track: track,
@@ -194,14 +168,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                           .playTrack(track, queue: tracks),
                       onLongPress: () => showTrackMenu(context, ref, track),
                     ),
-                    _MusicPageEntry() => BigRow(
-                      title: '音乐页 · 全部艺人 / 专辑 / 歌单',
-                      onTap: () => Navigator.of(context).push(
-                        zuneRoute<void>(
-                          builder: (_) => const MusicMenuPage(),
-                        ),
-                      ),
-                    ),
+                    _ => const SizedBox.shrink(),
                   };
                   // 进页一瞬的 Turnstile Feather；长列表滚动出的条目不重播。
                   return FeatherIn(index: i, child: child);
@@ -214,7 +181,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                 bottom: 150,
                 width: 22,
                 child: LetterRail(
-                  letters: letters,
+                  letters: grouped.letters,
                   onPick: (l) {
                     _bigLetter.value = l;
                     _jumpTo(l);

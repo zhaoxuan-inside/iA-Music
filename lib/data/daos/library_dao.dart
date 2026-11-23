@@ -155,6 +155,33 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         .map((rows) => rows.map(_map).toList());
   }
 
+  /// 专辑首曲（磁贴封面用；单行 LIMIT 查询，替代 watch 全列表取 first——
+  /// 每个磁贴开一条整表 watch 是滚动卡顿与流噪音的来源）。
+  Future<Track?> albumFirstTrack(String albumNorm) {
+    return (select(tracks)
+          ..where((t) => t.albumNorm.equals(albumNorm) & t.missingAt.isNull())
+          ..orderBy([
+            (u) => OrderingTerm.asc(u.trackNo),
+            (u) => OrderingTerm.asc(u.titleNorm),
+          ])
+          ..limit(1))
+        .get()
+        .then((rows) => rows.isEmpty ? null : _map(rows.first));
+  }
+
+  /// 艺人首曲（快速播放磁贴封面用）。
+  Future<Track?> artistFirstTrack(String artistNorm) {
+    return (select(tracks)
+          ..where((t) => t.artistNorm.equals(artistNorm) & t.missingAt.isNull())
+          ..orderBy([
+            (u) => OrderingTerm.asc(u.albumNorm),
+            (u) => OrderingTerm.asc(u.trackNo),
+          ])
+          ..limit(1))
+        .get()
+        .then((rows) => rows.isEmpty ? null : _map(rows.first));
+  }
+
   // ── 流派面（真实标签解析；空流派不参与聚合） ─────────────────────────
 
   /// 流派列表（按专辑数排序；genre 为空的行不入组）。

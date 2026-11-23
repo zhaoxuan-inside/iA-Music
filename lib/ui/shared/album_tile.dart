@@ -20,10 +20,9 @@ class AlbumTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tracks =
-        ref.watch(albumTracksProvider(albumKey(album.album))).value ??
-            const <Track>[];
-    final first = tracks.firstOrNull;
+    // 单行首曲查询取封面（原 watch 全专辑曲目流——每个磁贴一条整表流）。
+    final first =
+        ref.watch(albumFirstTrackProvider(albumKey(album.album))).value;
     return InkWell(
       onTap: onTap,
       child: Column(

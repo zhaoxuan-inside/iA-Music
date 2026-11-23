@@ -39,13 +39,14 @@ class LyricsPipeline {
     final meta = await _meta.metaOf(track.id);
     final offsetMs = meta?.offsetMs ?? 0;
 
-    // 1. DB 指向的 lrc 文件（sidecar / pasted / 既往 online）
+    // 1. DB 指向的 lrc 文件（sidecar / pasted / 既往 online）——异步 IO，
+    // 不阻塞 UI isolate（每次开歌都会走到这里）。
     final lrcPath = meta?.lrcPath;
     if (lrcPath != null && lrcPath.isNotEmpty) {
       final f = File(lrcPath);
-      if (f.existsSync()) {
+      if (await f.exists()) {
         try {
-          final doc = parseLrc(f.readAsStringSync(), kind: _kindOf(meta!.kind));
+          final doc = parseLrc(await f.readAsString(), kind: _kindOf(meta!.kind));
           if (doc.lines.isNotEmpty) {
             return LyricsResult(doc: doc, offsetMs: offsetMs);
           }

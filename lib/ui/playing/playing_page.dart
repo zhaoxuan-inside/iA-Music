@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../../domain/entities/playback.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
@@ -27,8 +26,8 @@ class PlayingPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final snap = ref.watch(playbackProvider);
-    final cur = snap.current;
+    // select：切歌才重建整屏；positionMs 心跳由 _NowHeroSeek 单独订阅。
+    final cur = ref.watch(playbackProvider.select((s) => s.current));
     final edge = edgeInsets(context);
     final count = ref.watch(trackCountProvider).value ?? 0;
 
@@ -41,7 +40,7 @@ class PlayingPage extends ConsumerWidget {
       ),
       children: [
         if (cur != null)
-          _NowHero(snap: snap, cur: cur, edge: edge)
+          _NowHero(cur: cur, edge: edge)
         else
           const _RandomTile(),
         const SizedBox(height: IaSpacing.xxl),
@@ -55,9 +54,8 @@ class PlayingPage extends ConsumerWidget {
 
 /// 在播大磁贴：封面 / 倒影 / 标题 / 细线进度 / 播放键。
 class _NowHero extends ConsumerStatefulWidget {
-  const _NowHero({required this.snap, required this.cur, required this.edge});
+  const _NowHero({required this.cur, required this.edge});
 
-  final PlaybackSnapshot snap;
   final Track cur;
   final EdgeInsets edge;
 
@@ -66,21 +64,15 @@ class _NowHero extends ConsumerStatefulWidget {
 }
 
 class _NowHeroState extends ConsumerState<_NowHero> {
-  double? _drag;
-
   @override
   Widget build(BuildContext context) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final snap = widget.snap;
+    final playing = ref.watch(playbackProvider.select((s) => s.playing));
     final cur = widget.cur;
     final cover = math.min(
       MediaQuery.sizeOf(context).width - widget.edge.horizontal - 16,
       IaSpacing.coverHeroMax,
     );
-    final pos =
-        (_drag ??
-                (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
-            .clamp(0.0, 1.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,7 +155,7 @@ class _NowHeroState extends ConsumerState<_NowHero> {
                   border: Border.all(color: p.accent, width: 1.2),
                 ),
                 child: Icon(
-                  snap.playing ? Icons.pause : Icons.play_arrow,
+                  playing ? Icons.pause : Icons.play_arrow,
                   size: 28,
                   color: IaColors.textHi,
                 ),
@@ -172,31 +164,7 @@ class _NowHeroState extends ConsumerState<_NowHero> {
           ],
         ),
         const SizedBox(height: 18),
-        ZuneSeekBar(
-          value: pos,
-          onSeek: snap.durationMs > 0 ? (v) => setState(() => _drag = v) : null,
-          onSeekEnd: snap.durationMs > 0
-              ? (v) {
-                  ref
-                      .read(playbackProvider.notifier)
-                      .seekTo((v * snap.durationMs).round());
-                  setState(() => _drag = null);
-                }
-              : null,
-        ),
-        Row(
-          children: [
-            Text(
-              formatDuration(snap.positionMs),
-              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
-            ),
-            const Spacer(),
-            Text(
-              formatDuration(snap.durationMs),
-              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
-            ),
-          ],
-        ),
+        _NowHeroSeek(cur: cur),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -225,6 +193,63 @@ class _NowHeroState extends ConsumerState<_NowHero> {
                 '打开播放页  ›',
                 style: TextStyle(fontSize: 12, color: IaColors.textMid),
               ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// 在播磁贴的进度区（细线 seek + 时间行）：唯一订阅 positionMs 心跳的部分。
+/// 时长取当前曲目元数据（快照 durationMs 曾是恒 0 死字段，seek 一直失效）。
+class _NowHeroSeek extends ConsumerStatefulWidget {
+  const _NowHeroSeek({required this.cur});
+
+  final Track cur;
+
+  @override
+  ConsumerState<_NowHeroSeek> createState() => _NowHeroSeekState();
+}
+
+class _NowHeroSeekState extends ConsumerState<_NowHeroSeek> {
+  double? _drag;
+
+  @override
+  Widget build(BuildContext context) {
+    final durationMs = widget.cur.durationMs;
+    final pos = (_drag ??
+            (durationMs > 0
+                ? ref.watch(playbackProvider.select((s) => s.positionMs)) /
+                    durationMs
+                : 0.0))
+        .clamp(0.0, 1.0);
+    final positionMs = ref.watch(playbackProvider.select((s) => s.positionMs));
+
+    return Column(
+      children: [
+        ZuneSeekBar(
+          value: pos,
+          onSeek: durationMs > 0 ? (v) => setState(() => _drag = v) : null,
+          onSeekEnd: durationMs > 0
+              ? (v) {
+                  ref
+                      .read(playbackProvider.notifier)
+                      .seekTo((v * durationMs).round());
+                  setState(() => _drag = null);
+                }
+              : null,
+        ),
+        Row(
+          children: [
+            Text(
+              formatDuration(positionMs),
+              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+            ),
+            const Spacer(),
+            Text(
+              formatDuration(durationMs),
+              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
             ),
           ],
         ),
@@ -421,10 +446,9 @@ class _AlbumCover extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tracks =
-        ref.watch(albumTracksProvider(albumKey(album.album))).value ??
-        const <Track>[];
-    final first = tracks.firstOrNull;
+    // 封面走单行首曲查询；整张专辑队列在点按时一次性读取（不再常驻 watch）。
+    final first =
+        ref.watch(albumFirstTrackProvider(albumKey(album.album))).value;
     if (first == null) {
       if (size.isFinite) {
         return SizedBox(
@@ -436,9 +460,16 @@ class _AlbumCover extends ConsumerWidget {
       return const ColoredBox(color: IaColors.hairline);
     }
     return InkWell(
-      onTap: () => ref
-          .read(playbackProvider.notifier)
-          .playTrack(first, queue: tracks),
+      onTap: () async {
+        final tracks =
+            await ref.read(albumTracksProvider(albumKey(album.album)).future);
+        if (!context.mounted || tracks.isEmpty) {
+          return;
+        }
+        await ref
+            .read(playbackProvider.notifier)
+            .playTrack(tracks.first, queue: tracks);
+      },
       child: CoverArt(track: first, size: size),
     );
   }

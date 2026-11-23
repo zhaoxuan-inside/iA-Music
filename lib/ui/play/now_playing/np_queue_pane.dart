@@ -16,10 +16,12 @@ class NpQueuePane extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final p = Theme.of(context).extension<IaPalette>()!;
-    final snap = ref.watch(playbackProvider);
+    // select：进度心跳不动队列与索引——只有队列编辑/切歌才重建整屏列表。
+    final (queue, index) = ref
+        .watch(playbackProvider.select((s) => (s.queue, s.index)));
     final edge = edgeInsets(context);
 
-    if (snap.queue.isEmpty) {
+    if (queue.isEmpty) {
       return const Center(
         child: Text(
           '队列为空',
@@ -40,7 +42,7 @@ class NpQueuePane extends ConsumerWidget {
         child: Row(
           children: [
             Text(
-              '队列 · ${snap.queue.length} 首',
+              '队列 · ${queue.length} 首',
               style: const TextStyle(fontSize: 12.5, color: IaColors.textMid),
             ),
             const Spacer(),
@@ -55,7 +57,7 @@ class NpQueuePane extends ConsumerWidget {
         ),
       ),
       padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.s, edge.right, 40),
-      itemCount: snap.queue.length,
+      itemCount: queue.length,
       onReorderItem: (oldIndex, newIndex) =>
           ref.read(playbackProvider.notifier).reorderQueue(oldIndex, newIndex),
       proxyDecorator: (child, _, anim) => Material(
@@ -68,8 +70,8 @@ class NpQueuePane extends ConsumerWidget {
         ),
       ),
       itemBuilder: (_, i) {
-        final t = snap.queue[i];
-        final active = i == snap.index;
+        final t = queue[i];
+        final active = i == index;
         return ReorderableDelayedDragStartListener(
           key: ValueKey('q-$i-${t.id}'),
           index: i,
@@ -78,7 +80,7 @@ class NpQueuePane extends ConsumerWidget {
             child: InkWell(
               onTap: () => ref
                   .read(playbackProvider.notifier)
-                  .playTrack(snap.queue[i], queue: snap.queue),
+                  .playTrack(queue[i], queue: queue),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: IaSpacing.s,

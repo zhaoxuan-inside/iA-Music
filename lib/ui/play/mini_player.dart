@@ -1,5 +1,8 @@
 /// 迷你条：吸底整宽黑条 + accent 细进度线；横滑切歌；点击展开 NP。
 /// 长歌名走 WP8 音乐播放器的走马灯；切歌时标题/歌手上滑过渡。
+///
+/// 热路径收口：条体只订阅 current/playing（切歌才重建），positionMs 心跳
+/// 由 2px 进度线的独立小部件单独订阅——原整条每 ~200ms 全量重建一次。
 library;
 
 import 'package:flutter/material.dart';
@@ -18,9 +21,9 @@ class MiniPlayer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final snap = ref.watch(playbackProvider);
-    final cur = snap.current;
-    final p = Theme.of(context).extension<IaPalette>()!;
+    // select：只在 current（曲目对象引用）或 playing 变化时重建整条。
+    final cur = ref.watch(playbackProvider.select((s) => s.current));
+    final playing = ref.watch(playbackProvider.select((s) => s.playing));
     final mq = MediaQuery.of(context);
     final bottom = mq.padding.bottom > 6 ? mq.padding.bottom : 0.0;
     // 条宽 = 页面内容宽（与各页列表左右安全边距一致，不铺满曲面屏黑边）。
@@ -55,19 +58,11 @@ class MiniPlayer extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: bottom),
           child: Stack(
             children: [
-              // accent 进度线（贴顶）
-              Positioned(
+              // accent 进度线（贴顶）：心跳只重建这一条 2px 线。
+              const Positioned(
                 left: 0,
                 top: 0,
-                child: FractionallySizedBox(
-                  widthFactor: cur.durationMs > 0
-                      ? (snap.positionMs / cur.durationMs).clamp(0.0, 1.0)
-                      : 0.0,
-                  child: Container(
-                    height: IaSpacing.progressHairline,
-                    color: p.accent,
-                  ),
-                ),
+                child: _MiniProgressLine(),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -127,7 +122,7 @@ class MiniPlayer extends ConsumerWidget {
                       onPressed: () =>
                           ref.read(playbackProvider.notifier).togglePlay(),
                       icon: Icon(
-                        snap.playing ? Icons.pause : Icons.play_arrow,
+                        playing ? Icons.pause : Icons.play_arrow,
                         size: 22,
                         color: IaColors.textHi,
                       ),
@@ -144,6 +139,27 @@ class MiniPlayer extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// 迷你条贴顶进度线：唯一订阅 positionMs 心跳的部分。
+class _MiniProgressLine extends ConsumerWidget {
+  const _MiniProgressLine();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fraction = ref.watch(playbackProvider.select((s) {
+      final dur = s.durationMs;
+      return dur > 0 ? s.positionMs / dur : 0.0;
+    }));
+    final accent = Theme.of(context).extension<IaPalette>()!.accent;
+    return FractionallySizedBox(
+      widthFactor: fraction.clamp(0.0, 1.0),
+      child: Container(
+        height: IaSpacing.progressHairline,
+        color: accent,
       ),
     );
   }

@@ -50,6 +50,8 @@ class MusicSearchPage extends ConsumerStatefulWidget {
 }
 
 class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
+  /// 过滤用查询词（150ms 防抖后才更新——原每按键即时 setState，
+  /// 全库 4 张表 × contains 在每次击键同步重跑）。
   String _q = '';
   bool _online = false;
   bool _onlineLoading = false;
@@ -57,10 +59,12 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
   List<SearchHit> _onlineResults = const [];
   int _onlineToken = 0;
   Timer? _debounce;
+  Timer? _onlineDebounce;
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _onlineDebounce?.cancel();
     super.dispose();
   }
 
@@ -306,14 +310,20 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
   }
 
   void _onQuery(String v) {
-    setState(() {
-      _q = v;
-      _onlineResults = const [];
-      _onlineError = null;
-    });
     _debounce?.cancel();
+    _onlineDebounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _q = v;
+        _onlineResults = const [];
+        _onlineError = null;
+      });
+    });
     if (_online && v.trim().isNotEmpty) {
-      _debounce = Timer(const Duration(milliseconds: 650), () {
+      _onlineDebounce = Timer(const Duration(milliseconds: 650), () {
         unawaited(_searchOnline());
       });
     }

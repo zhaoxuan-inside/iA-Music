@@ -15,30 +15,28 @@ import '../../shared/actions.dart';
 import '../../shared/ambient.dart';
 import '../../shared/ui_kit.dart';
 
-/// 播放屏（pivot 第 0 屏）。
-class NpPlayPane extends ConsumerWidget {
-  const NpPlayPane({
-    required this.snap,
-    required this.cur,
-    required this.edge,
-    required this.dragValue,
-    required this.onSeek,
-    required this.onSeekEnd,
-    super.key,
-  });
+/// 播放屏（pivot 第 0 屏）：唯一订阅进度心跳的 pane（页面壳层不跟心跳重建）。
+class NpPlayPane extends ConsumerStatefulWidget {
+  const NpPlayPane({required this.cur, required this.edge, super.key});
 
-  final PlaybackSnapshot snap;
   final Track cur;
   final EdgeInsets edge;
-  final double? dragValue;
-  final ValueChanged<double> onSeek;
-  final ValueChanged<double> onSeekEnd;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NpPlayPane> createState() => _NpPlayPaneState();
+}
+
+class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
+  double? _dragValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final snap = ref.watch(playbackProvider);
+    final cur = widget.cur;
+    final edge = widget.edge;
     final p = Theme.of(context).extension<IaPalette>()!;
     final pos =
-        (dragValue ??
+        (_dragValue ??
                 (snap.durationMs > 0 ? snap.positionMs / snap.durationMs : 0.0))
             .clamp(0.0, 1.0);
     final cover = math.min(
@@ -114,8 +112,16 @@ class NpPlayPane extends ConsumerWidget {
           const SizedBox(height: 22),
           ZuneSeekBar(
             value: pos,
-            onSeek: snap.durationMs > 0 ? onSeek : null,
-            onSeekEnd: snap.durationMs > 0 ? onSeekEnd : null,
+            onSeek:
+                snap.durationMs > 0 ? (v) => setState(() => _dragValue = v) : null,
+            onSeekEnd: snap.durationMs > 0
+                ? (v) {
+                    ref
+                        .read(playbackProvider.notifier)
+                        .seekTo((v * snap.durationMs).round());
+                    setState(() => _dragValue = null);
+                  }
+                : null,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),

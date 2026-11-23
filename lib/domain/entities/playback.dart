@@ -14,7 +14,6 @@ class PlaybackSnapshot {
     required this.loading,
     required this.ended,
     required this.positionMs,
-    required this.durationMs,
     required this.volume,
     required this.shuffle,
     required this.repeat,
@@ -29,7 +28,6 @@ class PlaybackSnapshot {
           loading: false,
           ended: false,
           positionMs: 0,
-          durationMs: 0,
           volume: 100,
           shuffle: false,
           repeat: RepeatMode.off,
@@ -42,7 +40,6 @@ class PlaybackSnapshot {
   final bool loading;
   final bool ended;
   final int positionMs;
-  final int durationMs;
   final double volume;
   final bool shuffle;
 
@@ -54,13 +51,16 @@ class PlaybackSnapshot {
 
   Track? get current => (index >= 0 && index < queue.length) ? queue[index] : null;
 
+  /// 当前曲目时长（派生自曲库元数据；曾是从不更新的死字段——进度条与
+  /// seekBy 的钳制一直拿 0 在比，进度环/拖拽 seek 全部失效）。
+  int get durationMs => current?.durationMs ?? 0;
+
   PlaybackSnapshot copyWith({
     int? index,
     bool? playing,
     bool? loading,
     bool? ended,
     int? positionMs,
-    int? durationMs,
     double? volume,
     bool? shuffle,
     List<Track>? queue,
@@ -74,7 +74,6 @@ class PlaybackSnapshot {
         loading: loading ?? this.loading,
         ended: ended ?? this.ended,
         positionMs: positionMs ?? this.positionMs,
-        durationMs: durationMs ?? this.durationMs,
         volume: volume ?? this.volume,
         shuffle: shuffle ?? this.shuffle,
         repeat: repeat ?? this.repeat,

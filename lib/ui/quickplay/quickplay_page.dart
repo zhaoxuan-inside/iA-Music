@@ -331,19 +331,19 @@ class _PinFace extends ConsumerWidget {
   }
 
   File? _coverFile(WidgetRef ref) {
+    // 单行首曲查询取封面（原 watch 全列表流取 first——磁贴数量 × 整表流）。
     Track? track;
     switch (pin.kind) {
       case QuickplayKind.album:
-        track = ref.watch(albumTracksProvider(pin.key)).value?.firstOrNull;
+        track = ref.watch(albumFirstTrackProvider(pin.key)).value;
         break;
       case QuickplayKind.artist:
-        track = ref.watch(artistTracksProvider(pin.key)).value?.firstOrNull;
+        track = ref.watch(artistFirstTrackProvider(pin.key)).value;
         break;
       case QuickplayKind.playlist:
         track = ref
-            .watch(playlistTracksProvider(int.tryParse(pin.key) ?? 0))
-            .value
-            ?.firstOrNull;
+            .watch(playlistFirstTrackProvider(int.tryParse(pin.key) ?? 0))
+            .value;
         break;
     }
     if (track == null) {

@@ -101,7 +101,6 @@ PlaybackSnapshot _snapshot({Track? current}) => PlaybackSnapshot(
       loading: false,
       ended: false,
       positionMs: 61000,
-      durationMs: current?.durationMs ?? 0,
       volume: 100,
       shuffle: false,
       repeat: RepeatMode.off,
@@ -288,6 +287,7 @@ void main() {
         favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
         quickplayProvider.overrideWith(
             () => _FakeQuickplay(const QuickplayState(loaded: true))),
+        albumFirstTrackProvider.overrideWith((ref, key) async => _track),
         albumsProvider.overrideWith((ref) => Stream.value([
               const AlbumGroup(
                 album: '十一月的萧邦',
@@ -324,6 +324,9 @@ void main() {
                 totalDurationMs: 226000,
               ),
             ])),
+        albumFirstTrackProvider.overrideWith((ref, key) async => _track),
+        artistFirstTrackProvider.overrideWith((ref, key) async => null),
+        playlistFirstTrackProvider.overrideWith((ref, id) async => null),
         albumTracksProvider
             .overrideWith((ref, key) => Stream.value([_track])),
         playlistTracksProvider
@@ -388,6 +391,9 @@ void main() {
         coverProvider.overrideWith((ref, key) async => null),
         recentAddedAlbumsProvider
             .overrideWith((ref) => Stream.value(const <AlbumGroup>[])),
+        albumFirstTrackProvider.overrideWith((ref, key) async => _track),
+        artistFirstTrackProvider.overrideWith((ref, key) async => _track),
+        playlistFirstTrackProvider.overrideWith((ref, id) async => null),
         albumTracksProvider
             .overrideWith((ref, key) => Stream.value([_track])),
         artistTracksProvider

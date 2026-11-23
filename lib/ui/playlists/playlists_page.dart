@@ -26,8 +26,9 @@ class PlaylistsPage extends ConsumerWidget {
     final pls = ref.watch(playlistListProvider).value ?? const <Playlist>[];
     final pending = pls.fold<int>(0, (s, p) => s + p.pendingCount);
     final total = pls.fold<int>(0, (s, p) => s + p.trackCount);
+    final edge = edgeInsets(context);
 
-    return HubPage(
+    return HubSliverPage(
       header: PageHeader(
         kicker: '亲手整理的',
         title: '歌单',
@@ -52,69 +53,84 @@ class PlaylistsPage extends ConsumerWidget {
           ],
         ),
       ),
-      children: [
-        if (pls.isEmpty)
-          const EmptyState(
-              title: '还没有歌单',
-              subtitle: '长按歌曲「加到歌单」新建，或点右上角拉取现成歌单')
-        else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 18,
-                childAspectRatio: 0.76),
-            itemCount: pls.length,
-            itemBuilder: (_, i) {
-              final p = pls[i];
-              final pend = p.pendingCount;
-              final hasCover = p.coverPath != null && File(p.coverPath!).existsSync();
-              return FeatherIn(
-                index: i,
-                child: InkWell(
-                  onTap: () => Navigator.of(context).push(zuneRoute<void>(
-                      builder: (_) => DetailPage(
-                          type: DetailType.playlist, id: p.id.toString()))),
-                  onLongPress: () => _playlistMenu(context, ref, p),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AspectRatio(
-                        aspectRatio: 1,
-                        child: hasCover
-                            ? Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: IaColors.hairline),
-                                ),
-                                child: Image.file(
-                                  File(p.coverPath!),
-                                  fit: BoxFit.cover,
-                                  gaplessPlayback: true,
-                                  errorBuilder: (_, _, _) => _LetterTile(
-                                      name: p.name, count: p.trackCount, pend: pend),
-                                ),
-                              )
-                            : _LetterTile(name: p.name, count: p.trackCount, pend: pend),
-                      ),
-                      const SizedBox(height: IaSpacing.s),
-                      Text(p.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 12.5, color: IaColors.textHi)),
-                      Text(pend > 0 ? '提取中' : '歌单',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              const TextStyle(fontSize: 11, color: IaColors.textLow)),
-                    ],
+      slivers: [
+        // SliverGrid：歌单卡按可视区构建（原 shrinkWrap 网格全量 eager build）。
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.xl, edge.right, 140),
+          sliver: pls.isEmpty
+              ? const SliverToBoxAdapter(
+                  child: EmptyState(
+                      title: '还没有歌单',
+                      subtitle: '长按歌曲「加到歌单」新建，或点右上角拉取现成歌单'))
+              : SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 14,
+                      mainAxisSpacing: 18,
+                      childAspectRatio: 0.76),
+                  delegate: SliverChildBuilderDelegate(
+                    childCount: pls.length,
+                    (context, i) {
+                      final p = pls[i];
+                      final pend = p.pendingCount;
+                      final hasCover =
+                          p.coverPath != null && File(p.coverPath!).existsSync();
+                      return FeatherIn(
+                        index: i,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).push(zuneRoute<void>(
+                              builder: (_) => DetailPage(
+                                  type: DetailType.playlist,
+                                  id: p.id.toString()))),
+                          onLongPress: () => _playlistMenu(context, ref, p),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AspectRatio(
+                                aspectRatio: 1,
+                                child: hasCover
+                                    ? Container(
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: IaColors.hairline),
+                                        ),
+                                        child: Image.file(
+                                          File(p.coverPath!),
+                                          fit: BoxFit.cover,
+                                          gaplessPlayback: true,
+                                          errorBuilder: (_, _, _) => _LetterTile(
+                                              name: p.name,
+                                              count: p.trackCount,
+                                              pend: pend),
+                                        ),
+                                      )
+                                    : _LetterTile(
+                                        name: p.name,
+                                        count: p.trackCount,
+                                        pend: pend),
+                              ),
+                              const SizedBox(height: IaSpacing.s),
+                              Text(p.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: IaColors.textHi)),
+                              Text(
+                                  pend > 0 ? '提取中' : '歌单',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: IaColors.textLow)),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
+        ),
       ],
     );
   }
