@@ -59,7 +59,7 @@ class EnrichmentService {
       void Function(String currentTitle, int done, int total)? onProgress,
       void Function(String title, Object error)? onError,
       void Function(String source, Object error)? onSoftError}) async {
-    final pending = await _library.watchNeedsEnrichment(limit: limit).first;
+    final pending = await _library.needsEnrichment(limit: limit);
     var ok = 0;
     var completed = 0;
     for (final t in pending) {

@@ -24,17 +24,17 @@ class ListenLibrary {
 
   /// 常听电台取材：播放次数 Top12 单曲（单曲粒度，专辑缺失不折叠）。
   Future<List<Track>> top() async {
-    final tops = await _db.libraryDao.watchTopTracks(limit: 12).first;
+    final tops = await _db.libraryDao.getTopTracks(limit: 12);
     return [for (final t in tops) t.track];
   }
 
   /// 最近添加取材：按 addedAt 倒序的全部曲目。
   Future<List<Track>> recent() =>
-      _db.libraryDao.watchTracks(sort: TrackSort.recentAdded).first;
+      _db.libraryDao.getTracks(sort: TrackSort.recentAdded);
 
   /// 历史回放取材：去重后的历史曲目序列（最新在前，不打乱）。
   Future<List<Track>> history() async {
-    final items = await _db.historyDao.watchRecent(limit: 100).first;
+    final items = await _db.historyDao.recent(limit: 100);
     final seen = <int>{};
     return [for (final h in items) if (seen.add(h.track.id)) h.track];
   }

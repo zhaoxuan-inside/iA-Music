@@ -77,6 +77,10 @@ class CollectRunner {
     phase = CollectPhase.running;
     try {
       await _tasks.requeueRunning();
+      // 两阶段管道：阶段一逐任务下载/提取落盘（文件直接发布进音乐目录，
+      // 不扫描）；阶段二整轮一次批扫 + 逐任务入库记账。原每首一扫——
+      // 导入 100 首歌单 = 100 次全目录 walk+diff。
+      final staged = <_StagedFile>[];
       while (true) {
         final pending = await _tasks.pendingOrRunning();
         CollectTaskRow? next;
@@ -89,16 +93,22 @@ class CollectRunner {
         if (next == null) {
           break;
         }
-        final (cont, taskFailed) = await _process(
+        final (cont, taskFailed, file) = await _process(
             next.id, next.source, next.url, next.title, next.artist,
             next.lyricsPath, next.playlistId);
         processed++;
         if (taskFailed) {
           failed++;
         }
+        if (file != null) {
+          staged.add(file);
+        }
         if (!cont) {
           break;
         }
+      }
+      if (staged.isNotEmpty) {
+        failed += await _publishStaged(staged);
       }
     } finally {
       phase = CollectPhase.idle;
@@ -106,7 +116,10 @@ class CollectRunner {
     return (processed, failed);
   }
 
-  Future<(bool, bool)> _process(
+  /// 阶段一：下载/提取（文件发布进音乐目录即返回）；扫描与入库记账
+  /// 延后到 [_publishStaged] 轮末批扫。
+  /// 返回 (是否继续轮询, 是否失败, 已下载待入库)。
+  Future<(bool, bool, _StagedFile?)> _process(
     int id,
     String source,
     String url,
@@ -122,9 +135,9 @@ class CollectRunner {
       if (root == null) {
         // 未配置音乐目录：回 pending，等目录就绪后重跑（本轮回调停止，避免空转）。
         await _tasks.setStatus(id, CollectStatusCol.pending);
-        return (false, false);
+        return (false, false, null);
       }
-      final (filePath, meta, lrc) = switch (source) {
+      final (filePath, _, lrc) = switch (source) {
         'direct' => await _downloadDirect(id, url, title, artist, root.path),
         _ => await _extractViaPlugin(
             id, source, url, title, artist, root.path, playlistId),
@@ -134,37 +147,24 @@ class CollectRunner {
         // 防御路径：下载/提取管道已改为失败即抛，到这里说明有未覆盖的空洞。
         throw Exception('提取未产出音频文件：$url');
       }
-      // 增量重扫：真实入库（复用扫描链路，音乐目录为根）
-      await _scan.scanRoot(root.id, root.path);
-      _ensureNotCancelled(id);
-      final track = await _trackByPath(filePath);
-      if (track == null) {
-        throw Exception('入库扫描未找到文件：$filePath');
-      }
-      // 歌词：提取期拉到的 LRC 优先；GitHub 拉取随带的其次
-      final lrcPath = lrc ?? lyricsPath;
-      if (lrcPath != null) {
-        await _db.lyricsDao.upsert(
-          track.id,
-          LyricsMetaCompanion.insert(
-            trackId: Value(track.id),
-            kind: const Value('online'),
-            lrcPath: Value(lrcPath),
-          ),
-        );
-      }
-      // 归歌单
-      if (playlistId != null) {
-        await _playlists.addTrack(playlistId, track.id);
-        await _playlists.decrementPending(playlistId);
-      }
-      await _tasks.setStatus(id, CollectStatusCol.done, filePath: filePath);
-      return (true, false);
+      return (
+        true,
+        false,
+        _StagedFile(
+          taskId: id,
+          rootId: root.id,
+          rootPath: root.path,
+          filePath: filePath,
+          lrcPath: lrc ?? lyricsPath,
+          playlistId: playlistId,
+          title: title,
+        ),
+      );
     } on CollectCancelledException {
       // 运行中暂停/删除：转 paused（不重跑、不算失败、不上报），残留清理
       await cleanupTaskTmp(cacheDir, id);
       await _tasks.setStatus(id, CollectStatusCol.paused);
-      return (true, false);
+      return (true, false, null);
     } on Object catch (e, st) {
       // 失败原因必须可见：错误原文落任务行（UI 可读）+ 回调上抛（state 层
       // 接诊断/日志追踪）——曾经的裸 catch 让所有提取失败无声蒸发。
@@ -172,11 +172,56 @@ class CollectRunner {
       await _tasks.setStatus(id, CollectStatusCol.failed,
           errorText: _errorText(e));
       onTaskError?.call(title, e, st);
-      return (true, true);
+      return (true, true, null);
     } finally {
       _cancelRequests.remove(id);
     }
   }
+
+  /// 阶段二：整轮一次批扫（每个涉及的音乐目录一次）+ 逐任务入库记账。
+  /// 单任务记账失败不影响其余（失败原文落任务行 + 回调上报，与阶段一同口径）。
+  Future<int> _publishStaged(List<_StagedFile> staged) async {
+    var failed = 0;
+    final roots = <int, String>{
+      for (final s in staged) s.rootId: s.rootPath,
+    };
+    for (final e in roots.entries) {
+      await _scan.scanRoot(e.key, e.value);
+    }
+    for (final s in staged) {
+      try {
+        final track = await _trackByPath(s.filePath);
+        if (track == null) {
+          throw Exception('入库扫描未找到文件：${s.filePath}');
+        }
+        // 歌词：提取期拉到的 LRC 优先；GitHub 拉取随带的其次
+        if (s.lrcPath != null) {
+          await _db.lyricsDao.upsert(
+            track.id,
+            LyricsMetaCompanion.insert(
+              trackId: Value(track.id),
+              kind: const Value('online'),
+              lrcPath: Value(s.lrcPath),
+            ),
+          );
+        }
+        // 归歌单
+        if (s.playlistId != null) {
+          await _playlists.addTrack(s.playlistId!, track.id);
+          await _playlists.decrementPending(s.playlistId!);
+        }
+        await _tasks.setStatus(s.taskId, CollectStatusCol.done,
+            filePath: s.filePath);
+      } on Object catch (e, st) {
+        failed++;
+        await _tasks.setStatus(s.taskId, CollectStatusCol.failed,
+            errorText: _errorText(e));
+        onTaskError?.call(s.title, e, st);
+      }
+    }
+    return failed;
+  }
+
 
   void _ensureNotCancelled(int id) {
     if (_cancelRequests.contains(id)) {
@@ -487,4 +532,25 @@ class CollectRunner {
         ? null
         : _db.libraryDao.trackById(rows.first.id);
   }
+}
+
+/// 本轮已下载（文件已发布进音乐目录）、待批扫入库的任务（阶段二最小集）。
+class _StagedFile {
+  const _StagedFile({
+    required this.taskId,
+    required this.rootId,
+    required this.rootPath,
+    required this.filePath,
+    required this.lrcPath,
+    required this.playlistId,
+    required this.title,
+  });
+
+  final int taskId;
+  final int rootId;
+  final String rootPath;
+  final String filePath;
+  final String? lrcPath;
+  final int? playlistId;
+  final String title;
 }

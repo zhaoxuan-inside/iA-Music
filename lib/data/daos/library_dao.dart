@@ -43,7 +43,14 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
 
   // ── 查询面 ──────────────────────────────────────────────────────────
 
-  Stream<List<Track>> watchTracks({TrackSort sort = TrackSort.recentAdded}) {
+  Stream<List<Track>> watchTracks({TrackSort sort = TrackSort.recentAdded}) =>
+      _tracksQuery(sort).watch().map((rows) => rows.map(_map).toList());
+
+  /// 曲目列表一次性取用（不开常驻 watch 流——随缘听歌取材等只读一次）。
+  Future<List<Track>> getTracks({TrackSort sort = TrackSort.recentAdded}) =>
+      _tracksQuery(sort).get().then((rows) => rows.map(_map).toList());
+
+  SimpleSelectStatement<Tracks, TrackRow> _tracksQuery(TrackSort sort) {
     final q = select(tracks);
     switch (sort) {
       case TrackSort.title:
@@ -59,7 +66,7 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
       case TrackSort.recentAdded:
         q.orderBy([(u) => OrderingTerm.desc(u.addedAt)]);
     }
-    return q.watch().map((rows) => rows.map(_map).toList());
+    return q;
   }
 
   Future<Track?> trackById(int id) async {
@@ -263,16 +270,25 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   ///
   /// 单曲粒度：无专辑元数据的收集曲不会被折叠进同一个「未知专辑」磁贴，
   /// 「常听与历史」页因此总能如实反映播放次数。
-  Stream<List<TrackPlays>> watchTopTracks({int limit = 12}) {
-    final query = select(tracks)
+  /// 常听单曲一次性取用（听法取材只读一次，不开常驻 watch 流）。
+  Future<List<TrackPlays>> getTopTracks({int limit = 12}) =>
+      _topTracksQuery(limit).get().then((rows) => [
+            for (final r in rows)
+              TrackPlays(track: _map(r), plays: r.plays),
+          ]);
+
+  Stream<List<TrackPlays>> watchTopTracks({int limit = 12}) =>
+      _topTracksQuery(limit).watch().map((rows) => [
+            for (final r in rows)
+              TrackPlays(track: _map(r), plays: r.plays),
+          ]);
+
+  SimpleSelectStatement<Tracks, TrackRow> _topTracksQuery(int limit) {
+    return select(tracks)
       ..where((t) =>
           t.missingAt.isNull() & t.plays.isBiggerThanValue(0))
       ..orderBy([(u) => OrderingTerm.desc(u.plays)])
       ..limit(limit);
-    return query.watch().map((rows) => [
-          for (final r in rows)
-            TrackPlays(track: _map(r), plays: r.plays),
-        ]);
   }
 
   // ── 删除面（曲库内移除一首；文件删除由调用方处理） ────────────────────
@@ -292,17 +308,22 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   // ── 元数据补全面（反向重建：时长锚定 + 在线匹配） ────────────────────
 
   /// 待补全曲目（needsMeta 未处理；连续硬失败 ≥3 次的暂出池），最旧优先。
-  Stream<List<Track>> watchNeedsEnrichment({int limit = 25}) {
-    return (select(tracks)
-          ..where((t) =>
-              t.needsMeta &
-              t.missingAt.isNull() &
-              t.enrichedAt.isNull() &
-              t.enrichAttempts.isSmallerThanValue(3))
-          ..orderBy([(u) => OrderingTerm.asc(u.addedAt)])
-          ..limit(limit))
-        .watch()
-        .map((rows) => rows.map(_map).toList());
+  /// 一次性取用版：补全轮次只读一次，不开常驻 watch 流。
+  Future<List<Track>> needsEnrichment({int limit = 25}) =>
+      _needsEnrichmentQuery(limit).get().then((rows) => rows.map(_map).toList());
+
+  Stream<List<Track>> watchNeedsEnrichment({int limit = 25}) =>
+      _needsEnrichmentQuery(limit).watch().map((rows) => rows.map(_map).toList());
+
+  SimpleSelectStatement<Tracks, TrackRow> _needsEnrichmentQuery(int limit) {
+    return select(tracks)
+      ..where((t) =>
+          t.needsMeta &
+          t.missingAt.isNull() &
+          t.enrichedAt.isNull() &
+          t.enrichAttempts.isSmallerThanValue(3))
+      ..orderBy([(u) => OrderingTerm.asc(u.addedAt)])
+      ..limit(limit);
   }
 
   /// 待补全数量（补全进度条的总数；暂出池的耗尽行不计）。

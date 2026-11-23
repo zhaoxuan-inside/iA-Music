@@ -114,6 +114,25 @@ class IaDatabase extends _$IaDatabase {
           await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_history_track '
               'ON play_history (track_id)');
+          // 曲库域索引：此前 tracks 只有主键/唯一路径两个索引，下列查询
+          // 全是全表扫——按根扫描 diff（root_id）、缺失行过滤（missing_at）、
+          // 常听面排序（plays）、补全池选取与计数（needs_meta+enriched_at）。
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_tracks_root '
+              'ON tracks (root_id)');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_tracks_missing '
+              'ON tracks (missing_at)');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_tracks_plays '
+              'ON tracks (plays)');
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_tracks_enrich '
+              'ON tracks (needs_meta, enriched_at)');
+          // 收集域：队列状态机查询（pending/running/failed 各态选取）。
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_collect_status '
+              'ON collect_tasks (status)');
         },
       );
 }

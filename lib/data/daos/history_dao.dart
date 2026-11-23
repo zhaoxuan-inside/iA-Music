@@ -39,17 +39,30 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
     );
   }
 
+  /// 历史一次性取用（听法取材只读一次，不开常驻 watch 流）。
+  Future<List<HistoryItem>> recent({int limit = 300}) async {
+    final rows = await _recentQuery(limit).get();
+    return rows.map((r) {
+      final h = r.readTable(playHistory);
+      final t = r.readTable(tracks);
+      return HistoryItem(track: _toTrack(t), playedAt: h.playedAt, completed: h.completed);
+    }).toList();
+  }
+
   Stream<List<HistoryItem>> watchRecent({int limit = 300}) {
-    final q = select(playHistory).join([
-      innerJoin(tracks, tracks.id.equalsExp(playHistory.trackId)),
-    ])
-      ..orderBy([OrderingTerm.desc(playHistory.playedAt)])
-      ..limit(limit);
-    return q.watch().map((rows) => rows.map((r) {
+    return _recentQuery(limit).watch().map((rows) => rows.map((r) {
           final h = r.readTable(playHistory);
           final t = r.readTable(tracks);
           return HistoryItem(track: _toTrack(t), playedAt: h.playedAt, completed: h.completed);
         }).toList());
+  }
+
+  JoinedSelectStatement _recentQuery(int limit) {
+    return select(playHistory).join([
+      innerJoin(tracks, tracks.id.equalsExp(playHistory.trackId)),
+    ])
+      ..orderBy([OrderingTerm.desc(playHistory.playedAt)])
+      ..limit(limit);
   }
 
   Track _toTrack(TrackRow r) => Track(

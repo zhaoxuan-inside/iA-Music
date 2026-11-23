@@ -100,16 +100,22 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
 
   // ── 条目面 ──────────────────────────────────────────────────────────
 
-  Stream<List<Track>> watchPlaylistTracks(int playlistId) {
-    final q = select(playlistTracks).join([
+  Stream<List<Track>> watchPlaylistTracks(int playlistId) =>
+      _playlistTracksQuery(playlistId).watch().map(_mapPlaylistRows);
+
+  /// 歌单曲目一次性取用（喜欢电台取材只读一次，不开常驻 watch 流）。
+  Future<List<Track>> playlistTracksOnce(int playlistId) =>
+      _playlistTracksQuery(playlistId).get().then(_mapPlaylistRows);
+
+  List<Track> _mapPlaylistRows(List<TypedResult> rows) =>
+      [for (final r in rows) _rowToTrack(r.readTable(tracks))];
+
+  JoinedSelectStatement _playlistTracksQuery(int playlistId) {
+    return select(playlistTracks).join([
       innerJoin(tracks, tracks.id.equalsExp(playlistTracks.trackId)),
     ])
       ..where(playlistTracks.playlistId.equals(playlistId))
       ..orderBy([OrderingTerm.asc(playlistTracks.position)]);
-    return q.watch().map((rows) => rows.map((r) {
-          final t = r.readTable(tracks);
-          return _rowToTrack(t);
-        }).toList());
   }
 
   /// 歌单首曲（快速播放磁贴封面用；单行 LIMIT 查询）。
@@ -126,10 +132,14 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
 
   /// 追加；歌单内重复静默忽略（DB 级 UNIQUE 兜底）。返回是否真的加入。
   Future<bool> addTrack(int playlistId, int trackId) async {
-    final maxPos = await (select(playlistTracks)
-          ..where((pt) => pt.playlistId.equals(playlistId)))
-        .get()
-        .then((rows) => rows.isEmpty ? 0 : rows.map((r) => r.position).reduce((a, b) => a > b ? a : b));
+    // 尾位取 MAX(position) 聚合单行（曾拉全表行在 Dart 侧 reduce 求最大——
+    // 批量加歌 O(n²)，百首歌单插入即万行读取）。
+    final maxPosExp = playlistTracks.position.max();
+    final maxRow = await (selectOnly(playlistTracks)
+          ..addColumns([maxPosExp])
+          ..where(playlistTracks.playlistId.equals(playlistId)))
+        .getSingleOrNull();
+    final maxPos = maxRow?.read(maxPosExp) ?? 0;
     try {
       await into(playlistTracks).insert(PlaylistTracksCompanion.insert(
         playlistId: playlistId,
@@ -153,7 +163,7 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
   /// 喜欢电台取材：收藏夹曲目快照（非流；按当前位置序）。
   Future<List<Track>> favoritesTracks() async {
     final id = await ensureFavorites();
-    return watchPlaylistTracks(id).first;
+    return playlistTracksOnce(id);
   }
 
   Future<int> ensureFavorites() async {
