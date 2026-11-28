@@ -549,6 +549,30 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _albumMatchedAtMeta = const VerificationMeta(
+    'albumMatchedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> albumMatchedAt =
+      GeneratedColumn<DateTime>(
+        'album_matched_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _trackMatchedAtMeta = const VerificationMeta(
+    'trackMatchedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> trackMatchedAt =
+      GeneratedColumn<DateTime>(
+        'track_matched_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _enrichAttemptsMeta = const VerificationMeta(
     'enrichAttempts',
   );
@@ -589,6 +613,8 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
     titleMatchedAt,
     artistMatchedAt,
     lyricsAt,
+    albumMatchedAt,
+    trackMatchedAt,
     enrichAttempts,
   ];
   @override
@@ -789,6 +815,24 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         lyricsAt.isAcceptableOrUnknown(data['lyrics_at']!, _lyricsAtMeta),
       );
     }
+    if (data.containsKey('album_matched_at')) {
+      context.handle(
+        _albumMatchedAtMeta,
+        albumMatchedAt.isAcceptableOrUnknown(
+          data['album_matched_at']!,
+          _albumMatchedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('track_matched_at')) {
+      context.handle(
+        _trackMatchedAtMeta,
+        trackMatchedAt.isAcceptableOrUnknown(
+          data['track_matched_at']!,
+          _trackMatchedAtMeta,
+        ),
+      );
+    }
     if (data.containsKey('enrich_attempts')) {
       context.handle(
         _enrichAttemptsMeta,
@@ -911,6 +955,14 @@ class $TracksTable extends Tracks with TableInfo<$TracksTable, TrackRow> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}lyrics_at'],
       ),
+      albumMatchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}album_matched_at'],
+      ),
+      trackMatchedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}track_matched_at'],
+      ),
       enrichAttempts: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}enrich_attempts'],
@@ -954,11 +1006,15 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
   final bool needsMeta;
   final DateTime? enrichedAt;
 
-  /// 补全三阶段完成时刻（结论性：匹配成功或确认无匹配都算已处理；
-  /// 网络失败不打时刻——留待重试）。UI 三条进度条据此直读，跨重启不丢。
+  /// 补全阶段完成时刻（结论性：匹配成功或确认无匹配都算已处理；
+  /// 网络失败不打时刻——留待重试）。UI 阶段进度条据此直读，跨重启不丢。
+  /// 专辑/音轨的来源只有 AcoustID releases（文字链无源，匹配成功也置
+  /// 确认无——有值填值、无值结案，避免无限重试）。
   final DateTime? titleMatchedAt;
   final DateTime? artistMatchedAt;
   final DateTime? lyricsAt;
+  final DateTime? albumMatchedAt;
+  final DateTime? trackMatchedAt;
 
   /// 连续硬失败次数（≥3 跳出待补全池；手动「开始补全」清零重试）。
   final int enrichAttempts;
@@ -989,6 +1045,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     this.titleMatchedAt,
     this.artistMatchedAt,
     this.lyricsAt,
+    this.albumMatchedAt,
+    this.trackMatchedAt,
     required this.enrichAttempts,
   });
   @override
@@ -1033,6 +1091,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     }
     if (!nullToAbsent || lyricsAt != null) {
       map['lyrics_at'] = Variable<DateTime>(lyricsAt);
+    }
+    if (!nullToAbsent || albumMatchedAt != null) {
+      map['album_matched_at'] = Variable<DateTime>(albumMatchedAt);
+    }
+    if (!nullToAbsent || trackMatchedAt != null) {
+      map['track_matched_at'] = Variable<DateTime>(trackMatchedAt);
     }
     map['enrich_attempts'] = Variable<int>(enrichAttempts);
     return map;
@@ -1080,6 +1144,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       lyricsAt: lyricsAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lyricsAt),
+      albumMatchedAt: albumMatchedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(albumMatchedAt),
+      trackMatchedAt: trackMatchedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackMatchedAt),
       enrichAttempts: Value(enrichAttempts),
     );
   }
@@ -1116,6 +1186,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       titleMatchedAt: serializer.fromJson<DateTime?>(json['titleMatchedAt']),
       artistMatchedAt: serializer.fromJson<DateTime?>(json['artistMatchedAt']),
       lyricsAt: serializer.fromJson<DateTime?>(json['lyricsAt']),
+      albumMatchedAt: serializer.fromJson<DateTime?>(json['albumMatchedAt']),
+      trackMatchedAt: serializer.fromJson<DateTime?>(json['trackMatchedAt']),
       enrichAttempts: serializer.fromJson<int>(json['enrichAttempts']),
     );
   }
@@ -1149,6 +1221,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
       'titleMatchedAt': serializer.toJson<DateTime?>(titleMatchedAt),
       'artistMatchedAt': serializer.toJson<DateTime?>(artistMatchedAt),
       'lyricsAt': serializer.toJson<DateTime?>(lyricsAt),
+      'albumMatchedAt': serializer.toJson<DateTime?>(albumMatchedAt),
+      'trackMatchedAt': serializer.toJson<DateTime?>(trackMatchedAt),
       'enrichAttempts': serializer.toJson<int>(enrichAttempts),
     };
   }
@@ -1180,6 +1254,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     Value<DateTime?> titleMatchedAt = const Value.absent(),
     Value<DateTime?> artistMatchedAt = const Value.absent(),
     Value<DateTime?> lyricsAt = const Value.absent(),
+    Value<DateTime?> albumMatchedAt = const Value.absent(),
+    Value<DateTime?> trackMatchedAt = const Value.absent(),
     int? enrichAttempts,
   }) => TrackRow(
     id: id ?? this.id,
@@ -1214,6 +1290,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
         ? artistMatchedAt.value
         : this.artistMatchedAt,
     lyricsAt: lyricsAt.present ? lyricsAt.value : this.lyricsAt,
+    albumMatchedAt: albumMatchedAt.present
+        ? albumMatchedAt.value
+        : this.albumMatchedAt,
+    trackMatchedAt: trackMatchedAt.present
+        ? trackMatchedAt.value
+        : this.trackMatchedAt,
     enrichAttempts: enrichAttempts ?? this.enrichAttempts,
   );
   TrackRow copyWithCompanion(TracksCompanion data) {
@@ -1260,6 +1342,12 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ? data.artistMatchedAt.value
           : this.artistMatchedAt,
       lyricsAt: data.lyricsAt.present ? data.lyricsAt.value : this.lyricsAt,
+      albumMatchedAt: data.albumMatchedAt.present
+          ? data.albumMatchedAt.value
+          : this.albumMatchedAt,
+      trackMatchedAt: data.trackMatchedAt.present
+          ? data.trackMatchedAt.value
+          : this.trackMatchedAt,
       enrichAttempts: data.enrichAttempts.present
           ? data.enrichAttempts.value
           : this.enrichAttempts,
@@ -1295,6 +1383,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           ..write('titleMatchedAt: $titleMatchedAt, ')
           ..write('artistMatchedAt: $artistMatchedAt, ')
           ..write('lyricsAt: $lyricsAt, ')
+          ..write('albumMatchedAt: $albumMatchedAt, ')
+          ..write('trackMatchedAt: $trackMatchedAt, ')
           ..write('enrichAttempts: $enrichAttempts')
           ..write(')'))
         .toString();
@@ -1328,6 +1418,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
     titleMatchedAt,
     artistMatchedAt,
     lyricsAt,
+    albumMatchedAt,
+    trackMatchedAt,
     enrichAttempts,
   ]);
   @override
@@ -1360,6 +1452,8 @@ class TrackRow extends DataClass implements Insertable<TrackRow> {
           other.titleMatchedAt == this.titleMatchedAt &&
           other.artistMatchedAt == this.artistMatchedAt &&
           other.lyricsAt == this.lyricsAt &&
+          other.albumMatchedAt == this.albumMatchedAt &&
+          other.trackMatchedAt == this.trackMatchedAt &&
           other.enrichAttempts == this.enrichAttempts);
 }
 
@@ -1390,6 +1484,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
   final Value<DateTime?> titleMatchedAt;
   final Value<DateTime?> artistMatchedAt;
   final Value<DateTime?> lyricsAt;
+  final Value<DateTime?> albumMatchedAt;
+  final Value<DateTime?> trackMatchedAt;
   final Value<int> enrichAttempts;
   const TracksCompanion({
     this.id = const Value.absent(),
@@ -1418,6 +1514,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.titleMatchedAt = const Value.absent(),
     this.artistMatchedAt = const Value.absent(),
     this.lyricsAt = const Value.absent(),
+    this.albumMatchedAt = const Value.absent(),
+    this.trackMatchedAt = const Value.absent(),
     this.enrichAttempts = const Value.absent(),
   });
   TracksCompanion.insert({
@@ -1447,6 +1545,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     this.titleMatchedAt = const Value.absent(),
     this.artistMatchedAt = const Value.absent(),
     this.lyricsAt = const Value.absent(),
+    this.albumMatchedAt = const Value.absent(),
+    this.trackMatchedAt = const Value.absent(),
     this.enrichAttempts = const Value.absent(),
   }) : rootId = Value(rootId),
        relPath = Value(relPath),
@@ -1484,6 +1584,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Expression<DateTime>? titleMatchedAt,
     Expression<DateTime>? artistMatchedAt,
     Expression<DateTime>? lyricsAt,
+    Expression<DateTime>? albumMatchedAt,
+    Expression<DateTime>? trackMatchedAt,
     Expression<int>? enrichAttempts,
   }) {
     return RawValuesInsertable({
@@ -1513,6 +1615,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       if (titleMatchedAt != null) 'title_matched_at': titleMatchedAt,
       if (artistMatchedAt != null) 'artist_matched_at': artistMatchedAt,
       if (lyricsAt != null) 'lyrics_at': lyricsAt,
+      if (albumMatchedAt != null) 'album_matched_at': albumMatchedAt,
+      if (trackMatchedAt != null) 'track_matched_at': trackMatchedAt,
       if (enrichAttempts != null) 'enrich_attempts': enrichAttempts,
     });
   }
@@ -1544,6 +1648,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     Value<DateTime?>? titleMatchedAt,
     Value<DateTime?>? artistMatchedAt,
     Value<DateTime?>? lyricsAt,
+    Value<DateTime?>? albumMatchedAt,
+    Value<DateTime?>? trackMatchedAt,
     Value<int>? enrichAttempts,
   }) {
     return TracksCompanion(
@@ -1573,6 +1679,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
       titleMatchedAt: titleMatchedAt ?? this.titleMatchedAt,
       artistMatchedAt: artistMatchedAt ?? this.artistMatchedAt,
       lyricsAt: lyricsAt ?? this.lyricsAt,
+      albumMatchedAt: albumMatchedAt ?? this.albumMatchedAt,
+      trackMatchedAt: trackMatchedAt ?? this.trackMatchedAt,
       enrichAttempts: enrichAttempts ?? this.enrichAttempts,
     );
   }
@@ -1658,6 +1766,12 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
     if (lyricsAt.present) {
       map['lyrics_at'] = Variable<DateTime>(lyricsAt.value);
     }
+    if (albumMatchedAt.present) {
+      map['album_matched_at'] = Variable<DateTime>(albumMatchedAt.value);
+    }
+    if (trackMatchedAt.present) {
+      map['track_matched_at'] = Variable<DateTime>(trackMatchedAt.value);
+    }
     if (enrichAttempts.present) {
       map['enrich_attempts'] = Variable<int>(enrichAttempts.value);
     }
@@ -1693,6 +1807,8 @@ class TracksCompanion extends UpdateCompanion<TrackRow> {
           ..write('titleMatchedAt: $titleMatchedAt, ')
           ..write('artistMatchedAt: $artistMatchedAt, ')
           ..write('lyricsAt: $lyricsAt, ')
+          ..write('albumMatchedAt: $albumMatchedAt, ')
+          ..write('trackMatchedAt: $trackMatchedAt, ')
           ..write('enrichAttempts: $enrichAttempts')
           ..write(')'))
         .toString();
@@ -3173,6 +3289,756 @@ class LyricsMetaCompanion extends UpdateCompanion<LyricsMetaRow> {
   }
 }
 
+class $TrackVectorsTable extends TrackVectors
+    with TableInfo<$TrackVectorsTable, TrackVectorRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackVectorsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _trackIdMeta = const VerificationMeta(
+    'trackId',
+  );
+  @override
+  late final GeneratedColumn<int> trackId = GeneratedColumn<int>(
+    'track_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracks (id)',
+    ),
+  );
+  static const VerificationMeta _modelMeta = const VerificationMeta('model');
+  @override
+  late final GeneratedColumn<String> model = GeneratedColumn<String>(
+    'model',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _dimMeta = const VerificationMeta('dim');
+  @override
+  late final GeneratedColumn<int> dim = GeneratedColumn<int>(
+    'dim',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vecMeta = const VerificationMeta('vec');
+  @override
+  late final GeneratedColumn<Uint8List> vec = GeneratedColumn<Uint8List>(
+    'vec',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _vectorAtMeta = const VerificationMeta(
+    'vectorAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> vectorAt = GeneratedColumn<DateTime>(
+    'vector_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [trackId, model, dim, vec, vectorAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'track_vectors';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackVectorRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('track_id')) {
+      context.handle(
+        _trackIdMeta,
+        trackId.isAcceptableOrUnknown(data['track_id']!, _trackIdMeta),
+      );
+    }
+    if (data.containsKey('model')) {
+      context.handle(
+        _modelMeta,
+        model.isAcceptableOrUnknown(data['model']!, _modelMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modelMeta);
+    }
+    if (data.containsKey('dim')) {
+      context.handle(
+        _dimMeta,
+        dim.isAcceptableOrUnknown(data['dim']!, _dimMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_dimMeta);
+    }
+    if (data.containsKey('vec')) {
+      context.handle(
+        _vecMeta,
+        vec.isAcceptableOrUnknown(data['vec']!, _vecMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_vecMeta);
+    }
+    if (data.containsKey('vector_at')) {
+      context.handle(
+        _vectorAtMeta,
+        vectorAt.isAcceptableOrUnknown(data['vector_at']!, _vectorAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {trackId};
+  @override
+  TrackVectorRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackVectorRow(
+      trackId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}track_id'],
+      )!,
+      model: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model'],
+      )!,
+      dim: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}dim'],
+      )!,
+      vec: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}vec'],
+      )!,
+      vectorAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}vector_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackVectorsTable createAlias(String alias) {
+    return $TrackVectorsTable(attachedDatabase, alias);
+  }
+}
+
+class TrackVectorRow extends DataClass implements Insertable<TrackVectorRow> {
+  final int trackId;
+
+  /// 嵌入模型标识（yamnet-1024-v1…）——向量没有模型版本就是死字节；
+  /// 换模型按本列过滤重算，upsert 覆盖旧向量不混用。
+  final String model;
+  final int dim;
+
+  /// float32 LE 紧凑存（1024 维 = 4KB/首）——JSON 文本会膨胀 8-10 倍。
+  final Uint8List vec;
+  final DateTime vectorAt;
+  const TrackVectorRow({
+    required this.trackId,
+    required this.model,
+    required this.dim,
+    required this.vec,
+    required this.vectorAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['track_id'] = Variable<int>(trackId);
+    map['model'] = Variable<String>(model);
+    map['dim'] = Variable<int>(dim);
+    map['vec'] = Variable<Uint8List>(vec);
+    map['vector_at'] = Variable<DateTime>(vectorAt);
+    return map;
+  }
+
+  TrackVectorsCompanion toCompanion(bool nullToAbsent) {
+    return TrackVectorsCompanion(
+      trackId: Value(trackId),
+      model: Value(model),
+      dim: Value(dim),
+      vec: Value(vec),
+      vectorAt: Value(vectorAt),
+    );
+  }
+
+  factory TrackVectorRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackVectorRow(
+      trackId: serializer.fromJson<int>(json['trackId']),
+      model: serializer.fromJson<String>(json['model']),
+      dim: serializer.fromJson<int>(json['dim']),
+      vec: serializer.fromJson<Uint8List>(json['vec']),
+      vectorAt: serializer.fromJson<DateTime>(json['vectorAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'trackId': serializer.toJson<int>(trackId),
+      'model': serializer.toJson<String>(model),
+      'dim': serializer.toJson<int>(dim),
+      'vec': serializer.toJson<Uint8List>(vec),
+      'vectorAt': serializer.toJson<DateTime>(vectorAt),
+    };
+  }
+
+  TrackVectorRow copyWith({
+    int? trackId,
+    String? model,
+    int? dim,
+    Uint8List? vec,
+    DateTime? vectorAt,
+  }) => TrackVectorRow(
+    trackId: trackId ?? this.trackId,
+    model: model ?? this.model,
+    dim: dim ?? this.dim,
+    vec: vec ?? this.vec,
+    vectorAt: vectorAt ?? this.vectorAt,
+  );
+  TrackVectorRow copyWithCompanion(TrackVectorsCompanion data) {
+    return TrackVectorRow(
+      trackId: data.trackId.present ? data.trackId.value : this.trackId,
+      model: data.model.present ? data.model.value : this.model,
+      dim: data.dim.present ? data.dim.value : this.dim,
+      vec: data.vec.present ? data.vec.value : this.vec,
+      vectorAt: data.vectorAt.present ? data.vectorAt.value : this.vectorAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackVectorRow(')
+          ..write('trackId: $trackId, ')
+          ..write('model: $model, ')
+          ..write('dim: $dim, ')
+          ..write('vec: $vec, ')
+          ..write('vectorAt: $vectorAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(trackId, model, dim, $driftBlobEquality.hash(vec), vectorAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackVectorRow &&
+          other.trackId == this.trackId &&
+          other.model == this.model &&
+          other.dim == this.dim &&
+          $driftBlobEquality.equals(other.vec, this.vec) &&
+          other.vectorAt == this.vectorAt);
+}
+
+class TrackVectorsCompanion extends UpdateCompanion<TrackVectorRow> {
+  final Value<int> trackId;
+  final Value<String> model;
+  final Value<int> dim;
+  final Value<Uint8List> vec;
+  final Value<DateTime> vectorAt;
+  const TrackVectorsCompanion({
+    this.trackId = const Value.absent(),
+    this.model = const Value.absent(),
+    this.dim = const Value.absent(),
+    this.vec = const Value.absent(),
+    this.vectorAt = const Value.absent(),
+  });
+  TrackVectorsCompanion.insert({
+    this.trackId = const Value.absent(),
+    required String model,
+    required int dim,
+    required Uint8List vec,
+    this.vectorAt = const Value.absent(),
+  }) : model = Value(model),
+       dim = Value(dim),
+       vec = Value(vec);
+  static Insertable<TrackVectorRow> custom({
+    Expression<int>? trackId,
+    Expression<String>? model,
+    Expression<int>? dim,
+    Expression<Uint8List>? vec,
+    Expression<DateTime>? vectorAt,
+  }) {
+    return RawValuesInsertable({
+      if (trackId != null) 'track_id': trackId,
+      if (model != null) 'model': model,
+      if (dim != null) 'dim': dim,
+      if (vec != null) 'vec': vec,
+      if (vectorAt != null) 'vector_at': vectorAt,
+    });
+  }
+
+  TrackVectorsCompanion copyWith({
+    Value<int>? trackId,
+    Value<String>? model,
+    Value<int>? dim,
+    Value<Uint8List>? vec,
+    Value<DateTime>? vectorAt,
+  }) {
+    return TrackVectorsCompanion(
+      trackId: trackId ?? this.trackId,
+      model: model ?? this.model,
+      dim: dim ?? this.dim,
+      vec: vec ?? this.vec,
+      vectorAt: vectorAt ?? this.vectorAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (trackId.present) {
+      map['track_id'] = Variable<int>(trackId.value);
+    }
+    if (model.present) {
+      map['model'] = Variable<String>(model.value);
+    }
+    if (dim.present) {
+      map['dim'] = Variable<int>(dim.value);
+    }
+    if (vec.present) {
+      map['vec'] = Variable<Uint8List>(vec.value);
+    }
+    if (vectorAt.present) {
+      map['vector_at'] = Variable<DateTime>(vectorAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackVectorsCompanion(')
+          ..write('trackId: $trackId, ')
+          ..write('model: $model, ')
+          ..write('dim: $dim, ')
+          ..write('vec: $vec, ')
+          ..write('vectorAt: $vectorAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $ModelFilesTable extends ModelFiles
+    with TableInfo<$ModelFilesTable, ModelFileRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ModelFilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _urlMeta = const VerificationMeta('url');
+  @override
+  late final GeneratedColumn<String> url = GeneratedColumn<String>(
+    'url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sha256Meta = const VerificationMeta('sha256');
+  @override
+  late final GeneratedColumn<String> sha256 = GeneratedColumn<String>(
+    'sha256',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _filePathMeta = const VerificationMeta(
+    'filePath',
+  );
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+    'file_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _readyAtMeta = const VerificationMeta(
+    'readyAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> readyAt = GeneratedColumn<DateTime>(
+    'ready_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    url,
+    sha256,
+    filePath,
+    sizeBytes,
+    readyAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'model_files';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ModelFileRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('url')) {
+      context.handle(
+        _urlMeta,
+        url.isAcceptableOrUnknown(data['url']!, _urlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_urlMeta);
+    }
+    if (data.containsKey('sha256')) {
+      context.handle(
+        _sha256Meta,
+        sha256.isAcceptableOrUnknown(data['sha256']!, _sha256Meta),
+      );
+    } else if (isInserting) {
+      context.missing(_sha256Meta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(
+        _filePathMeta,
+        filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    }
+    if (data.containsKey('ready_at')) {
+      context.handle(
+        _readyAtMeta,
+        readyAt.isAcceptableOrUnknown(data['ready_at']!, _readyAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ModelFileRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ModelFileRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      url: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}url'],
+      )!,
+      sha256: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sha256'],
+      )!,
+      filePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_path'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      readyAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}ready_at'],
+      )!,
+    );
+  }
+
+  @override
+  $ModelFilesTable createAlias(String alias) {
+    return $ModelFilesTable(attachedDatabase, alias);
+  }
+}
+
+class ModelFileRow extends DataClass implements Insertable<ModelFileRow> {
+  final String id;
+  final String url;
+  final String sha256;
+  final String filePath;
+  final int sizeBytes;
+  final DateTime readyAt;
+  const ModelFileRow({
+    required this.id,
+    required this.url,
+    required this.sha256,
+    required this.filePath,
+    required this.sizeBytes,
+    required this.readyAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['url'] = Variable<String>(url);
+    map['sha256'] = Variable<String>(sha256);
+    map['file_path'] = Variable<String>(filePath);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['ready_at'] = Variable<DateTime>(readyAt);
+    return map;
+  }
+
+  ModelFilesCompanion toCompanion(bool nullToAbsent) {
+    return ModelFilesCompanion(
+      id: Value(id),
+      url: Value(url),
+      sha256: Value(sha256),
+      filePath: Value(filePath),
+      sizeBytes: Value(sizeBytes),
+      readyAt: Value(readyAt),
+    );
+  }
+
+  factory ModelFileRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ModelFileRow(
+      id: serializer.fromJson<String>(json['id']),
+      url: serializer.fromJson<String>(json['url']),
+      sha256: serializer.fromJson<String>(json['sha256']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      readyAt: serializer.fromJson<DateTime>(json['readyAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'url': serializer.toJson<String>(url),
+      'sha256': serializer.toJson<String>(sha256),
+      'filePath': serializer.toJson<String>(filePath),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'readyAt': serializer.toJson<DateTime>(readyAt),
+    };
+  }
+
+  ModelFileRow copyWith({
+    String? id,
+    String? url,
+    String? sha256,
+    String? filePath,
+    int? sizeBytes,
+    DateTime? readyAt,
+  }) => ModelFileRow(
+    id: id ?? this.id,
+    url: url ?? this.url,
+    sha256: sha256 ?? this.sha256,
+    filePath: filePath ?? this.filePath,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    readyAt: readyAt ?? this.readyAt,
+  );
+  ModelFileRow copyWithCompanion(ModelFilesCompanion data) {
+    return ModelFileRow(
+      id: data.id.present ? data.id.value : this.id,
+      url: data.url.present ? data.url.value : this.url,
+      sha256: data.sha256.present ? data.sha256.value : this.sha256,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      readyAt: data.readyAt.present ? data.readyAt.value : this.readyAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ModelFileRow(')
+          ..write('id: $id, ')
+          ..write('url: $url, ')
+          ..write('sha256: $sha256, ')
+          ..write('filePath: $filePath, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('readyAt: $readyAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, url, sha256, filePath, sizeBytes, readyAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ModelFileRow &&
+          other.id == this.id &&
+          other.url == this.url &&
+          other.sha256 == this.sha256 &&
+          other.filePath == this.filePath &&
+          other.sizeBytes == this.sizeBytes &&
+          other.readyAt == this.readyAt);
+}
+
+class ModelFilesCompanion extends UpdateCompanion<ModelFileRow> {
+  final Value<String> id;
+  final Value<String> url;
+  final Value<String> sha256;
+  final Value<String> filePath;
+  final Value<int> sizeBytes;
+  final Value<DateTime> readyAt;
+  final Value<int> rowid;
+  const ModelFilesCompanion({
+    this.id = const Value.absent(),
+    this.url = const Value.absent(),
+    this.sha256 = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.readyAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ModelFilesCompanion.insert({
+    required String id,
+    required String url,
+    required String sha256,
+    required String filePath,
+    this.sizeBytes = const Value.absent(),
+    this.readyAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       url = Value(url),
+       sha256 = Value(sha256),
+       filePath = Value(filePath);
+  static Insertable<ModelFileRow> custom({
+    Expression<String>? id,
+    Expression<String>? url,
+    Expression<String>? sha256,
+    Expression<String>? filePath,
+    Expression<int>? sizeBytes,
+    Expression<DateTime>? readyAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (url != null) 'url': url,
+      if (sha256 != null) 'sha256': sha256,
+      if (filePath != null) 'file_path': filePath,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (readyAt != null) 'ready_at': readyAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ModelFilesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? url,
+    Value<String>? sha256,
+    Value<String>? filePath,
+    Value<int>? sizeBytes,
+    Value<DateTime>? readyAt,
+    Value<int>? rowid,
+  }) {
+    return ModelFilesCompanion(
+      id: id ?? this.id,
+      url: url ?? this.url,
+      sha256: sha256 ?? this.sha256,
+      filePath: filePath ?? this.filePath,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      readyAt: readyAt ?? this.readyAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (url.present) {
+      map['url'] = Variable<String>(url.value);
+    }
+    if (sha256.present) {
+      map['sha256'] = Variable<String>(sha256.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (readyAt.present) {
+      map['ready_at'] = Variable<DateTime>(readyAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ModelFilesCompanion(')
+          ..write('id: $id, ')
+          ..write('url: $url, ')
+          ..write('sha256: $sha256, ')
+          ..write('filePath: $filePath, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('readyAt: $readyAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $SettingsTable extends Settings with TableInfo<$SettingsTable, Setting> {
   @override
   final GeneratedDatabase attachedDatabase;
@@ -4136,6 +5002,8 @@ abstract class _$IaDatabase extends GeneratedDatabase {
   late final $PlaylistTracksTable playlistTracks = $PlaylistTracksTable(this);
   late final $PlayHistoryTable playHistory = $PlayHistoryTable(this);
   late final $LyricsMetaTable lyricsMeta = $LyricsMetaTable(this);
+  late final $TrackVectorsTable trackVectors = $TrackVectorsTable(this);
+  late final $ModelFilesTable modelFiles = $ModelFilesTable(this);
   late final $SettingsTable settings = $SettingsTable(this);
   late final $CollectTasksTable collectTasks = $CollectTasksTable(this);
   late final LibraryDao libraryDao = LibraryDao(this as IaDatabase);
@@ -4144,6 +5012,8 @@ abstract class _$IaDatabase extends GeneratedDatabase {
   late final CollectDao collectDao = CollectDao(this as IaDatabase);
   late final LyricsDao lyricsDao = LyricsDao(this as IaDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as IaDatabase);
+  late final VectorDao vectorDao = VectorDao(this as IaDatabase);
+  late final ModelDao modelDao = ModelDao(this as IaDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -4155,6 +5025,8 @@ abstract class _$IaDatabase extends GeneratedDatabase {
     playlistTracks,
     playHistory,
     lyricsMeta,
+    trackVectors,
+    modelFiles,
     settings,
     collectTasks,
   ];
@@ -4448,6 +5320,8 @@ typedef $$TracksTableCreateCompanionBuilder = TracksCompanion Function({
   Value<DateTime?> titleMatchedAt,
   Value<DateTime?> artistMatchedAt,
   Value<DateTime?> lyricsAt,
+  Value<DateTime?> albumMatchedAt,
+  Value<DateTime?> trackMatchedAt,
   Value<int> enrichAttempts,
 });
 typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
@@ -4477,6 +5351,8 @@ typedef $$TracksTableUpdateCompanionBuilder = TracksCompanion Function({
   Value<DateTime?> titleMatchedAt,
   Value<DateTime?> artistMatchedAt,
   Value<DateTime?> lyricsAt,
+  Value<DateTime?> albumMatchedAt,
+  Value<DateTime?> trackMatchedAt,
   Value<int> enrichAttempts,
 });
 
@@ -4550,6 +5426,24 @@ final class $$TracksTableReferences
     ).filter((f) => f.trackId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_lyricsMetaRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
+  static MultiTypedResultKey<$TrackVectorsTable, List<TrackVectorRow>>
+  _trackVectorsRefsTable(_$IaDatabase db) => MultiTypedResultKey.fromTable(
+    db.trackVectors,
+    aliasName: 'tracks__id__track_vectors__track_id',
+  );
+
+  $$TrackVectorsTableProcessedTableManager get trackVectorsRefs {
+    final manager = $$TrackVectorsTableTableManager(
+      $_db,
+      $_db.trackVectors,
+    ).filter((f) => f.trackId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_trackVectorsRefsTable($_db));
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: cache),
     );
@@ -4689,6 +5583,16 @@ class $$TracksTableFilterComposer extends Composer<_$IaDatabase, $TracksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get albumMatchedAt => $composableBuilder(
+    column: $table.albumMatchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get trackMatchedAt => $composableBuilder(
+    column: $table.trackMatchedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get enrichAttempts => $composableBuilder(
     column: $table.enrichAttempts,
     builder: (column) => ColumnFilters(column),
@@ -4783,6 +5687,31 @@ class $$TracksTableFilterComposer extends Composer<_$IaDatabase, $TracksTable> {
           }) => $$LyricsMetaTableFilterComposer(
             $db: $db,
             $table: $db.lyricsMeta,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> trackVectorsRefs(
+    Expression<bool> Function($$TrackVectorsTableFilterComposer f) f,
+  ) {
+    final $$TrackVectorsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.trackVectors,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackVectorsTableFilterComposer(
+            $db: $db,
+            $table: $db.trackVectors,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -4927,6 +5856,16 @@ class $$TracksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get albumMatchedAt => $composableBuilder(
+    column: $table.albumMatchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get trackMatchedAt => $composableBuilder(
+    column: $table.trackMatchedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get enrichAttempts => $composableBuilder(
     column: $table.enrichAttempts,
     builder: (column) => ColumnOrderings(column),
@@ -5056,6 +5995,16 @@ class $$TracksTableAnnotationComposer
   GeneratedColumn<DateTime> get lyricsAt =>
       $composableBuilder(column: $table.lyricsAt, builder: (column) => column);
 
+  GeneratedColumn<DateTime> get albumMatchedAt => $composableBuilder(
+    column: $table.albumMatchedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get trackMatchedAt => $composableBuilder(
+    column: $table.trackMatchedAt,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<int> get enrichAttempts => $composableBuilder(
     column: $table.enrichAttempts,
     builder: (column) => column,
@@ -5158,6 +6107,31 @@ class $$TracksTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> trackVectorsRefs<T extends Object>(
+    Expression<T> Function($$TrackVectorsTableAnnotationComposer a) f,
+  ) {
+    final $$TrackVectorsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.trackVectors,
+      getReferencedColumn: (t) => t.trackId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackVectorsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.trackVectors,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$TracksTableTableManager
@@ -5178,6 +6152,7 @@ class $$TracksTableTableManager
             bool playlistTracksRefs,
             bool playHistoryRefs,
             bool lyricsMetaRefs,
+            bool trackVectorsRefs,
           })
         > {
   $$TracksTableTableManager(_$IaDatabase db, $TracksTable table)
@@ -5219,6 +6194,8 @@ class $$TracksTableTableManager
                 Value<DateTime?> titleMatchedAt = const Value.absent(),
                 Value<DateTime?> artistMatchedAt = const Value.absent(),
                 Value<DateTime?> lyricsAt = const Value.absent(),
+                Value<DateTime?> albumMatchedAt = const Value.absent(),
+                Value<DateTime?> trackMatchedAt = const Value.absent(),
                 Value<int> enrichAttempts = const Value.absent(),
               }) => TracksCompanion(
                 id: id,
@@ -5247,6 +6224,8 @@ class $$TracksTableTableManager
                 titleMatchedAt: titleMatchedAt,
                 artistMatchedAt: artistMatchedAt,
                 lyricsAt: lyricsAt,
+                albumMatchedAt: albumMatchedAt,
+                trackMatchedAt: trackMatchedAt,
                 enrichAttempts: enrichAttempts,
               ),
           createCompanionCallback:
@@ -5277,6 +6256,8 @@ class $$TracksTableTableManager
                 Value<DateTime?> titleMatchedAt = const Value.absent(),
                 Value<DateTime?> artistMatchedAt = const Value.absent(),
                 Value<DateTime?> lyricsAt = const Value.absent(),
+                Value<DateTime?> albumMatchedAt = const Value.absent(),
+                Value<DateTime?> trackMatchedAt = const Value.absent(),
                 Value<int> enrichAttempts = const Value.absent(),
               }) => TracksCompanion.insert(
                 id: id,
@@ -5305,6 +6286,8 @@ class $$TracksTableTableManager
                 titleMatchedAt: titleMatchedAt,
                 artistMatchedAt: artistMatchedAt,
                 lyricsAt: lyricsAt,
+                albumMatchedAt: albumMatchedAt,
+                trackMatchedAt: trackMatchedAt,
                 enrichAttempts: enrichAttempts,
               ),
           withReferenceMapper: (p0) => p0
@@ -5321,6 +6304,7 @@ class $$TracksTableTableManager
                 playlistTracksRefs = false,
                 playHistoryRefs = false,
                 lyricsMetaRefs = false,
+                trackVectorsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -5328,6 +6312,7 @@ class $$TracksTableTableManager
                     if (playlistTracksRefs) db.playlistTracks,
                     if (playHistoryRefs) db.playHistory,
                     if (lyricsMetaRefs) db.lyricsMeta,
+                    if (trackVectorsRefs) db.trackVectors,
                   ],
                   addJoins:
                       <
@@ -5421,6 +6406,26 @@ class $$TracksTableTableManager
                           referencedColumn: 'track_id',
                           typedResults: items,
                         ),
+                      if (trackVectorsRefs)
+                        await $_getPrefetchedDataByColumns<
+                          TrackRow,
+                          $TracksTable,
+                          TrackVectorRow,
+                          $TrackVectorsTable
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TracksTableReferences
+                              ._trackVectorsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TracksTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).trackVectorsRefs,
+                          currentColumn: 'id',
+                          referencedColumn: 'track_id',
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5446,6 +6451,7 @@ typedef $$TracksTableProcessedTableManager =
         bool playlistTracksRefs,
         bool playHistoryRefs,
         bool lyricsMetaRefs,
+        bool trackVectorsRefs,
       })
     >;
 typedef $$PlaylistsTableCreateCompanionBuilder = PlaylistsCompanion Function({
@@ -6777,6 +7783,541 @@ typedef $$LyricsMetaTableProcessedTableManager =
       LyricsMetaRow,
       PrefetchHooks Function({bool trackId})
     >;
+typedef $$TrackVectorsTableCreateCompanionBuilder =
+    TrackVectorsCompanion Function({
+      Value<int> trackId,
+      required String model,
+      required int dim,
+      required Uint8List vec,
+      Value<DateTime> vectorAt,
+    });
+typedef $$TrackVectorsTableUpdateCompanionBuilder =
+    TrackVectorsCompanion Function({
+      Value<int> trackId,
+      Value<String> model,
+      Value<int> dim,
+      Value<Uint8List> vec,
+      Value<DateTime> vectorAt,
+    });
+
+final class $$TrackVectorsTableReferences
+    extends BaseReferences<_$IaDatabase, $TrackVectorsTable, TrackVectorRow> {
+  $$TrackVectorsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $TracksTable _trackIdTable(_$IaDatabase db) =>
+      db.tracks.createAlias('track_vectors__track_id__tracks__id');
+
+  $$TracksTableProcessedTableManager get trackId {
+    final $_column = $_itemColumn<int>('track_id')!;
+
+    final manager = $$TracksTableTableManager(
+      $_db,
+      $_db.tracks,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TrackVectorsTableFilterComposer
+    extends Composer<_$IaDatabase, $TrackVectorsTable> {
+  $$TrackVectorsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get dim => $composableBuilder(
+    column: $table.dim,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get vec => $composableBuilder(
+    column: $table.vec,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get vectorAt => $composableBuilder(
+    column: $table.vectorAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TracksTableFilterComposer get trackId {
+    final $$TracksTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableFilterComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackVectorsTableOrderingComposer
+    extends Composer<_$IaDatabase, $TrackVectorsTable> {
+  $$TrackVectorsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get model => $composableBuilder(
+    column: $table.model,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get dim => $composableBuilder(
+    column: $table.dim,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get vec => $composableBuilder(
+    column: $table.vec,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get vectorAt => $composableBuilder(
+    column: $table.vectorAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TracksTableOrderingComposer get trackId {
+    final $$TracksTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableOrderingComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackVectorsTableAnnotationComposer
+    extends Composer<_$IaDatabase, $TrackVectorsTable> {
+  $$TrackVectorsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get model =>
+      $composableBuilder(column: $table.model, builder: (column) => column);
+
+  GeneratedColumn<int> get dim =>
+      $composableBuilder(column: $table.dim, builder: (column) => column);
+
+  GeneratedColumn<Uint8List> get vec =>
+      $composableBuilder(column: $table.vec, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get vectorAt =>
+      $composableBuilder(column: $table.vectorAt, builder: (column) => column);
+
+  $$TracksTableAnnotationComposer get trackId {
+    final $$TracksTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackId,
+      referencedTable: $db.tracks,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TracksTableAnnotationComposer(
+            $db: $db,
+            $table: $db.tracks,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackVectorsTableTableManager
+    extends
+        RootTableManager<
+          _$IaDatabase,
+          $TrackVectorsTable,
+          TrackVectorRow,
+          $$TrackVectorsTableFilterComposer,
+          $$TrackVectorsTableOrderingComposer,
+          $$TrackVectorsTableAnnotationComposer,
+          $$TrackVectorsTableCreateCompanionBuilder,
+          $$TrackVectorsTableUpdateCompanionBuilder,
+          (TrackVectorRow, $$TrackVectorsTableReferences),
+          TrackVectorRow,
+          PrefetchHooks Function({bool trackId})
+        > {
+  $$TrackVectorsTableTableManager(_$IaDatabase db, $TrackVectorsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackVectorsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackVectorsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackVectorsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> trackId = const Value.absent(),
+                Value<String> model = const Value.absent(),
+                Value<int> dim = const Value.absent(),
+                Value<Uint8List> vec = const Value.absent(),
+                Value<DateTime> vectorAt = const Value.absent(),
+              }) => TrackVectorsCompanion(
+                trackId: trackId,
+                model: model,
+                dim: dim,
+                vec: vec,
+                vectorAt: vectorAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> trackId = const Value.absent(),
+                required String model,
+                required int dim,
+                required Uint8List vec,
+                Value<DateTime> vectorAt = const Value.absent(),
+              }) => TrackVectorsCompanion.insert(
+                trackId: trackId,
+                model: model,
+                dim: dim,
+                vec: vec,
+                vectorAt: vectorAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackVectorsTable, TrackVectorRow>(table),
+                  $$TrackVectorsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({trackId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (trackId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.trackId,
+                        referencedTable: $$TrackVectorsTableReferences
+                            ._trackIdTable(db),
+                        referencedColumn: $$TrackVectorsTableReferences
+                            ._trackIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TrackVectorsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$IaDatabase,
+      $TrackVectorsTable,
+      TrackVectorRow,
+      $$TrackVectorsTableFilterComposer,
+      $$TrackVectorsTableOrderingComposer,
+      $$TrackVectorsTableAnnotationComposer,
+      $$TrackVectorsTableCreateCompanionBuilder,
+      $$TrackVectorsTableUpdateCompanionBuilder,
+      (TrackVectorRow, $$TrackVectorsTableReferences),
+      TrackVectorRow,
+      PrefetchHooks Function({bool trackId})
+    >;
+typedef $$ModelFilesTableCreateCompanionBuilder = ModelFilesCompanion Function({
+  required String id,
+  required String url,
+  required String sha256,
+  required String filePath,
+  Value<int> sizeBytes,
+  Value<DateTime> readyAt,
+  Value<int> rowid,
+});
+typedef $$ModelFilesTableUpdateCompanionBuilder = ModelFilesCompanion Function({
+  Value<String> id,
+  Value<String> url,
+  Value<String> sha256,
+  Value<String> filePath,
+  Value<int> sizeBytes,
+  Value<DateTime> readyAt,
+  Value<int> rowid,
+});
+
+class $$ModelFilesTableFilterComposer
+    extends Composer<_$IaDatabase, $ModelFilesTable> {
+  $$ModelFilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sha256 => $composableBuilder(
+    column: $table.sha256,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get readyAt => $composableBuilder(
+    column: $table.readyAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ModelFilesTableOrderingComposer
+    extends Composer<_$IaDatabase, $ModelFilesTable> {
+  $$ModelFilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get url => $composableBuilder(
+    column: $table.url,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sha256 => $composableBuilder(
+    column: $table.sha256,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get filePath => $composableBuilder(
+    column: $table.filePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get readyAt => $composableBuilder(
+    column: $table.readyAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ModelFilesTableAnnotationComposer
+    extends Composer<_$IaDatabase, $ModelFilesTable> {
+  $$ModelFilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get url =>
+      $composableBuilder(column: $table.url, builder: (column) => column);
+
+  GeneratedColumn<String> get sha256 =>
+      $composableBuilder(column: $table.sha256, builder: (column) => column);
+
+  GeneratedColumn<String> get filePath =>
+      $composableBuilder(column: $table.filePath, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get readyAt =>
+      $composableBuilder(column: $table.readyAt, builder: (column) => column);
+}
+
+class $$ModelFilesTableTableManager
+    extends
+        RootTableManager<
+          _$IaDatabase,
+          $ModelFilesTable,
+          ModelFileRow,
+          $$ModelFilesTableFilterComposer,
+          $$ModelFilesTableOrderingComposer,
+          $$ModelFilesTableAnnotationComposer,
+          $$ModelFilesTableCreateCompanionBuilder,
+          $$ModelFilesTableUpdateCompanionBuilder,
+          (
+            ModelFileRow,
+            BaseReferences<_$IaDatabase, $ModelFilesTable, ModelFileRow>,
+          ),
+          ModelFileRow,
+          PrefetchHooks Function()
+        > {
+  $$ModelFilesTableTableManager(_$IaDatabase db, $ModelFilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ModelFilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ModelFilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ModelFilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> url = const Value.absent(),
+                Value<String> sha256 = const Value.absent(),
+                Value<String> filePath = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> readyAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ModelFilesCompanion(
+                id: id,
+                url: url,
+                sha256: sha256,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                readyAt: readyAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String url,
+                required String sha256,
+                required String filePath,
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> readyAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ModelFilesCompanion.insert(
+                id: id,
+                url: url,
+                sha256: sha256,
+                filePath: filePath,
+                sizeBytes: sizeBytes,
+                readyAt: readyAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ModelFilesTable, ModelFileRow>(table),
+                  BaseReferences<_$IaDatabase, $ModelFilesTable, ModelFileRow>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ModelFilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$IaDatabase,
+      $ModelFilesTable,
+      ModelFileRow,
+      $$ModelFilesTableFilterComposer,
+      $$ModelFilesTableOrderingComposer,
+      $$ModelFilesTableAnnotationComposer,
+      $$ModelFilesTableCreateCompanionBuilder,
+      $$ModelFilesTableUpdateCompanionBuilder,
+      (
+        ModelFileRow,
+        BaseReferences<_$IaDatabase, $ModelFilesTable, ModelFileRow>,
+      ),
+      ModelFileRow,
+      PrefetchHooks Function()
+    >;
 typedef $$SettingsTableCreateCompanionBuilder = SettingsCompanion Function({
   required String key,
   required String valueJson,
@@ -7292,6 +8833,10 @@ class $IaDatabaseManager {
       $$PlayHistoryTableTableManager(_db, _db.playHistory);
   $$LyricsMetaTableTableManager get lyricsMeta =>
       $$LyricsMetaTableTableManager(_db, _db.lyricsMeta);
+  $$TrackVectorsTableTableManager get trackVectors =>
+      $$TrackVectorsTableTableManager(_db, _db.trackVectors);
+  $$ModelFilesTableTableManager get modelFiles =>
+      $$ModelFilesTableTableManager(_db, _db.modelFiles);
   $$SettingsTableTableManager get settings =>
       $$SettingsTableTableManager(_db, _db.settings);
   $$CollectTasksTableTableManager get collectTasks =>

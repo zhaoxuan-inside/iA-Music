@@ -127,18 +127,24 @@ class TrackPlays {
 
 /// 补全阶段进度行（三态：成功=结论性已处理；失败=连续硬失败耗尽；其余待处理）。
 class EnrichStage {
-  const EnrichStage(this.label, this.done, this.failed, this.total);
+  const EnrichStage(this.label, this.done, this.failed, this.total,
+      [this.missed = 0]);
 
   final String label;
 
-  /// 成功条数（进度条从左往右，绿色）。
+  /// 成功条数（进度条从左往右，绿色）。歌词行=真正拿到词的条数。
   final int done;
 
   /// 失败条数（进度条从右往左，红色）。
   final int failed;
 
-  /// 总盘 = 成功 + 失败 + 待处理。
+  /// 总盘 = 成功 + 无词 + 失败 + 待处理。
   final int total;
+
+  /// 已结论但无产出（确认无匹配）条数——灰档，非失败。歌词行专用：
+  /// lyricsAt 只证「补全已结论」，有词与否以 lyrics_meta 记账为准；
+  /// 其余阶段结论必有产出（歌名至少保留归一化名），恒 0。
+  final int missed;
 
   /// 成功占比 0..1（总盘为空视为已完成——无事可做）。
   double get successFraction =>
@@ -149,5 +155,5 @@ class EnrichStage {
       total <= 0 ? 0.0 : (failed / total).clamp(0.0, 1.0);
 
   /// 待处理条数（中段灰）。
-  int get pending => (total - done - failed).clamp(0, total);
+  int get pending => (total - done - failed - missed).clamp(0, total);
 }

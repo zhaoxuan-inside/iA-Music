@@ -9,9 +9,9 @@ import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playlist_providers.dart';
+import '../components/kit/search_action.dart';
 import '../detail/detail_page.dart';
 import '../search/search_page.dart';
-import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 import 'collection_page.dart';
 

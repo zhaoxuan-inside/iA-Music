@@ -70,4 +70,30 @@ void main() {
     expect(looksSynced(parseLrc('[00:01.00]a')), isFalse);
     expect(looksSynced(parseLrc('plain text lyrics\nsecond line')), isFalse);
   });
+
+  group('parseLrcOrPlain', () {
+    test('纯文本逐行成形（tMs=0，不丢内容）', () {
+      final doc = parseLrcOrPlain('plain text lyrics\nsecond line\n',
+          kind: LyricSourceKind.online);
+      expect(doc.lines, hasLength(2));
+      expect(doc.lines.every((l) => l.tMs == 0), isTrue);
+      expect(doc.lines.map((l) => l.text),
+          ['plain text lyrics', 'second line']);
+      expect(doc.sourceKind, LyricSourceKind.online);
+    });
+
+    test('带时间轴的 LRC 与 parseLrc 完全一致', () {
+      final doc = parseLrcOrPlain('[00:01.00]a\n[00:05.00]b');
+      expect(doc.lines.map((l) => l.tMs), [1000, 5000]);
+    });
+
+    test('混合文本：有戳行存在时无戳行维持 parseLrc 契约（丢弃）', () {
+      final doc = parseLrcOrPlain('[00:01.00]a\nno stamp line');
+      expect(doc.lines, hasLength(1));
+    });
+
+    test('空白仍为空文档（决议链继续往下走）', () {
+      expect(parseLrcOrPlain('  \n \n').lines, isEmpty);
+    });
+  });
 }

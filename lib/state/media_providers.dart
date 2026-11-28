@@ -54,4 +54,31 @@ class LyricsActions {
     await pipeline.setOffset(track, offsetMs);
     _ref.invalidate(trackLyricsProvider(trackId));
   }
+
+  /// 编辑歌曲信息页预填：sidecar/pasted 的 .lrc 原文；无落盘文件 → null
+  /// （内嵌歌词不预填——编辑结果只落新 sidecar，不改音频文件）。
+  Future<String?> loadRawLyrics(int trackId) async {
+    final meta = await _ref.read(dbProvider).lyricsDao.metaOf(trackId);
+    final path = meta?.lrcPath;
+    if (path == null || path.isEmpty) {
+      return null;
+    }
+    final f = File(path);
+    if (!await f.exists()) {
+      return null;
+    }
+    return f.readAsString();
+  }
+
+  /// 编辑歌曲信息页保存歌词：走粘贴管道（kind=pasted、edited=true，
+  /// 在线歌词永不覆盖），并触发歌词重新决议。
+  Future<void> savePasted(int trackId, String text) async {
+    final pipeline = await _ref.read(lyricsPipelineProvider.future);
+    final track = await _ref.read(dbProvider).libraryDao.trackById(trackId);
+    if (track == null) {
+      return;
+    }
+    await pipeline.savePasted(track, text);
+    _ref.invalidate(trackLyricsProvider(trackId));
+  }
 }

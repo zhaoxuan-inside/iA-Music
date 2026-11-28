@@ -1,7 +1,8 @@
-/// 歌单编辑：重命名 + 自定义封面。
+/// 歌单编辑：新建 + 重命名 + 自定义封面。
 ///
-/// WP 语汇：入口在长按菜单/详情页应用栏；重命名走黑底直角对话框，
-/// 封面从系统相册选取后复制进应用沙箱（歌单属于曲库数据，不随相册失效）。
+/// WP 语汇：新建走歌单屏「新建歌单」磁贴，重命名入口在长按菜单/详情页
+/// 应用栏；名字走黑底直角对话框，封面从系统相册选取后复制进应用沙箱
+/// （歌单属于曲库数据，不随相册失效）。
 library;
 
 import 'dart:io';
@@ -29,19 +30,23 @@ Future<void> showPlaylistEditMenu(
   ]);
 }
 
-/// 重命名对话框（黑底直角；空名不落库）。
-Future<void> renamePlaylistDialog(
-    BuildContext context, WidgetRef ref, Playlist pl) async {
-  final ctrl = TextEditingController(text: pl.name);
-  final ok = await showDialog<bool>(
+/// 黑底直角歌单名对话框（新建/重命名共用；空名禁确认）。
+Future<String?> _playlistNameDialog(
+    BuildContext context, {
+    required String title,
+    String? initial,
+    required String confirm,
+  }) async {
+  final ctrl = TextEditingController(text: initial);
+  return showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: Colors.black,
       shape: const RoundedRectangleBorder(),
       title: Text(
-        '重命名歌单',
+        title,
         style: TextStyle(
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: IaType.light,
             color: IaColors.textHi),
       ),
@@ -49,9 +54,9 @@ Future<void> renamePlaylistDialog(
         controller: ctrl,
         autofocus: true,
         maxLength: 40,
-        style: const TextStyle(fontSize: 15, color: IaColors.textHi),
+        style: TextStyle(fontSize: 16.5, color: IaColors.textHi),
         cursorColor: Theme.of(ctx).extension<IaPalette>()!.accent,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           counterText: '',
           focusedBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: IaColors.hairlineStrong)),
@@ -61,29 +66,50 @@ Future<void> renamePlaylistDialog(
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(ctx).pop(false),
-          child: const Text('取消',
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text('取消',
               style: TextStyle(color: IaColors.textLow)),
         ),
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(true),
-          child: Text('保存',
-              style: TextStyle(
-                  color: Theme.of(ctx).extension<IaPalette>()!.accent)),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: ctrl,
+          builder: (_, v, _) => TextButton(
+            onPressed: v.text.trim().isEmpty
+                ? null
+                : () => Navigator.of(ctx).pop(v.text.trim()),
+            child: Text(confirm,
+                style: TextStyle(
+                    color: Theme.of(ctx).extension<IaPalette>()!.accent)),
+          ),
         ),
       ],
     ),
   );
-  if (ok != true) {
-    return;
-  }
-  final name = ctrl.text.trim();
-  if (name.isEmpty || name == pl.name) {
+}
+
+/// 重命名对话框（黑底直角；空名/未改动不落库）。
+Future<void> renamePlaylistDialog(
+    BuildContext context, WidgetRef ref, Playlist pl) async {
+  final name = await _playlistNameDialog(context,
+      title: '重命名歌单', initial: pl.name, confirm: '保存');
+  if (name == null || name.isEmpty || name == pl.name) {
     return;
   }
   await ref.read(dbProvider).playlistDao.renamePlaylist(pl.id, name);
   if (context.mounted) {
     showWpToast(context, title: '歌单', message: '已重命名为「$name」');
+  }
+}
+
+/// 新建歌单对话框（歌单屏「新建歌单」磁贴入口；同名已存在时 DAO 返回
+/// 既有歌单不重复建）。
+Future<void> createPlaylistDialog(BuildContext context, WidgetRef ref) async {
+  final name = await _playlistNameDialog(context, title: '新建歌单', confirm: '创建');
+  if (name == null || name.isEmpty) {
+    return;
+  }
+  await ref.read(dbProvider).playlistDao.createPlaylist(name);
+  if (context.mounted) {
+    showWpToast(context, title: '歌单', message: '已创建「$name」');
   }
 }
 

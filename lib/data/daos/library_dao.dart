@@ -3,6 +3,7 @@ library;
 
 import 'package:drift/drift.dart';
 
+import '../../app/config/embedding_config.dart';
 import '../../domain/entities/track.dart';
 import '../database.dart';
 import '../pinyin_text.dart';
@@ -16,6 +17,7 @@ part 'library_dao.g.dart';
   PlayHistory,
   PlaylistTracks,
   LyricsMeta,
+  TrackVectors,
 ])
 class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
   LibraryDao(super.db);
@@ -176,19 +178,6 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         .then((rows) => rows.isEmpty ? null : _map(rows.first));
   }
 
-  /// 艺人首曲（快速播放磁贴封面用）。
-  Future<Track?> artistFirstTrack(String artistNorm) {
-    return (select(tracks)
-          ..where((t) => t.artistNorm.equals(artistNorm) & t.missingAt.isNull())
-          ..orderBy([
-            (u) => OrderingTerm.asc(u.albumNorm),
-            (u) => OrderingTerm.asc(u.trackNo),
-          ])
-          ..limit(1))
-        .get()
-        .then((rows) => rows.isEmpty ? null : _map(rows.first));
-  }
-
   // ── 流派面（真实标签解析；空流派不参与聚合） ─────────────────────────
 
   /// 流派列表（按专辑数排序；genre 为空的行不入组）。
@@ -338,45 +327,129 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     return query.map((row) => row.read(cnt) ?? 0).getSingle();
   }
 
-  /// 补全写回：歌名/歌手/补全时刻（仅在原值缺失或为文件名特征时采纳）。
-  /// 同步打满三个阶段时刻——结论性进度（匹配成功或确认无匹配都算已处理），
-  /// 三条阶段进度条据此直读。
-  Future<void> applyEnrichment(
-      {required int id, required String title, required String artist}) {
+  /// 补全写回：歌名/歌手 + [album]/[trackNo]（有值才采纳——AcoustID
+  /// releases 是唯一来源，文字链无源传 null 保持原值）+ 补全时刻。
+  /// 同步打满五个阶段时刻——结论性进度（匹配成功或确认无匹配都算已处理），
+  /// 阶段进度条据此直读。显示列存原文，norm 列另算（normKey 曾误写显示列
+  /// ——补全采纳的歌名全小写）。
+  Future<void> applyEnrichment({
+    required int id,
+    required String title,
+    required String artist,
+    String? album,
+    int? trackNo,
+  }) {
     final now = DateTime.now();
     return (update(tracks)..where((t) => t.id.equals(id))).write(
       TracksCompanion(
-        title: Value(normKey(title)),
+        title: Value(title),
+        titleNorm: Value(normKey(title)),
         artist: Value(artist),
         artistNorm: Value(normKey(artist)),
+        album: album == null ? const Value.absent() : Value(album),
+        albumNorm:
+            album == null ? const Value.absent() : Value(normKey(album)),
+        trackNo: trackNo == null ? const Value.absent() : Value(trackNo),
         needsMeta: const Value(false),
         enrichedAt: Value(now),
         titleMatchedAt: Value(now),
         artistMatchedAt: Value(now),
         lyricsAt: Value(now),
+        albumMatchedAt: Value(now),
+        trackMatchedAt: Value(now),
         enrichAttempts: const Value(0),
       ),
     );
   }
 
+  /// 用户手动编辑曲目元数据（编辑歌曲信息页保存）。单事务：
+  /// 显示字段存原文（norm 列另行规整）+ FTS 行整行重建（含拼音双列）+
+  /// needsMeta 清位——用户编辑即结论，补全管道不再回写覆盖。
+  ///
+  /// 与重扫的关系：扫描只在文件 size 变化时重解析（scan_service diff），
+  /// 应用内编辑不动音频文件 → 编辑跨重扫保留；文件被外部改动才按 tag
+  /// 重新导入（导入语义，非缺陷）。
+  Future<void> editTrackMeta({
+    required int id,
+    required String title,
+    required String artist,
+    required String album,
+    required String genre,
+    required int trackNo,
+  }) {
+    final now = DateTime.now();
+    return transaction(() async {
+      await (update(tracks)..where((t) => t.id.equals(id))).write(
+        TracksCompanion(
+          title: Value(title),
+          titleNorm: Value(normKey(title)),
+          artist: Value(artist),
+          artistNorm: Value(normKey(artist)),
+          album: Value(album),
+          albumNorm: Value(normKey(album)),
+          genre: Value(genre),
+          trackNo: Value(trackNo),
+          needsMeta: const Value(false),
+          enrichedAt: Value(now),
+          titleMatchedAt: Value(now),
+          artistMatchedAt: Value(now),
+          albumMatchedAt: Value(now),
+          trackMatchedAt: Value(now),
+        ),
+      );
+      await _deleteFts(id);
+      // 拼音列按字段分别生成（粘连 token 不得跨字段，与 upsertScannedBatch 同规）
+      final py = [
+        pinyinFull(title),
+        pinyinFull(artist),
+        pinyinFull(album),
+      ].where((s) => s.isNotEmpty).join(' ');
+      final pyHead = [
+        pinyinInitials(title),
+        pinyinInitials(artist),
+        pinyinInitials(album),
+      ].where((s) => s.isNotEmpty).join(' ');
+      await customInsert(
+        'INSERT INTO track_index(track_id, title, artist, album, pinyin_full, pinyin_initials) '
+        'VALUES(?, ?, ?, ?, ?, ?)',
+        variables: [
+          Variable.withInt(id),
+          Variable.withString(ftsText(title)),
+          Variable.withString(ftsText(artist)),
+          Variable.withString(ftsText(album)),
+          Variable.withString(py),
+          Variable.withString(pyHead),
+        ],
+      );
+    });
+  }
+
   /// 硬失败记账（网络不可用/文件不可读）：阶段时刻不打，计数 +1，
   /// ≥3 次暂出待补全池，避免同一批失败件原地打转。
-  Future<void> bumpEnrichAttempts(int id) {
-    return customStatement(
+  /// customStatement 自增不会触发 stream 刷新——补手动 notifyUpdates，
+  /// 否则「歌曲处理」页的失败计数滞后到下一次表写入才更新。
+  Future<void> bumpEnrichAttempts(int id) async {
+    await customStatement(
         'UPDATE tracks SET enrich_attempts = enrich_attempts + 1 WHERE id = ?',
         [id]);
+    notifyUpdates({TableUpdate.onTable(tracks)});
   }
 
   /// 手动「开始补全」清零失败计数（耗尽行重新获得重试机会）。
-  Future<void> resetEnrichAttempts() {
-    return customStatement(
+  /// 同 bumpEnrichAttempts——customStatement 后补手动 stream 通知。
+  Future<void> resetEnrichAttempts() async {
+    await customStatement(
         'UPDATE tracks SET enrich_attempts = 0 WHERE enrich_attempts >= 3');
+    notifyUpdates({TableUpdate.onTable(tracks)});
   }
 
-  /// 补全阶段进度（三条独立进度条的数据面；全部直读 tracks 表，跨重启不丢）：
+  /// 补全阶段进度（歌曲处理页四行进度条的数据面；全部直读 tracks 表，跨重启不丢）：
   /// * 歌名：已结论（titleMatchedAt） vs 总盘（已结论 + 待处理 needsMeta）；
-  /// * 歌手：已结论（artistMatchedAt） vs 总盘（已结论 + needsMeta 且歌手空）；
-  /// * 歌词：已结论（lyricsAt） vs 总盘（已结论 + needsMeta 未处理）。
+  /// * 歌词：拿到词（lyrics_meta 有记账） + 确认无词（已结论无产出） vs
+  ///   总盘（已结论 + needsMeta 未处理）；
+  /// * 封面：已有封面（coverPath 非空） vs 全部存活曲目——封面链按需决议
+  ///   （内嵌/同名图/在线，看歌时才解析），无批处理管道，失败恒 0；
+  /// * 歌手：已结论（artistMatchedAt） vs 总盘（已结论 + needsMeta 且歌手空）。
   /// 耗尽行（连续失败 ≥3）不计入待处理——总盘随之收缩，进度条可走满。
   Stream<List<EnrichStage>> watchEnrichStages() {
     final alive = tracks.missingAt.isNull();
@@ -392,6 +465,26 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
     final titleTotal = tracks.id.count(
         filter: alive &
             (tracks.titleMatchedAt.isNotNull() | tracks.needsMeta.equals(true)));
+    // 歌词：成功口径=有词（lyrics_meta 记账行；kind='none' 的偏移孤儿行不算），
+    // 无词=补全已结论（lyricsAt）但无记账——lyricsAt 曾全计入「成功」，绿灯虚高。
+    // LEFT JOIN 按 trackId 主键 1:1，不放大其余计数。
+    final lyricsHas = lyricsMeta.trackId.count(
+        filter: alive &
+            lyricsMeta.kind
+                .isIn(const ['sidecar', 'embedded', 'online', 'pasted']));
+    final lyricsMissed = tracks.id.count(
+        filter: alive &
+            tracks.lyricsAt.isNotNull() &
+            (lyricsMeta.trackId.isNull() | lyricsMeta.kind.equals('none')));
+    final lyricsFailed =
+        tracks.id.count(filter: failedPool & tracks.lyricsAt.isNull());
+    final lyricsTotal = tracks.id.count(
+        filter: alive &
+            (tracks.lyricsAt.isNotNull() | tracks.needsMeta.equals(true)));
+    // 封面（覆盖面：已有封面 vs 全部存活曲目；决议是按需的，失败不记账）
+    final coverTotal = tracks.id.count(filter: alive);
+    final coverDone =
+        tracks.id.count(filter: alive & tracks.coverPath.isNotNull());
     // 歌手
     final artistDone =
         tracks.id.count(filter: alive & tracks.artistMatchedAt.isNotNull());
@@ -403,30 +496,80 @@ class LibraryDao extends DatabaseAccessor<IaDatabase> with _$LibraryDaoMixin {
         filter: alive &
             (tracks.artistMatchedAt.isNotNull() |
                 (tracks.needsMeta.equals(true) & tracks.artist.equals(''))));
-    // 歌词
-    final lyricsDone =
-        tracks.id.count(filter: alive & tracks.lyricsAt.isNotNull());
-    final lyricsFailed =
-        tracks.id.count(filter: failedPool & tracks.lyricsAt.isNull());
-    final lyricsTotal = tracks.id.count(
+    // 专辑/音轨：来源只有 AcoustID releases（文字链无源）——done=已结论
+    // 且有值；missed=已结论确认无（合辑/平台源无专辑信息，灰档不算成功，
+    // 与歌词行同口径）；total=已结论 + needsMeta 待处理（needsMeta=false
+    // 的局部标签件不入自动补全盘，缺失走手动编辑）。
+    final albumDone = tracks.id.count(
         filter: alive &
-            (tracks.lyricsAt.isNotNull() | tracks.needsMeta.equals(true)));
+            tracks.albumMatchedAt.isNotNull() &
+            tracks.album.equals('').not());
+    final albumMissed = tracks.id.count(
+        filter:
+            alive & tracks.albumMatchedAt.isNotNull() & tracks.album.equals(''));
+    final albumFailed = tracks.id.count(
+        filter: failedPool & tracks.albumMatchedAt.isNull());
+    final albumTotal = tracks.id.count(
+        filter: alive &
+            (tracks.albumMatchedAt.isNotNull() | tracks.needsMeta.equals(true)));
+    final trackDone = tracks.id.count(
+        filter: alive &
+            tracks.trackMatchedAt.isNotNull() &
+            tracks.trackNo.isBiggerThanValue(0));
+    final trackMissed = tracks.id.count(
+        filter: alive &
+            tracks.trackMatchedAt.isNotNull() &
+            tracks.trackNo.isBiggerThanValue(0).not());
+    final trackFailed = tracks.id.count(
+        filter: failedPool & tracks.trackMatchedAt.isNull());
+    final trackTotal = tracks.id.count(
+        filter: alive &
+            (tracks.trackMatchedAt.isNotNull() | tracks.needsMeta.equals(true)));
+    // 向量：done=已有当前模型向量（join 行 vectorAt 非空）；failed=有硬失败
+    // 记账且尚无向量；total=全部存活（向量独立于元数据结论，全集都要算）。
+    final vectorDone =
+        tracks.id.count(filter: alive & trackVectors.vectorAt.isNotNull());
+    final vectorFailed = tracks.id.count(
+        filter: alive &
+            trackVectors.trackId.isNull() &
+            tracks.enrichAttempts.isBiggerOrEqualValue(1));
+    final vectorTotal = tracks.id.count(filter: alive);
     final q = selectOnly(tracks)
+      ..join([
+        leftOuterJoin(lyricsMeta, lyricsMeta.trackId.equalsExp(tracks.id)),
+        // 按 (track_id, model) 过滤的 1:1 join——无当前模型向量的行
+        // trackVectors.trackId 为 null，即「未算」。
+        leftOuterJoin(
+            trackVectors,
+            trackVectors.trackId.equalsExp(tracks.id) &
+                trackVectors.model.equals(kEmbeddingModel)),
+      ])
       ..addColumns([
         titleDone, titleFailed, titleTotal,
+        lyricsHas, lyricsMissed, lyricsFailed, lyricsTotal,
+        coverDone, coverTotal,
         artistDone, artistFailed, artistTotal,
-        lyricsDone, lyricsFailed, lyricsTotal,
+        albumDone, albumMissed, albumFailed, albumTotal,
+        trackDone, trackMissed, trackFailed, trackTotal,
+        vectorDone, vectorFailed, vectorTotal,
       ]);
     return q.watch().map((rows) {
       final r = rows.isEmpty ? null : rows.first;
       int read(Expression<int> e) => r == null ? 0 : (r.read(e) ?? 0);
       return [
-        EnrichStage('歌名处理', read(titleDone), read(titleFailed),
+        EnrichStage('歌名', read(titleDone), read(titleFailed),
             read(titleTotal)),
-        EnrichStage('歌手处理', read(artistDone), read(artistFailed),
+        EnrichStage('歌词', read(lyricsHas), read(lyricsFailed),
+            read(lyricsTotal), read(lyricsMissed)),
+        EnrichStage('封面', read(coverDone), 0, read(coverTotal)),
+        EnrichStage('歌手', read(artistDone), read(artistFailed),
             read(artistTotal)),
-        EnrichStage('歌词处理', read(lyricsDone), read(lyricsFailed),
-            read(lyricsTotal)),
+        EnrichStage('专辑', read(albumDone), read(albumFailed),
+            read(albumTotal), read(albumMissed)),
+        EnrichStage('音轨', read(trackDone), read(trackFailed),
+            read(trackTotal), read(trackMissed)),
+        EnrichStage('向量', read(vectorDone), read(vectorFailed),
+            read(vectorTotal)),
       ];
     });
   }

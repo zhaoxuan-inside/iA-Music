@@ -1,6 +1,6 @@
 /// 收集域状态：任务流 / 提取任务提交门面 / 音频源登录态。
 ///
-/// 具体实现（GitHub 服务 / SourcePlugins / CollectRunner）的装配在组合根
+/// 具体实现（SourcePlugins / CollectRunner）的装配在组合根
 /// app/providers.dart——本文件只有 provider 与 Ref 持有的 API 门面。
 library;
 
@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/config/collect_config.dart';
 import '../app/providers.dart';
 import '../services/collect/download_guard.dart';
 import '../services/collect/source_plugins.dart';
@@ -18,7 +19,6 @@ import 'scan_controller.dart';
 
 /// UI 可见的收集域服务类型（UI 禁 import services——类型经 state 门面）。
 export '../services/collect/source_plugins.dart' show SourcePluginHandle;
-export '../services/github/github_playlist_service.dart' show GithubTrack;
 
 /// 收集任务实时流（提取进度子页的数据源）。
 final collectTasksProvider = StreamProvider(
@@ -78,6 +78,42 @@ final sourceAuthKindProvider =
   return await h.authKind() ?? 'none';
 });
 
+/// 提交时预览出的子曲目（分P/合集条目）。index 1-based，与运行时
+/// `#ia-track=N` pin 对齐。
+class SourcePreviewTrack {
+  const SourcePreviewTrack({
+    required this.index,
+    required this.id,
+    required this.title,
+    required this.artist,
+  });
+
+  final int index;
+  final String id;
+  final String title;
+  final String artist;
+}
+
+/// 一条链接的提交时预览：来源 + 干净 URL + 子曲目清单。
+/// [baseUrl] 已剥 pin 片段——勾选入队时以它为 pin 构造基座。
+class SourcePreview {
+  const SourcePreview({
+    required this.source,
+    required this.baseUrl,
+    required this.url,
+    required this.title,
+    required this.artist,
+    required this.tracks,
+  });
+
+  final String source;
+  final String baseUrl;
+  final String url;
+  final String title;
+  final String artist;
+  final List<SourcePreviewTrack> tracks;
+}
+
 /// 提取任务提交门面：UI 只经此入队与驱动，不触 data 层类型。
 class CollectTasksApi {
   CollectTasksApi(this._ref);
@@ -100,6 +136,75 @@ class CollectTasksApi {
       return 'direct';
     }
     return null;
+  }
+
+  /// 提交时预览子曲目清单（多P 勾选的数据源）：路由到插件后 resolve 一次。
+  /// 任何失败（不可路由/插件缺失/resolve 抛错/零或单曲目）→ null，
+  /// 调用方回退直接入队（运行时行为不变）。resolve 重试一次与 runner
+  /// 的 _resolveWithRetry 同口径——DNS 瞬态不该把用户打回「全量拆分」。
+  Future<SourcePreview?> previewTracks(String url) async {
+    final source = await routeSource(url);
+    if (source == null || source == 'direct') {
+      return null;
+    }
+    final handles = await _ref.read(sourceHandlesProvider.future);
+    final handle =
+        handles.where((x) => x.id == source).firstOrNull;
+    if (handle == null) {
+      return null;
+    }
+    final baseUrl = trackBaseUrl(url);
+    final Map<String, Object?> meta;
+    try {
+      meta = await _resolveForPreview(handle, baseUrl);
+    } on Object {
+      return null;
+    }
+    final tracks = (meta['tracks'] as List<Object?>? ?? const [])
+        .whereType<Map>()
+        .map((m) => m.cast<String, Object?>())
+        .toList(growable: false);
+    if (tracks.length <= 1) {
+      return null;
+    }
+    return SourcePreview(
+      source: source,
+      baseUrl: baseUrl,
+      url: url,
+      title: '${meta['title'] ?? ''}',
+      artist: '${meta['artist'] ?? ''}',
+      tracks: [
+        for (var i = 0; i < tracks.length; i++)
+          SourcePreviewTrack(
+            index: i + 1,
+            id: '${tracks[i]['id'] ?? ''}',
+            title: '${tracks[i]['title'] ?? ''}',
+            artist: '${tracks[i]['artist'] ?? ''}',
+          ),
+      ],
+    );
+  }
+
+  /// resolve 一次（失败重试一次，两次都抛才上抛）——口径同
+  /// collect_service._resolveWithRetry（resolve 是第一段网络触达）。
+  Future<Map<String, Object?>> _resolveForPreview(
+      SourcePluginHandle handle, String baseUrl) async {
+    try {
+      return await handle.resolve(baseUrl) ??
+          (throw Exception('插件未返回元数据'));
+    } on Object {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      return await handle.resolve(baseUrl) ??
+          (throw Exception('插件未返回元数据'));
+    }
+  }
+
+  /// 勾选入队：子曲目按 pin 片段定点提取（runner 见 pin 跳过全量拆分）。
+  /// 预填标题/歌手：任务列表即刻可读，且与 runner 自动拆分生成的任务
+  /// 同键（url/title/artist 唯一）可去重。
+  Future<void> enqueuePinned(SourcePreview p, SourcePreviewTrack t) {
+    return enqueue(p.source, trackPinUrl(p.baseUrl, t.index),
+        title: t.title, artist: t.artist);
   }
 
   /// 入队（来源：插件 id / direct；标题空由提取引擎运行时补全）。

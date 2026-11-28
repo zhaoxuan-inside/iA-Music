@@ -11,8 +11,8 @@ import '../../../domain/entities/playback.dart';
 import '../../../domain/entities/track.dart';
 import '../../../state/library_providers.dart';
 import '../../../state/playback_controller.dart';
-import '../../shared/actions.dart';
-import '../../shared/ambient.dart';
+import '../../actions/actions.dart';
+import '../../components/mapped/ambient.dart';
 import '../../shared/ui_kit.dart';
 
 /// 播放屏（pivot 第 0 屏）：唯一订阅进度心跳的 pane（页面壳层不跟心跳重建）。
@@ -87,8 +87,8 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
                   maxLines: 2,
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 26,
+                  style: TextStyle(
+                    fontSize: 28,
                     height: 1.18,
                     fontWeight: IaType.light,
                     letterSpacing: IaType.titleTracking,
@@ -101,8 +101,8 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12.5,
+                  style: TextStyle(
+                    fontSize: 14,
                     color: IaColors.textMid,
                   ),
                 ),
@@ -129,12 +129,12 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
               children: [
                 Text(
                   formatDuration(snap.positionMs),
-                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
                 ),
                 const Spacer(),
                 Text(
                   formatDuration(snap.durationMs),
-                  style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+                  style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
                 ),
               ],
             ),
@@ -154,7 +154,7 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
               ),
               IconButton(
                 onPressed: () => ref.read(playbackProvider.notifier).previous(),
-                icon: const Icon(
+                icon: Icon(
                   Icons.skip_previous,
                   size: 34,
                   color: IaColors.textHi,
@@ -179,7 +179,7 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
               ),
               IconButton(
                 onPressed: () => ref.read(playbackProvider.notifier).next(),
-                icon: const Icon(
+                icon: Icon(
                   Icons.skip_next,
                   size: 34,
                   color: IaColors.textHi,
@@ -224,7 +224,7 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
                 label: Text(
                   liked ? '已喜欢' : '喜欢',
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 14,
                     color: liked ? p.accent : IaColors.textMid,
                   ),
                 ),
@@ -236,8 +236,8 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
                   snap.sleepEndsAt != null
                       ? '睡眠定时 · 至 ${snap.sleepEndsAt!.hour}:${snap.sleepEndsAt!.minute.toString().padLeft(2, '0')}'
                       : '睡眠定时',
-                  style: const TextStyle(
-                    fontSize: 12.5,
+                  style: TextStyle(
+                    fontSize: 14,
                     color: IaColors.textMid,
                   ),
                 ),
@@ -254,8 +254,8 @@ class _NpPlayPaneState extends ConsumerState<NpPlayPane> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 10.5,
+                    style: TextStyle(
+                      fontSize: 11.5,
                       letterSpacing: 0.6,
                       color: IaColors.textLow,
                     ),

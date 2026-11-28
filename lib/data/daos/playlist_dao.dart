@@ -118,18 +118,6 @@ class PlaylistDao extends DatabaseAccessor<IaDatabase> with _$PlaylistDaoMixin {
       ..orderBy([OrderingTerm.asc(playlistTracks.position)]);
   }
 
-  /// 歌单首曲（快速播放磁贴封面用；单行 LIMIT 查询）。
-  Future<Track?> playlistFirstTrack(int playlistId) async {
-    final q = select(playlistTracks).join([
-      innerJoin(tracks, tracks.id.equalsExp(playlistTracks.trackId)),
-    ])
-      ..where(playlistTracks.playlistId.equals(playlistId))
-      ..orderBy([OrderingTerm.asc(playlistTracks.position)])
-      ..limit(1);
-    final rows = await q.get();
-    return rows.isEmpty ? null : _rowToTrack(rows.first.readTable(tracks));
-  }
-
   /// 追加；歌单内重复静默忽略（DB 级 UNIQUE 兜底）。返回是否真的加入。
   Future<bool> addTrack(int playlistId, int trackId) async {
     // 尾位取 MAX(position) 聚合单行（曾拉全表行在 Dart 侧 reduce 求最大——

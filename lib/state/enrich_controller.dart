@@ -7,9 +7,11 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/config/embedding_config.dart';
 import '../app/providers.dart';
 import '../domain/entities/track.dart';
 import 'diagnostics.dart';
+import 'process_failures.dart';
 
 class EnrichState {
   const EnrichState({
@@ -45,22 +47,34 @@ class EnrichState {
 class EnrichController extends Notifier<EnrichState> {
   @override
   EnrichState build() {
-    // keepAlive：本 provider 唯一的监听者是「提取与补全进度」页——离开页面
+    // keepAlive：本 provider 唯一的监听者是「歌曲处理」页——离开页面
     // 即销毁会让补全循环随 notifier 静默死亡（曾表现为只补 ~100 首就
     // 「队列空闲」）。补全是后台长任务，生命周期与页面解耦。
     ref.keepAlive();
     return const EnrichState();
   }
 
-  /// 启动续跑 / 扫描与收集入库后的按需补全：运行中或池空一律 no-op
-  /// ——空池直接 runOnce 会跑出假的「补全中断 0/0」。
+  /// 启动续跑 / 扫描与收集入库后的按需补全：运行中或两池皆空一律 no-op
+  /// ——空池直接 runOnce 会跑出假的「补全中断 0/0」。两池 = 元数据池
+  /// （needsMeta）+ 向量池（无当前模型向量）；向量池只在嵌入端口可用时
+  /// 参与守卫——端口缺失的环境（测试宿主/模型损坏）不该每轮空转。
   Future<void> resumeIfNeeded() async {
     if (state.running) {
       return;
     }
-    final pending =
-        await ref.read(dbProvider).libraryDao.countNeedsEnrichment();
-    if (pending == 0) {
+    final db = ref.read(dbProvider);
+    final pending = await db.libraryDao.countNeedsEnrichment();
+    if (pending > 0) {
+      await runOnce();
+      return;
+    }
+    final svc = await ref.read(enrichmentServiceProvider.future);
+    if (svc.embeddingPort == null) {
+      return;
+    }
+    final vectors =
+        await db.vectorDao.countWithoutVector(model: kEmbeddingModel);
+    if (vectors == 0) {
       return;
     }
     await runOnce();
@@ -94,9 +108,15 @@ class EnrichController extends Notifier<EnrichState> {
           onProgress: (title, batchDone, _) => state = state.copyWith(
               currentTitle: title, done: total - remainBefore + batchDone),
           // 单曲硬失败 → 诊断 + 日志追踪（真实错误原文，不是猜测文案）
-          onError: (title, e) => unawaited(ref
-              .read(diagnosticsProvider.notifier)
-              .record('补全 · $title', e)),
+          // + 歌曲处理页失败列表（按仍待结论的阶段标类型，持久化可复制）
+          onError: (title, e, stages) {
+            unawaited(ref
+                .read(diagnosticsProvider.notifier)
+                .record('补全 · $title', e));
+            unawaited(ref
+                .read(enrichFailuresProvider.notifier)
+                .record(stages.join('·'), title, e));
+          },
           // 指纹链软失败（如 AcoustID 400）→ 只记日志不炸曲，文字链接管
           onSoftError: (source, e) => unawaited(
               ref.read(diagnosticsProvider.notifier).record(source, e)),
@@ -120,15 +140,66 @@ class EnrichController extends Notifier<EnrichState> {
           break;
         }
       }
+
+      // ── 向量轮：元数据池清完后接音频嵌入（声音相似电台的数据面）──
+      // 端口缺失 → 整段跳过（不空转不出假中断）；端口在位但模型损坏
+      // → embedPending 返回 (0,0)，零完成诚实中断；done/total 保持
+      // 元数据轮口径（进度条行由 enrichStagesProvider 的 DB 直读行
+      // 承担，向量行自有计数）。
+      final db = ref.read(dbProvider);
+      final vTotal = svc.embeddingPort == null
+          ? 0
+          : await db.vectorDao.countWithoutVector(model: kEmbeddingModel);
+      var embedded = 0;
+      if (vTotal > 0) {
+        for (var round = 0; round < 200; round++) {
+          final (vOk, vProcessed) = await svc.embedPending(
+            limit: 20,
+            onProgress: (title, _, _) =>
+                state = state.copyWith(currentTitle: title),
+            onError: (title, e, stages) {
+              unawaited(ref
+                  .read(diagnosticsProvider.notifier)
+                  .record('补全向量 · $title', e));
+              unawaited(ref
+                  .read(enrichFailuresProvider.notifier)
+                  .record(stages.join('·'), title, e));
+            },
+            onSoftError: (source, e) => unawaited(
+                ref.read(diagnosticsProvider.notifier).record(source, e)),
+          );
+          embedded += vOk;
+          final remain =
+              await db.vectorDao.countWithoutVector(model: kEmbeddingModel);
+          if (vProcessed == 0) {
+            // 端口禁用或整批失败：已算曲目原样留在池里，诚实中断。
+            final summary =
+                '向量中断：嵌入端口不可用或连续失败，已算 ${vTotal - remain}/$vTotal';
+            state = state.copyWith(
+                running: false, currentTitle: '', lastSummary: summary);
+            unawaited(ref
+                .read(diagnosticsProvider.notifier)
+                .record('补全向量中断', summary));
+            return;
+          }
+          if (remain == 0) {
+            break;
+          }
+        }
+      }
+
       state = state.copyWith(
         running: false,
         currentTitle: '',
-        lastSummary: adopted > 0 ? '补全完成 · 采纳 $adopted 首' : '补全完成 · 无新匹配',
+        lastSummary: [
+          adopted > 0 ? '补全完成 · 采纳 $adopted 首' : '补全完成 · 无新匹配',
+          if (vTotal > 0) '向量 $embedded/$vTotal',
+        ].join(' · '),
       );
       // 轮次汇总进日志（与「补全中断」对称；单曲成败各有独立记录）
       unawaited(ref
           .read(diagnosticsProvider.notifier)
-          .record('补全', '完成 · 采纳 $adopted / $total'));
+          .record('补全', '完成 · 采纳 $adopted / $total · 向量 $embedded / $vTotal'));
     } on Object catch (e, st) {
       state = state.copyWith(
           running: false, currentTitle: '', lastSummary: '补全中断：$e');
@@ -141,6 +212,6 @@ class EnrichController extends Notifier<EnrichState> {
 final enrichProvider = NotifierProvider<EnrichController, EnrichState>(
     EnrichController.new);
 
-/// 补全三阶段进度（歌名/歌手/歌词，持久化于 tracks 行，跨重启不从头）。
+/// 补全阶段进度（歌名/歌词/封面/歌手，持久化于 tracks 行，跨重启不从头）。
 final enrichStagesProvider = StreamProvider<List<EnrichStage>>(
     (ref) => ref.watch(dbProvider).libraryDao.watchEnrichStages());

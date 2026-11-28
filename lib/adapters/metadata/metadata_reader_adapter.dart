@@ -1,7 +1,6 @@
 /// MetadataPort 实现——audio_metadata_reader 只读封装。
 ///
-/// 红线：绝不写回原始音频文件。readTags 不读内嵌图（封面走 readEmbeddedCover
-/// 按需另读，避免扫描整库时二次大读）。
+/// readTags 不读内嵌图（封面走 readEmbeddedCover 按需另读，避免扫描整库时二次大读）。
 library;
 
 import 'dart:io';

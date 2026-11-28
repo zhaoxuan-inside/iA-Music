@@ -42,19 +42,22 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
   /// 历史一次性取用（听法取材只读一次，不开常驻 watch 流）。
   Future<List<HistoryItem>> recent({int limit = 300}) async {
     final rows = await _recentQuery(limit).get();
-    return rows.map((r) {
-      final h = r.readTable(playHistory);
-      final t = r.readTable(tracks);
-      return HistoryItem(track: _toTrack(t), playedAt: h.playedAt, completed: h.completed);
-    }).toList();
+    return rows.map(_itemOf).toList();
   }
 
   Stream<List<HistoryItem>> watchRecent({int limit = 300}) {
-    return _recentQuery(limit).watch().map((rows) => rows.map((r) {
-          final h = r.readTable(playHistory);
-          final t = r.readTable(tracks);
-          return HistoryItem(track: _toTrack(t), playedAt: h.playedAt, completed: h.completed);
-        }).toList());
+    return _recentQuery(limit).watch().map((rows) => rows.map(_itemOf).toList());
+  }
+
+  HistoryItem _itemOf(TypedResult r) {
+    final h = r.readTable(playHistory);
+    final t = r.readTable(tracks);
+    return HistoryItem(
+      track: _toTrack(t),
+      playedAt: h.playedAt,
+      completed: h.completed,
+      plays: t.plays,
+    );
   }
 
   JoinedSelectStatement _recentQuery(int limit) {
@@ -87,11 +90,20 @@ class HistoryDao extends DatabaseAccessor<IaDatabase> with _$HistoryDaoMixin {
 
 /// 历史条目（含曲目）。
 class HistoryItem {
-  const HistoryItem({required this.track, required this.playedAt, required this.completed});
+  const HistoryItem({
+    required this.track,
+    required this.playedAt,
+    required this.completed,
+    required this.plays,
+  });
 
   final Track track;
   final DateTime playedAt;
   final bool completed;
+
+  /// 曲目累计播放次数（tracks.plays 物化列，join 行直读零额外查询）——
+  /// 常听/历史磁贴翻面的展示口径与常听排序一致。
+  final int plays;
 }
 
 @DriftAccessor(tables: [LyricsMeta])

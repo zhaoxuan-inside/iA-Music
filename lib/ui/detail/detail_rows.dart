@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/track.dart';
-import '../shared/cover.dart';
-import '../shared/format.dart';
+import '../components/kit/format.dart';
+import '../components/mapped/cover.dart';
 
 /// 编号曲目行（序号 + 可选封面 + 标题/歌手 + 时长）。
 class DetailTrackLine extends StatelessWidget {
@@ -40,7 +40,7 @@ class DetailTrackLine extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: IaSpacing.m),
           decoration:
-              const BoxDecoration(border: Border(bottom: BorderSide(color: IaColors.hairline))),
+              BoxDecoration(border: Border(bottom: BorderSide(color: IaColors.hairline))),
           child: Row(
             children: [
               SizedBox(
@@ -49,7 +49,7 @@ class DetailTrackLine extends StatelessWidget {
                   '$index'.padLeft(2, '0'),
                   textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12.5,
                     color: isPlaying ? p.accent : IaColors.textLow,
                   ),
                 ),
@@ -79,7 +79,7 @@ class DetailTrackLine extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(left: IaSpacing.s),
                           child: Text('♥',
-                              style: TextStyle(fontSize: 12, color: p.accent)),
+                              style: TextStyle(fontSize: 13.5, color: p.accent)),
                         ),
                     ]),
                     const SizedBox(height: IaSpacing.xs),
@@ -87,13 +87,13 @@ class DetailTrackLine extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            const TextStyle(fontSize: 12, color: IaColors.textLow)),
+                            TextStyle(fontSize: 13.5, color: IaColors.textLow)),
                   ],
                 ),
               ),
               const SizedBox(width: IaSpacing.m),
               Text(formatDuration(track.durationMs),
-                  style: const TextStyle(fontSize: 11.5, color: IaColors.textLow)),
+                  style: TextStyle(fontSize: 13, color: IaColors.textLow)),
             ],
           ),
         ),
@@ -121,7 +121,7 @@ class DetailAppBar extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.92),
-        border: const Border(top: BorderSide(color: IaColors.hairline)),
+        border: Border(top: BorderSide(color: IaColors.hairline)),
       ),
       padding: EdgeInsets.only(
           left: IaSpacing.gutter,

@@ -15,11 +15,19 @@ class AcoustidMatch {
     required this.title,
     required this.artist,
     required this.score,
+    this.album = '',
+    this.trackNo = 0,
   });
 
   final String title;
   final String artist;
   final double score;
+
+  /// 专辑名（AcoustID releases 来源；无专辑信息为空串）。
+  final String album;
+
+  /// 音轨号（release medium 的 track position；无信息为 0）。
+  final int trackNo;
 }
 
 class AcoustidClient {
@@ -45,11 +53,12 @@ class AcoustidClient {
       final req = await _client.postUrl(Uri.parse(baseUrl));
       req.headers.set(HttpHeaders.contentTypeHeader,
           'application/x-www-form-urlencoded');
-      // 官方 /v2/lookup 只收表单编码：meta 为一个空格分隔的字段
+      // 官方 /v2/lookup 只收表单编码：meta 为一个空格分隔的字段；
+      // releases 提供专辑名/音轨号（补全管道的 专辑/音轨 阶段来源）。
       final body = 'client=${Uri.encodeQueryComponent(apiKey)}'
           '&duration=${(durationMs / 1000).round()}'
           '&fingerprint=${Uri.encodeQueryComponent(fingerprint)}'
-          '&meta=${Uri.encodeQueryComponent('recordings sources')}';
+          '&meta=${Uri.encodeQueryComponent('recordings releases sources')}';
       req.add(utf8.encode(body));
       final res = await req.close();
       final text = await res.transform(utf8.decoder).join();
@@ -108,10 +117,13 @@ class AcoustidClient {
             }
             artist = names.join(' / ');
           }
+          final (album, trackNo) = _releaseOf(rec);
           return AcoustidMatch(
             title: title,
             artist: artist,
             score: (r['score'] as num?)?.toDouble() ?? 0,
+            album: album,
+            trackNo: trackNo,
           );
         }
       }
@@ -122,6 +134,41 @@ class AcoustidClient {
     } on Object catch (e, st) {
       Error.throwWithStackTrace(NetworkError(detail: 'AcoustID 查询失败：$e'), st);
     }
+  }
+
+  /// 录音的发行信息解析：取第一个专辑名非空的 release——
+  /// album = release.title；trackNo = 该碟内录音所在音轨的 position
+  /// （缺 tracks 退碟位，再缺为 0）。录音可能是合辑多碟多版本，
+  /// AcoustID 已按相关性排序，首个即最佳。
+  (String, int) _releaseOf(Map<String, dynamic> rec) {
+    final releases = rec['releases'] as List?;
+    if (releases == null) {
+      return ('', 0);
+    }
+    for (final rel in releases) {
+      if (rel is! Map<String, dynamic>) {
+        continue;
+      }
+      final album = (rel['title'] as String?)?.trim() ?? '';
+      if (album.isEmpty) {
+        continue;
+      }
+      final mediums = rel['mediums'] as List?;
+      if (mediums == null || mediums.isEmpty) {
+        return (album, 0);
+      }
+      final medium = mediums.first;
+      var trackNo = 0;
+      if (medium is Map<String, dynamic>) {
+        final tracks = medium['tracks'] as List?;
+        if (tracks != null && tracks.isNotEmpty && tracks.first is Map<String, dynamic>) {
+          trackNo = (tracks.first as Map<String, dynamic>)['position'] as int? ?? 0;
+        }
+        trackNo = trackNo > 0 ? trackNo : (medium['position'] as int? ?? 0);
+      }
+      return (album, trackNo);
+    }
+    return ('', 0);
   }
 
   /// 服务端错误对象（{"error":{...}}），非 JSON → null。

@@ -48,6 +48,9 @@ class FakeSession implements PluginSession {
 
   String? lyricsText;
   bool failResolve = false;
+
+  /// 只失败前 N 次 resolve（>0 时）——验证宿主对瞬态失败的重试语义。
+  int failResolveTimes = 0;
   int _resolveCalls = 0;
   final List<String> _logs = <String>[];
 
@@ -61,7 +64,7 @@ class FakeSession implements PluginSession {
         return url.contains('fake.test') ? {'id': url} : null;
       case 'resolve':
         _resolveCalls++;
-        if (failResolve) {
+        if (failResolve || _resolveCalls <= failResolveTimes) {
           throw Exception('插件解析失败');
         }
         return {
@@ -167,6 +170,79 @@ void main() {
     expect(await tracks(), hasLength(1));
   });
 
+  test('同名冲突：永不覆盖——既有文件字节保留，新件换唯一名并存', () async {
+    // 两个不同 URL、不同内容、同名（同 title/artist）：曾经第二个会直接
+    // 覆盖第一个（deleteSync + rename），用户已有文件字节级无声丢失。
+    final other =
+        File('test/fixtures/library_smoke/探曲02.mp3').readAsBytesSync();
+    final varied = await HttpServer.bind('127.0.0.1', 0);
+    addTearDown(varied.close);
+    varied.listen((req) async {
+      req.response
+          .add(req.uri.path.endsWith('/b.mp3') ? other : _fixture);
+      await req.response.close();
+    });
+
+    await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${varied.port}/a.mp3',
+        title: '冲突歌', artist: '');
+    await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${varied.port}/b.mp3',
+        title: '冲突歌', artist: '');
+
+    final (processed, failed) = await runner.runOnce();
+    expect((processed, failed), (2, 0));
+
+    final all = await tasks();
+    expect(all.every((t) => t.status == CollectStatusCol.done), isTrue);
+    expect(all.map((t) => t.filePath).toSet(), hasLength(2),
+        reason: '同名不同内容 → 各自唯一名，两任务指向不同文件');
+
+    // 既有文件字节原样保留（曾经在这里被覆盖）
+    final first = all.firstWhere((t) => t.filePath!.endsWith('冲突歌.mp3'));
+    expect(File(first.filePath!).readAsBytesSync(), equals(_fixture),
+        reason: '先发布的文件不被后发布的覆盖');
+
+    final published = rootDir
+        .listSync()
+        .whereType<File>()
+        .map((f) => f.uri.pathSegments.last)
+        .where((n) => !n.startsWith('dl_') && !n.startsWith('lrc_'))
+        .toList();
+    expect(published, hasLength(2), reason: '两个文件并存于音乐目录');
+    expect(published.where((n) => n.startsWith('冲突歌-')), hasLength(1),
+        reason: '冲突件自动换唯一名');
+    expect(await tracks(), hasLength(2), reason: '两文件各自入库，不产生覆盖');
+  });
+
+  test('同内容去重：重复任务不产生第二个文件，复用既有路径', () async {
+    // 不同 URL 返回相同字节：曾几何时同名覆盖恰好保住单文件，但语义是
+    // 「赌内容不同才换名」；现在是显式去重——同内容复用，异内容并存。
+    await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${fileServer.port}/a.mp3',
+        title: '重复歌', artist: '');
+    await db.collectDao.enqueue(
+        'direct', 'http://127.0.0.1:${fileServer.port}/b.mp3',
+        title: '重复歌', artist: '');
+
+    final (processed, failed) = await runner.runOnce();
+    expect((processed, failed), (2, 0));
+
+    final all = await tasks();
+    expect(all.every((t) => t.status == CollectStatusCol.done), isTrue);
+    expect(all.map((t) => t.filePath).toSet(), hasLength(1),
+        reason: '同内容 → 第二个任务复用既有文件路径');
+    expect(await tracks(), hasLength(1), reason: '库中只有一个文件一条曲目');
+
+    final published = rootDir
+        .listSync()
+        .whereType<File>()
+        .map((f) => f.uri.pathSegments.last)
+        .where((n) => !n.startsWith('dl_') && !n.startsWith('lrc_'))
+        .toList();
+    expect(published, ['重复歌.mp3'], reason: '唯一发布件，无 tmp 残留');
+  });
+
   test('插件失败：onTaskError 带错误原文 + 任务行 errorText 落库', () async {
     fake().failResolve = true;
     await db.collectDao
@@ -182,6 +258,7 @@ void main() {
     expect(taskErrors, hasLength(1), reason: '失败原文经回调上抛（state 层接日志）');
     expect(taskErrors.single, contains('插件解析失败'));
     expect(softErrors, isEmpty);
+    expect(fake().resolveCalls, 2, reason: '恒失败也要重试一次才放弃');
   });
 
   test('直链死地址：下载异常不再被吞——回调 + errorText 双落', () async {
@@ -353,6 +430,23 @@ void main() {
     final all = await tasks();
     expect(all.single.status, CollectStatusCol.failed);
     expect(await tracks(), isEmpty);
+  });
+
+  test('resolve 瞬态失败：宿主重试一次后成功，不打成任务失败', () async {
+    // 真实形态：设备 DNS/网络抖动（Failed host lookup）通常只影响首次触达
+    fake().failResolveTimes = 1;
+    fake().resolvePages = [track(1, '抖动歌', '测试UP')];
+    await db.collectDao
+        .enqueue('test.fake-source', 'https://fake.test/video/BV1RETRY1');
+
+    final (processed, failed) = await runner.runOnce();
+
+    expect((processed, failed), (1, 0));
+    final all = await tasks();
+    expect(all.single.status, CollectStatusCol.done);
+    expect(fake().resolveCalls, 2, reason: '首次失败后短重试一次');
+    expect(taskErrors, isEmpty);
+    expect(await tracks(), hasLength(1));
   });
 
   test('未安装的来源插件：任务 failed', () async {

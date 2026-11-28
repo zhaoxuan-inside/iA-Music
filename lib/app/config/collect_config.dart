@@ -16,3 +16,20 @@ const String kDirectoryBrowserRoot = '/storage/emulated/0';
 /// 下载文件命名：'{artist} - {title}.{ext}'（artist 为空时 '{title}.{ext}'）。
 const String kDownloadNamePattern = '@artist - @title';
 
+/// ── 子曲目 pin 约定（宿主专用，插件永远收到无片段的干净 URL） ──────────
+///
+/// URL 片段 `#ia-track=N`：多子曲目任务只提取第 N 条（1-based）。唯一写入点
+/// 在这里——collect_service 的拆分与 state 层的勾选入队共用同一构造/解析。
+
+/// 给干净 URL 追加第 [n] 条（1-based）子曲目 pin 片段。
+String trackPinUrl(String baseUrl, int n) => '$baseUrl#ia-track=$n';
+
+/// 解析 URL 片段 `#ia-track=N` → N（1-based；没有则 null）。
+int? trackPinOf(String url) {
+  final m = RegExp(r'#ia-track=(\d+)').firstMatch(url);
+  return m == null ? null : int.tryParse(m.group(1)!);
+}
+
+/// 剥掉 pin 片段（以及任何其它片段）后的干净 URL。
+String trackBaseUrl(String url) => url.split('#').first;
+

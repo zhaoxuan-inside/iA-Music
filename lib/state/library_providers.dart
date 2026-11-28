@@ -34,13 +34,9 @@ final artistTracksProvider =
   return ref.watch(dbProvider).libraryDao.watchArtistTracks(artistNorm);
 });
 
-/// 专辑/艺人首曲（磁贴封面用；单行 LIMIT 查询，磁贴不再 watch 整表流）。
+/// 专辑首曲（磁贴封面用；单行 LIMIT 查询，磁贴不再 watch 整表流）。
 final albumFirstTrackProvider = FutureProvider.family<Track?, String>(
     (ref, albumNorm) => ref.watch(dbProvider).libraryDao.albumFirstTrack(albumNorm));
-
-final artistFirstTrackProvider = FutureProvider.family<Track?, String>(
-    (ref, artistNorm) =>
-        ref.watch(dbProvider).libraryDao.artistFirstTrack(artistNorm));
 
 final trackCountProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.watch(dbProvider).libraryDao.watchAvailableCount();

@@ -255,9 +255,7 @@ class CollectRunner {
     final pin = _trackPin(url);
 
     await _tasks.setProgress(taskId, 5);
-    final meta = _metaCache[baseUrl] ??
-        (await handle.resolve(baseUrl) ??
-            (throw Exception('插件未返回元数据')));
+    final meta = _metaCache[baseUrl] ?? await _resolveWithRetry(handle, baseUrl);
     _metaCache[baseUrl] = meta;
     final tracks = (meta['tracks'] as List<Object?>? ?? const [])
         .whereType<Map>()
@@ -344,7 +342,19 @@ class CollectRunner {
             : '$filePath.lrc';
         final lrcTmp = '$cacheDir/lrc_${source}_$taskId.lrc';
         await File(lrcTmp).writeAsString(text, flush: true);
-        lrcPath = await _publish(lrcTmp, lrcTarget);
+        // 旁车歌词不覆盖不换名：目标已有 .lrc（用户自己的或上轮的）一律
+        // 保留丢 tmp——覆盖毁用户歌词，换名破坏「同名 .lrc」配对约定。
+        final lrcFile = File(lrcTarget);
+        if (lrcFile.existsSync()) {
+          try {
+            File(lrcTmp).deleteSync();
+          } on Object {
+            // 残留 tmp 无碍
+          }
+          lrcPath = lrcTarget;
+        } else {
+          lrcPath = await _publish(lrcTmp, lrcTarget);
+        }
       }
     } on CollectCancelledException {
       rethrow;
@@ -357,16 +367,30 @@ class CollectRunner {
     return (filePath, (title: useTitle, artist: useArtist), lrcPath);
   }
 
-  /// URL 片段 `#ia-track=N` → N（1-based；没有则 null）。宿主专用约定，
-  /// 插件永远收到已剥离片段的 URL。
-  int? _trackPin(String url) {
-    final m = RegExp(r'#ia-track=(\d+)').firstMatch(url);
-    return m == null ? null : int.tryParse(m.group(1)!);
+  /// URL 片段 pin 约定（`#ia-track=N`）的构造/解析统一在 collect_config，
+  /// 这里只留薄委托——state 层勾选入队共用同一写入点。
+  int? _trackPin(String url) => trackPinOf(url);
+
+  String _baseUrl(String url) => trackBaseUrl(url);
+
+  String _withTrack(String baseUrl, int n) => trackPinUrl(baseUrl, n);
+
+  /// 插件元数据解析（失败短重试一次）：resolve 是提取链路的第一段网络触达，
+  /// 设备 DNS/网络瞬态抖动（Wi-Fi↔蜂窝切换的「Failed host lookup」）会把
+  /// 整个任务直接打失败——与下载重取直链（_downloadStreamWithRetry）同口径
+  /// 重试一次。重试前留 1s 恢复窗口：系统对解析失败有短暂负缓存，立即重试
+  /// 大概率撞同一状态。
+  Future<Map<String, Object?>> _resolveWithRetry(
+      SourcePluginHandle handle, String baseUrl) async {
+    try {
+      return await handle.resolve(baseUrl) ??
+          (throw Exception('插件未返回元数据'));
+    } on Object {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      return await handle.resolve(baseUrl) ??
+          (throw Exception('插件未返回元数据（重试）'));
+    }
   }
-
-  String _baseUrl(String url) => url.split('#').first;
-
-  String _withTrack(String baseUrl, int n) => '$baseUrl#ia-track=$n';
 
   /// 插件音频下载（失败重取一次直链）：部分上游 CDN 节点拒绝无 Range 的
   /// 裸 GET（B 站 upos 实证 403）——重取 playurl 会重新分配节点，通常可下。
@@ -458,23 +482,32 @@ class CollectRunner {
     }
   }
 
-  /// 发布：私有缓存 → 音乐目录。
+  /// 发布：私有缓存 → 音乐目录。**永不覆盖既有文件**。
   ///
-  /// 共享存储里可能残留异主文件（App 重装后旧 uid 拥有的同名件）：
-  /// 直接写会在 FUSE 层挂死——先删（自己写的能删），删不掉换唯一名。
-  /// 跨卷 rename 失败（EXDEV）回退 copy。
+  /// 同名在库区是高频真实场景（不同源同曲/不同版本），覆盖等于毁掉用户
+  /// 自己的文件；FUSE 异主残留（重装后旧 uid 拥有的同名件，直接写会在
+  /// FUSE 层挂死）同样以换名绕开——冲突路径永不再写。
+  /// * 目标不存在 → rename 发布（EXDEV 回退 copy）。
+  /// * 目标存在且字节相同 → 去重：丢 tmp 复用既有路径（重复任务不产生
+  ///   第二个文件，入库后也不产生重复曲目行）。
+  /// * 目标存在且内容不同 → 时间戳唯一名（递归防撞）。
   Future<String> _publish(String tmpPath, String target) async {
     final t = File(target);
     if (t.existsSync()) {
-      try {
-        t.deleteSync();
-      } on Object {
-        final dot = target.lastIndexOf('.');
-        final alt = dot > 0
-            ? '${target.substring(0, dot)}-${DateTime.now().millisecondsSinceEpoch}${target.substring(dot)}'
-            : '$target-${DateTime.now().millisecondsSinceEpoch}';
-        return _publish(tmpPath, alt);
+      if (await _sameBytes(tmpPath, target)) {
+        // 同内容去重：既有文件为准，tmp 丢弃（删不掉由 cleanupTaskTmp 兜底）
+        try {
+          File(tmpPath).deleteSync();
+        } on Object {
+          // 残留 tmp 无碍正确性
+        }
+        return target;
       }
+      final dot = target.lastIndexOf('.');
+      final alt = dot > 0
+          ? '${target.substring(0, dot)}-${DateTime.now().millisecondsSinceEpoch}${target.substring(dot)}'
+          : '$target-${DateTime.now().millisecondsSinceEpoch}';
+      return _publish(tmpPath, alt);
     }
     final src = File(tmpPath);
     try {
@@ -486,7 +519,7 @@ class CollectRunner {
         return target;
       } on Object {
         // copy 也被拒（分区存储 EPERM——需「所有文件访问」/磁盘满）：
-        // 半截 target 可能已创建，清掉避免残留垃圾，错误原文上抛。
+        // 半截 target 是自己刚写的，清掉避免残留垃圾，错误原文上抛。
         try {
           if (t.existsSync()) {
             t.deleteSync();
@@ -496,6 +529,43 @@ class CollectRunner {
         }
         rethrow;
       }
+    }
+  }
+
+  /// 字节级等同判断（先比长度，再分块流比对；只在发布冲突时触发）。
+  /// 任一侧读失败（异主残留不可读等）→ 视为不同——换名发布，不赌权限。
+  Future<bool> _sameBytes(String a, String b) async {
+    const chunkSize = 1 << 20;
+    RandomAccessFile? fa;
+    RandomAccessFile? fb;
+    try {
+      final fileA = File(a);
+      final fileB = File(b);
+      if (fileA.lengthSync() != fileB.lengthSync()) {
+        return false;
+      }
+      fa = fileA.openSync();
+      fb = fileB.openSync();
+      while (true) {
+        final ca = await fa.read(chunkSize);
+        final cb = await fb.read(chunkSize);
+        if (ca.length != cb.length) {
+          return false;
+        }
+        for (var i = 0; i < ca.length; i++) {
+          if (ca[i] != cb[i]) {
+            return false;
+          }
+        }
+        if (ca.length < chunkSize) {
+          return true;
+        }
+      }
+    } on Object {
+      return false;
+    } finally {
+      fa?.closeSync();
+      fb?.closeSync();
     }
   }
 

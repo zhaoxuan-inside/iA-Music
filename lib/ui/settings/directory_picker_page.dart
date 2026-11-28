@@ -130,7 +130,7 @@ class _DirectoryPickerPageState extends ConsumerState<DirectoryPickerPage> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 12.5, color: p.accent)),
+                          fontSize: 14, color: p.accent)),
                 ],
               ),
             ),
@@ -139,21 +139,21 @@ class _DirectoryPickerPageState extends ConsumerState<DirectoryPickerPage> {
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: edge.left),
                 child: Text(_error!,
-                    style: const TextStyle(
-                        fontSize: 12.5, color: IaColors.error)),
+                    style: TextStyle(
+                        fontSize: 14, color: IaColors.error)),
               )
             else if (_loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(IaSpacing.xl),
                 child: Text('读取中…',
-                    style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+                    style: TextStyle(fontSize: 14, color: IaColors.textLow)),
               )
             else if (_subs.isEmpty)
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: edge.left),
                 child: Text('没有子目录——直接选此目录即可',
-                    style: const TextStyle(
-                        fontSize: 12.5, color: IaColors.textLow)),
+                    style: TextStyle(
+                        fontSize: 14, color: IaColors.textLow)),
               )
             else
               Expanded(
@@ -167,7 +167,7 @@ class _DirectoryPickerPageState extends ConsumerState<DirectoryPickerPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: IaSpacing.m, vertical: IaSpacing.l),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                             border: Border(
                                 bottom: BorderSide(color: IaColors.hairline))),
                         child: Row(
@@ -179,11 +179,11 @@ class _DirectoryPickerPageState extends ConsumerState<DirectoryPickerPage> {
                               child: Text(_dirName(_subs[i].path),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       fontSize: IaType.list,
                                       color: IaColors.textHi)),
                             ),
-                            const Icon(Icons.chevron_right,
+                            Icon(Icons.chevron_right,
                                 size: 20, color: IaColors.textLow),
                           ],
                         ),
@@ -201,7 +201,7 @@ class _DirectoryPickerPageState extends ConsumerState<DirectoryPickerPage> {
                 child: FilledButton(
                   onPressed: () => Navigator.of(context).pop(_current),
                   child: const Text('选此目录',
-                      style: TextStyle(fontSize: 14)),
+                      style: TextStyle(fontSize: 15.5)),
                 ),
               ),
             ),

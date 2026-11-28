@@ -1,4 +1,4 @@
-/// MaterialApp 主题装配（唯一入口；纯黑单主题，accent 来自设置）。
+/// MaterialApp 主题装配（唯一入口；黑/白双态，accent 来自设置）。
 library;
 
 import 'package:flutter/material.dart';
@@ -19,12 +19,18 @@ class ZuneScrollBehavior extends MaterialScrollBehavior {
       const ClampingScrollPhysics();
 }
 
-/// 构建黑胶金时代主题。[accent] 为用户选定的 WP 色板色值。
-ThemeData buildIaTheme({required Color accent}) {
+/// 构建主题。[accent] 为用户选定的 WP 色板色值；[brightness] 定亮/暗态
+/// （design_tokens 的 IaColors.apply 由 app 根先行调用——本函数与全部
+/// 组件读到的都是同一态）。
+ThemeData buildIaTheme(
+    {required Color accent, required IaBrightness brightness}) {
   final p = IaPalette(accent: accent);
+  final isDark = brightness == IaBrightness.dark;
+  final schemeBrightness =
+      isDark ? Brightness.dark : Brightness.light;
 
   final colorScheme = ColorScheme(
-    brightness: Brightness.dark,
+    brightness: schemeBrightness,
     primary: p.accent,
     onPrimary: p.onAccent,
     secondary: p.accent,
@@ -40,7 +46,7 @@ ThemeData buildIaTheme({required Color accent}) {
 
   return ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: schemeBrightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: p.canvas,
     canvasColor: p.canvas,
@@ -50,24 +56,24 @@ ThemeData buildIaTheme({required Color accent}) {
     highlightColor: p.accent.withValues(alpha: 0.06),
     hoverColor: p.accent.withValues(alpha: 0.05),
     focusColor: p.accent.withValues(alpha: 0.08),
-    iconTheme: const IconThemeData(color: IaColors.textMid, size: 22),
-    appBarTheme: const AppBarTheme(
+    iconTheme: IconThemeData(color: p.textMid, size: 22),
+    appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,
-      foregroundColor: IaColors.textHi,
+      foregroundColor: p.textHi,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: Colors.black,
-      modalBackgroundColor: Colors.black,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: p.canvas,
+      modalBackgroundColor: p.canvas,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(),
+      shape: const RoundedRectangleBorder(),
     ),
-    dialogTheme: const DialogThemeData(
-      backgroundColor: Colors.black,
+    dialogTheme: DialogThemeData(
+      backgroundColor: p.canvas,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(),
+      shape: const RoundedRectangleBorder(),
     ),
     scrollbarTheme: ScrollbarThemeData(
       thickness: const WidgetStatePropertyAll(0),
@@ -82,9 +88,11 @@ ThemeData buildIaTheme({required Color accent}) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: false,
-      hintStyle: const TextStyle(color: IaColors.textLow, fontWeight: IaType.light),
-      enabledBorder: const UnderlineInputBorder(
-        borderSide: BorderSide(color: IaColors.hairlineStrong),
+      hintStyle: TextStyle(
+          color: p.textLow,
+          fontWeight: IaType.light),
+      enabledBorder: UnderlineInputBorder(
+        borderSide: BorderSide(color: p.hairlineStrong),
       ),
       focusedBorder: UnderlineInputBorder(
         borderSide: BorderSide(color: p.accent),
@@ -94,28 +102,28 @@ ThemeData buildIaTheme({required Color accent}) {
     ),
     sliderTheme: SliderThemeData(
       activeTrackColor: p.accent,
-      inactiveTrackColor: IaColors.hairlineStrong,
+      inactiveTrackColor: p.hairlineStrong,
       thumbColor: p.accent,
       trackHeight: 2,
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
     ),
     dividerTheme: DividerThemeData(
-        color: IaColors.hairline, thickness: IaSpacing.hairline, space: 1),
+        color: p.hairline, thickness: IaSpacing.hairline, space: 1),
     listTileTheme: ListTileThemeData(
       iconColor: p.textMid,
       titleTextStyle: TextStyle(
-          fontSize: IaType.list, color: IaColors.textHi, fontWeight: IaType.regular),
+          fontSize: IaType.list, color: p.textHi, fontWeight: IaType.regular),
       subtitleTextStyle: TextStyle(
-          fontSize: 12.5, color: IaColors.textMid, fontWeight: IaType.regular),
+          fontSize: 14, color: p.textMid, fontWeight: IaType.regular),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: p.accent),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: IaColors.textHi,
-        side: const BorderSide(color: IaColors.hairlineStrong),
+        foregroundColor: p.textHi,
+        side: BorderSide(color: p.hairlineStrong),
         shape: const RoundedRectangleBorder(),
       ),
     ),
@@ -130,8 +138,8 @@ ThemeData buildIaTheme({required Color accent}) {
     ),
     chipTheme: ChipThemeData(
       backgroundColor: Colors.transparent,
-      side: const BorderSide(color: IaColors.hairlineStrong),
-      labelStyle: TextStyle(fontSize: 12.5, color: IaColors.textHi),
+      side: BorderSide(color: p.hairlineStrong),
+      labelStyle: TextStyle(fontSize: 14, color: p.textHi),
       shape: const RoundedRectangleBorder(),
     ),
     progressIndicatorTheme:

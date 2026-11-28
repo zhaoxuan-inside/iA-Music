@@ -10,12 +10,15 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 
+import '../../app/config/embedding_config.dart';
 import '../../data/database.dart';
 import '../../domain/entities/track.dart';
 import '../../domain/errors.dart';
+import '../../domain/ports/embedding_port.dart';
 import '../../domain/ports/fingerprint_port.dart';
 import '../../domain/ports/lyrics_port.dart';
 import '../acoustid/acoustid_client.dart';
@@ -26,6 +29,7 @@ class EnrichmentService {
       {required this.cacheDir,
       this.nlp = const QueryNlp(),
       this.fingerprintPort,
+      this.embeddingPort,
       this.acoustid});
 
   final IaDatabase _db;
@@ -41,9 +45,16 @@ class EnrichmentService {
   /// 标志与之一致，重启自愈。
   bool _fingerprintDisabled = false;
 
+  /// 向量轮本实例禁用（嵌入端口级不可用后置位：原生侧未注册/模型加载
+  /// 失败——单曲解码失败不置位，只按曲目记账重试）。重启自愈。
+  bool _embeddingDisabled = false;
+
   /// 真·内容识别链：音频指纹 → AcoustID（不依赖文字线索）。
   final FingerprintPort? fingerprintPort;
   final AcoustidClient? acoustid;
+
+  /// 音频嵌入链（声音相似电台的数据面；null = 不跑向量轮）。
+  final EmbeddingPort? embeddingPort;
 
   LibraryDao get _library => _db.libraryDao;
 
@@ -53,11 +64,12 @@ class EnrichmentService {
   /// （匹配成功、无候选、无匹配都算）；抛错曲目不计完成——未写回就留在
   /// 待补全池，由调用方裁决（整轮零完成时中断，避免原地打转）。
   /// [onProgress] 上报 (当前曲, 本轮已完成, 本轮总数)，供 UI 进度展示；
-  /// [onError] 单曲硬失败回调（带错误原文，供诊断/日志追踪）。
+  /// [onError] 单曲硬失败回调（带错误原文 + 该曲仍待结论的阶段名——失败
+  /// 列表按此标类型；needsMeta 曲的歌名/歌词必在池中，歌手仅在歌手空时）。
   Future<(int, int)> enrichPending(
       {int limit = 20,
       void Function(String currentTitle, int done, int total)? onProgress,
-      void Function(String title, Object error)? onError,
+      void Function(String title, Object error, List<String> stages)? onError,
       void Function(String source, Object error)? onSoftError}) async {
     final pending = await _library.needsEnrichment(limit: limit);
     var ok = 0;
@@ -72,7 +84,11 @@ class EnrichmentService {
       } on Object catch (e) {
         // 单首失败不阻断整轮：硬失败计数 +1（≥3 暂出池），阶段时刻不打
         // ——进度条如实停在未处理，待手动重试或网络恢复。
-        onError?.call(t.title, e);
+        onError?.call(t.title, e, [
+          '歌名',
+          if (t.artist.isEmpty) '歌手',
+          '歌词',
+        ]);
         await _library.bumpEnrichAttempts(t.id);
       }
     }
@@ -181,8 +197,14 @@ class EnrichmentService {
     final lrc = hit == null
         ? null
         : (hit.syncedLrc.trim().isNotEmpty ? hit.syncedLrc : hit.plainLrc);
+    // 专辑/音轨来自 AcoustID releases——有值采纳，无值传 null（保持原值，
+    // 时刻照打：确认无也结案，与歌名行同语义）。
     await _library.applyEnrichment(
-        id: t.id, title: match.title, artist: match.artist);
+        id: t.id,
+        title: match.title,
+        artist: match.artist,
+        album: match.album.isNotEmpty ? match.album : null,
+        trackNo: match.trackNo > 0 ? match.trackNo : null);
     if (lrc != null && lrc.trim().isNotEmpty) {
       await _saveLyrics(t.id, lrc);
     }
@@ -193,6 +215,64 @@ class EnrichmentService {
     final name = path.substring(path.lastIndexOf('/') + 1);
     final dot = name.lastIndexOf('.');
     return dot > 0 ? name.substring(0, dot) : name;
+  }
+
+  /// ── 向量轮：音频嵌入（声音相似电台的数据面） ────────────────────────
+
+  /// 处理一轮待算向量曲目（顺序；每首独立成败）。
+  ///
+  /// 池 = 存活 ∩ 无当前 model 向量 ∩ attempts<3（vector_dao.poolForVector）。
+  /// 成功 → upsertVector（打 vectorAt，跨重启续算）；抛错 → bumpEnrichAttempts
+  /// （≥3 暂出池，与元数据补全同款）。返回 (成功数, 完成数)——语义与
+  /// [enrichPending] 一致：零完成时调用方诚实中断，不空转。
+  /// 端口级不可用（null / MissingPluginException / 原生 model 错误码）→
+  /// 会话级禁用 + (0, 0)。
+  Future<(int, int)> embedPending(
+      {int limit = 20,
+      void Function(String currentTitle, int done, int total)? onProgress,
+      void Function(String title, Object error, List<String> stages)? onError,
+      void Function(String source, Object error)? onSoftError}) async {
+    final port = embeddingPort;
+    if (port == null || _embeddingDisabled) {
+      return (0, 0);
+    }
+    final pending = await _db.vectorDao
+        .poolForVector(model: kEmbeddingModel, limit: limit);
+    var ok = 0;
+    var completed = 0;
+    for (final t in pending) {
+      onProgress?.call(t.title, completed, pending.length);
+      try {
+        final emb = await port.embed(t.path, durationMs: t.durationMs);
+        if (emb == null) {
+          // 端口级不可用：配置级致命——本实例禁用向量轮，只记一次软失败，
+          // 不逐曲刷屏、不消耗重试计数（与指纹链 AuthError 禁用同款）。
+          _embeddingDisabled = true;
+          onSoftError?.call(
+              '补全向量轮禁用（嵌入端口不可用） · ${t.title}',
+              StateError('embedding port unavailable'));
+          break;
+        }
+        if (emb.vector.length != kEmbeddingDim || emb.dim != kEmbeddingDim) {
+          throw Exception('嵌入维度不符：${emb.vector.length}');
+        }
+        final f = Float32List.fromList(emb.vector);
+        await _db.vectorDao.upsertVector(
+          trackId: t.id,
+          model: kEmbeddingModel,
+          dim: kEmbeddingDim,
+          vec: Uint8List.sublistView(f),
+        );
+        ok++;
+        completed++;
+      } on Object catch (e) {
+        // 单曲失败不阻断整轮：硬失败计数 +1（≥3 暂出池），vectorAt 不打
+        // ——进度条如实停在未处理，待重试。
+        onError?.call(t.title, e, ['向量']);
+        await _library.bumpEnrichAttempts(t.id);
+      }
+    }
+    return (ok, completed);
   }
 
   Future<void> _saveLyrics(int trackId, String lrc) async {

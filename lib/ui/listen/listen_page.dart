@@ -1,70 +1,23 @@
-/// 听法（负一屏）：随缘 / 喜欢电台 / 常听电台 / 最近添加 / 历史回放。
+/// 听法（负一屏）：磁贴 = 策略目录渲染（无种子策略逐行开播）。
+/// 电台清单在 listenStrategiesProvider——加策略零 UI 改动。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../state/listen_providers.dart';
-import '../../state/playback_controller.dart';
-import '../shared/search_action.dart';
+import '../actions/radio_starter.dart';import '../components/kit/search_action.dart';
 import '../shared/ui_kit.dart';
 
 class ListenPage extends ConsumerWidget {
   const ListenPage({super.key});
 
-  Future<void> _start(WidgetRef ref, BuildContext context,
-      Future<List<dynamic>> Function() fetch, bool shuffle, String label) async {
-    final tracks = (await fetch()).cast<dynamic>().toList();
-    if (!context.mounted) {
-      return;
-    }
-    if (tracks.isEmpty) {
-      showWpToast(context, title: label, message: '曲库为空——先去收集音乐');
-      return;
-    }
-    await ref.read(playbackProvider.notifier).playTracks(
-          tracks.cast(),
-          shuffle: shuffle,
-        );
-    if (context.mounted) {
-      showWpToast(context, title: '听法', message: label);
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = <(String, String, VoidCallback)>[
-      (
-        '随缘听歌',
-        '全曲库随机，闭眼开播',
-        () => _start(ref, context, () async => (await ref.read(listenLibraryProvider).all()), true,
-            '随缘听歌 · 全曲库随机'),
-      ),
-      (
-        '喜欢电台',
-        '从红心歌出发随机',
-        () => _start(ref, context, () => ref.read(listenLibraryProvider).favorites(), true,
-            '喜欢电台'),
-      ),
-      (
-        '常听电台',
-        '播放次数 Top12 单曲',
-        () => _start(ref, context, () => ref.read(listenLibraryProvider).top(), true,
-            '常听电台'),
-      ),
-      (
-        '最近添加',
-        '新入库先听',
-        () => _start(ref, context, () => ref.read(listenLibraryProvider).recent(), true,
-            '最近添加电台'),
-      ),
-      (
-        '历史回放',
-        '去重后的播放序列，不打乱',
-        () => _start(ref, context, () => ref.read(listenLibraryProvider).history(), false,
-            '历史回放'),
-      ),
-    ];
+    final tiles = ref
+        .watch(listenStrategiesProvider)
+        .where((s) => !s.requiresSeed)
+        .toList();
 
     return HubPage(
       header: const PageHeader(
@@ -74,11 +27,11 @@ class ListenPage extends ConsumerWidget {
         trailing: SearchAction(),
       ),
       children: [
-        for (var i = 0; i < items.length; i++)
+        for (final s in tiles)
           BigRow(
-            title: items[i].$1,
-            subtitle: items[i].$2,
-            onTap: items[i].$3,
+            title: s.label,
+            subtitle: s.subtitle,
+            onTap: () => startRadio(ref, context, s),
           ),
       ],
     );

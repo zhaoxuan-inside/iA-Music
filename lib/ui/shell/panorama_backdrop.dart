@@ -46,7 +46,7 @@ class PanoramaBackdrop extends StatelessWidget {
                       child: Text(
                         'iA MUSIC',
                         softWrap: false,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 148,
                           height: 1,
                           fontWeight: IaType.light,
@@ -71,7 +71,7 @@ class PanoramaBackdrop extends StatelessWidget {
                           child: Text(
                             titles[i],
                             softWrap: false,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 172,
                               height: 0.92,
                               fontWeight: IaType.light,

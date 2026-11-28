@@ -13,13 +13,13 @@ import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
+import '../actions/actions.dart';
+import '../components/kit/search_action.dart';
+import '../components/mapped/cover.dart';
+import '../motion/wp_motion.dart';
 import '../music/music_menu.dart';
 import '../settings/storage_page.dart';
-import '../shared/actions.dart';
-import '../shared/cover.dart';
-import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
-import '../shared/wp_motion.dart';
 
 /// 列表槽位定高（封面 48 + 上下 12 边距；组头 / 音乐页入口同槽）。
 const double _slotH = 72;
@@ -88,9 +88,9 @@ class _SongsPageState extends ConsumerState<SongsPage> {
           OutlinedButton(
             onPressed: () => Navigator.of(context)
                 .push(zuneRoute<void>(builder: (_) => const StorageSubPage())),
-            child: const Text(
+            child: Text(
               '去添加音乐目录',
-              style: TextStyle(fontSize: 13, color: IaColors.textHi),
+              style: TextStyle(fontSize: 14.5, color: IaColors.textHi),
             ),
           ),
         ],
@@ -146,7 +146,7 @@ class _SongsPageState extends ConsumerState<SongsPage> {
                         child: Text(
                           letter,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 13.5,
                             fontWeight: IaType.semibold,
                             letterSpacing: 1.2,
                             color: p.accent,

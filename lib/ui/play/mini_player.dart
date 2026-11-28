@@ -10,9 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../state/playback_controller.dart';
-import '../shared/cover.dart';
+import '../components/mapped/cover.dart';
+import '../motion/wp_motion.dart';
 import '../shared/ui_kit.dart';
-import '../shared/wp_motion.dart';
 
 class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({required this.onOpen, super.key});
@@ -51,7 +51,7 @@ class MiniPlayer extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.94),
-            border: const Border(
+            border: Border(
               top: BorderSide(color: IaColors.hairlineStrong),
             ),
           ),
@@ -98,8 +98,8 @@ class MiniPlayer extends ConsumerWidget {
                             // WP8 走马灯：长歌名匀速横滚
                             MarqueeText(
                               cur.title,
-                              style: const TextStyle(
-                                fontSize: 13.5,
+                              style: TextStyle(
+                                fontSize: 15,
                                 color: IaColors.textHi,
                               ),
                             ),
@@ -108,8 +108,8 @@ class MiniPlayer extends ConsumerWidget {
                               cur.artistDisplay,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
+                              style: TextStyle(
+                                fontSize: 12.5,
                                 color: IaColors.textLow,
                               ),
                             ),
@@ -127,7 +127,7 @@ class MiniPlayer extends ConsumerWidget {
                         color: IaColors.textHi,
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.keyboard_arrow_up,
                       size: 20,
                       color: IaColors.textLow,

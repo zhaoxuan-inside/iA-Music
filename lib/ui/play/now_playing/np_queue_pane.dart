@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/design_tokens.dart';
 import '../../../state/playback_controller.dart';
-import '../../shared/cover.dart';
-import '../../shared/hub_scaffold.dart';
+import '../../components/mapped/cover.dart';
+import '../../layout/hub_scaffold.dart';
 
 /// 队列屏（pivot 第 2 屏）。
 class NpQueuePane extends ConsumerWidget {
@@ -22,7 +22,7 @@ class NpQueuePane extends ConsumerWidget {
     final edge = edgeInsets(context);
 
     if (queue.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '队列为空',
           style: TextStyle(
@@ -43,14 +43,14 @@ class NpQueuePane extends ConsumerWidget {
           children: [
             Text(
               '队列 · ${queue.length} 首',
-              style: const TextStyle(fontSize: 12.5, color: IaColors.textMid),
+              style: TextStyle(fontSize: 14, color: IaColors.textMid),
             ),
             const Spacer(),
             TextButton(
               onPressed: () => ref.read(playbackProvider.notifier).clearQueue(),
-              child: const Text(
+              child: Text(
                 '清空',
-                style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
+                style: TextStyle(fontSize: 14, color: IaColors.textLow),
               ),
             ),
           ],
@@ -86,7 +86,7 @@ class NpQueuePane extends ConsumerWidget {
                   horizontal: IaSpacing.s,
                   vertical: 9,
                 ),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: IaColors.hairline)),
                 ),
                 child: Row(
@@ -97,7 +97,7 @@ class NpQueuePane extends ConsumerWidget {
                         active ? '♪' : '${i + 1}'.padLeft(2, '0'),
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12.5,
                           color: active ? p.accent : IaColors.textLow,
                         ),
                       ),
@@ -123,8 +123,8 @@ class NpQueuePane extends ConsumerWidget {
                             t.artistDisplay,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11,
+                            style: TextStyle(
+                              fontSize: 12.5,
                               color: IaColors.textLow,
                             ),
                           ),
@@ -133,7 +133,7 @@ class NpQueuePane extends ConsumerWidget {
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close,
                         size: 15,
                         color: IaColors.textLow,

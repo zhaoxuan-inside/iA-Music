@@ -76,9 +76,9 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                     children: [
                       TextButton(
                         onPressed: () => _finish(context),
-                        child: const Text('跳过',
+                        child: Text('跳过',
                             style: TextStyle(
-                                fontSize: 13, color: IaColors.textLow)),
+                                fontSize: 14.5, color: IaColors.textLow)),
                       ),
                       FilledButton(
                         onPressed: () {
@@ -89,7 +89,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                           }
                         },
                         child: Text(_step == 0 ? '下一步' : '完成',
-                            style: const TextStyle(fontSize: 14)),
+                            style: const TextStyle(fontSize: 15.5)),
                       ),
                     ],
                   ),
@@ -115,8 +115,8 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 fontWeight: IaType.light,
                 color: IaColors.textHi)),
         const SizedBox(height: IaSpacing.m),
-        const Text('WP 的老仪式：颜色是这台机器的性格',
-            style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+        Text('WP 的老仪式：颜色是这台机器的性格',
+            style: TextStyle(fontSize: 14, color: IaColors.textLow)),
         const SizedBox(height: IaSpacing.xl),
         Wrap(
           spacing: 16,
@@ -139,15 +139,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   ),
                   alignment: Alignment.center,
                   child: st.accent.toARGB32() == w.value.toARGB32()
-                      ? const Icon(Icons.check, size: 20, color: IaColors.onAccent)
+                      ? Icon(Icons.check, size: 20, color: IaColors.onAccent)
                       : null,
                 ),
               ),
           ],
         ),
         const SizedBox(height: IaSpacing.l),
-        const Text('点一下，全 App 立即变色',
-            style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+        Text('点一下，全 App 立即变色',
+            style: TextStyle(fontSize: 14, color: IaColors.textLow)),
       ],
     );
   }
@@ -166,14 +166,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 fontWeight: IaType.light,
                 color: IaColors.textHi)),
         const SizedBox(height: IaSpacing.m),
-        const Text('选择音乐所在目录；之后可随时在 设置 · 存储 更改',
-            style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+        Text('选择音乐所在目录；之后可随时在 设置 · 存储 更改',
+            style: TextStyle(fontSize: 14, color: IaColors.textLow)),
         const SizedBox(height: IaSpacing.xl),
         for (final r in roots)
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: IaSpacing.m, vertical: IaSpacing.l),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
                 border: Border(bottom: BorderSide(color: IaColors.hairline))),
             child: Row(
               children: [
@@ -181,17 +181,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   child: Text(r.path,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: IaType.list, color: IaColors.textHi)),
                 ),
-                const Text('✓ 已添加',
-                    style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+                Text('✓ 已添加',
+                    style: TextStyle(fontSize: 13.5, color: IaColors.textLow)),
               ],
             ),
           ),
         if (roots.isEmpty)
-          const Text('尚未选择目录——添加后立即扫描入库',
-              style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+          Text('尚未选择目录——添加后立即扫描入库',
+              style: TextStyle(fontSize: 13.5, color: IaColors.textLow)),
         const SizedBox(height: IaSpacing.l),
         Wrap(
           spacing: IaSpacing.m,
@@ -203,20 +203,20 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   onPressed:
                       scan.scanning ? null : () => _addRoot(preset),
                   child: Text(preset.split('/').last,
-                      style: const TextStyle(
-                          fontSize: 13, color: IaColors.textHi)),
+                      style: TextStyle(
+                          fontSize: 14.5, color: IaColors.textHi)),
                 ),
             OutlinedButton(
               onPressed: scan.scanning ? null : _pickDirectory,
-              child: const Text('手动选择目录…',
-                  style: TextStyle(fontSize: 13, color: IaColors.textHi)),
+              child: Text('手动选择目录…',
+                  style: TextStyle(fontSize: 14.5, color: IaColors.textHi)),
             ),
           ],
         ),
         if (scan.scanning) ...[
           const SizedBox(height: IaSpacing.l),
           Text(scan.total > 0 ? '扫描中 ${scan.done}/${scan.total}' : '扫描中…',
-              style: const TextStyle(fontSize: 12, color: IaColors.textMid)),
+              style: TextStyle(fontSize: 13.5, color: IaColors.textMid)),
           const SizedBox(height: IaSpacing.s),
           Stack(
             children: [

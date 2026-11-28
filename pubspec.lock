@@ -17,6 +17,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "14.7.0"
+  android_file_picker:
+    dependency: transitive
+    description:
+      name: android_file_picker
+      sha256: b8462091dcdd075511a842272374be2232e917ee2a51ecdba4aca02bff529482
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.2.1"
   archive:
     dependency: transitive
     description:
@@ -248,6 +256,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "3.1.14"
+  dbus:
+    dependency: transitive
+    description:
+      name: dbus
+      sha256: fe6b46eae35441227e9e750656d06a4f40c230fe96e4390da7d7ebc69a60f0b3
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.8.1"
   drift:
     dependency: "direct main"
     description:
@@ -304,6 +320,46 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.0.1"
+  file_picker:
+    dependency: "direct main"
+    description:
+      name: file_picker
+      sha256: "5b99250437a4d34ee2cdc0686924452103540eaa1c248094b63f07f9d7216f6c"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "13.4.1"
+  file_picker_darwin:
+    dependency: transitive
+    description:
+      name: file_picker_darwin
+      sha256: "34e3344225bccfa1d45a8af025da58702f13efecad67b763dc0eb2691f388afb"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.5.2"
+  file_picker_linux:
+    dependency: transitive
+    description:
+      name: file_picker_linux
+      sha256: cf3889644e8e54551f5c3a4f98b6b6ef5f0ef85c07d2a0c1a969538983be2f9b
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.5"
+  file_picker_platform_interface:
+    dependency: transitive
+    description:
+      name: file_picker_platform_interface
+      sha256: a2ef71c4628f92a4471d424576e3bf7042b40a2683c9f9a0e3033a7fc7f7763c
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.3.0"
+  file_picker_web:
+    dependency: transitive
+    description:
+      name: file_picker_web
+      sha256: "97f7085e3c4f5724595bbd94e8f380f7a690e9066140a5fb711e97ac45a02008"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.2.2"
   file_selector_linux:
     dependency: transitive
     description:
@@ -859,6 +915,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.2.4"
+  petitparser:
+    dependency: transitive
+    description:
+      name: petitparser
+      sha256: "2f1564aadb14215e478563b5406cb80729d022158c01dc50c96013c2f7eb4790"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "7.1.0"
   pinyin:
     dependency: "direct main"
     description:
@@ -1240,6 +1304,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "6.4.0"
+  windows_file_picker:
+    dependency: transitive
+    description:
+      name: windows_file_picker
+      sha256: cd1be37ada0abcfaa55bddb7410e8515844e35cd77669c35d9a28a15722299d8
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "2.0.2"
   xdg_directories:
     dependency: transitive
     description:
@@ -1248,6 +1320,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.1.0"
+  xml:
+    dependency: transitive
+    description:
+      name: xml
+      sha256: "0fe8cc98946def31cbcbc8734aa4067031e6f65ea3a78a508060bfed2200bfeb"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "7.1.0"
   yaml:
     dependency: transitive
     description:

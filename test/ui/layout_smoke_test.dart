@@ -10,19 +10,16 @@ import 'package:ia_music/app/theme/app_theme.dart';
 import 'package:ia_music/app/theme/design_tokens.dart';
 import 'package:ia_music/domain/entities/playback.dart';
 import 'package:ia_music/domain/entities/playlist.dart';
-import 'package:ia_music/domain/entities/quickplay.dart';
 import 'package:ia_music/domain/entities/track.dart';
 import 'package:ia_music/state/library_providers.dart';
 import 'package:ia_music/state/listen_providers.dart';
 import 'package:ia_music/state/media_providers.dart';
 import 'package:ia_music/state/playback_controller.dart';
 import 'package:ia_music/state/playlist_providers.dart';
-import 'package:ia_music/state/quickplay_providers.dart';
 import 'package:ia_music/ui/detail/detail_page.dart';
 import 'package:ia_music/ui/library/songs_page.dart';
 import 'package:ia_music/ui/play/now_playing/now_playing_page.dart';
 import 'package:ia_music/ui/playing/playing_page.dart';
-import 'package:ia_music/ui/quickplay/quickplay_page.dart';
 import 'package:ia_music/ui/search/search_page.dart';
 import 'package:ia_music/ui/shared/ui_kit.dart';
 
@@ -85,15 +82,6 @@ Track _trackOf({required int id, required String title}) => Track(
       addedAt: DateTime(2024, 1, 1),
     );
 
-class _FakeQuickplay extends QuickplayController {
-  _FakeQuickplay(this.initial);
-
-  final QuickplayState initial;
-
-  @override
-  QuickplayState build() => initial;
-}
-
 PlaybackSnapshot _snapshot({Track? current}) => PlaybackSnapshot(
       queue: current == null ? const <Track>[] : [current],
       index: current == null ? -1 : 0,
@@ -119,7 +107,7 @@ Widget _app(Widget child, PlaybackSnapshot snap) {
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: buildIaTheme(accent: kDefaultAccent),
+      theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
       home: Scaffold(body: child),
     ),
   );
@@ -170,7 +158,7 @@ void main() {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
+        theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
         home: const Scaffold(body: SongsPage()),
       ),
     ));
@@ -200,7 +188,7 @@ void main() {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
+        theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
         home: const Scaffold(body: SongsPage()),
       ),
     ));
@@ -234,7 +222,7 @@ void main() {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
+        theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
         home: const Scaffold(body: SongsPage()),
       ),
     ));
@@ -285,8 +273,6 @@ void main() {
             .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
         coverProvider.overrideWith((ref, key) async => null),
         favoritesSetProvider.overrideWith((ref) => Stream.value(const <int>{})),
-        quickplayProvider.overrideWith(
-            () => _FakeQuickplay(const QuickplayState(loaded: true))),
         albumFirstTrackProvider.overrideWith((ref, key) async => _track),
         albumsProvider.overrideWith((ref) => Stream.value([
               const AlbumGroup(
@@ -301,129 +287,8 @@ void main() {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
+        theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
         home: const DetailPage(type: DetailType.album, id: '十一月的萧邦'),
-      ),
-    ));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('QuickplayPage · 固定磁贴', (tester) async {
-    await phone(tester);
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        playbackProvider
-            .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
-        coverProvider.overrideWith((ref, key) async => null),
-        recentAddedAlbumsProvider.overrideWith((ref) => Stream.value([
-              const AlbumGroup(
-                album: '十一月的萧邦',
-                artist: '周杰伦',
-                trackCount: 1,
-                totalDurationMs: 226000,
-              ),
-            ])),
-        albumFirstTrackProvider.overrideWith((ref, key) async => _track),
-        artistFirstTrackProvider.overrideWith((ref, key) async => null),
-        playlistFirstTrackProvider.overrideWith((ref, id) async => null),
-        albumTracksProvider
-            .overrideWith((ref, key) => Stream.value([_track])),
-        playlistTracksProvider
-            .overrideWith((ref, id) => Stream.value(const <Track>[])),
-        quickplayProvider.overrideWith(
-            () => _FakeQuickplay(const QuickplayState(loaded: true, pins: [
-                  QuickplayPin(
-                    kind: QuickplayKind.album,
-                    key: '十一月的萧邦',
-                    title: '十一月的萧邦',
-                    subtitle: '周杰伦',
-                  ),
-                  QuickplayPin(
-                    kind: QuickplayKind.playlist,
-                    key: '1',
-                    title: '夜曲',
-                    subtitle: '1 首',
-                  ),
-                ]))),
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
-        home: const Scaffold(body: QuickplayPage()),
-      ),
-    ));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('QuickplayPage · 空态', (tester) async {
-    await phone(tester);
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        playbackProvider.overrideWith(
-            () => _FakePlayback(_snapshot())),
-        coverProvider.overrideWith((ref, key) async => null),
-        recentAddedAlbumsProvider
-            .overrideWith((ref) => Stream.value(const <AlbumGroup>[])),
-        quickplayProvider.overrideWith(
-            () => _FakeQuickplay(const QuickplayState(loaded: true))),
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
-        home: const Scaffold(body: QuickplayPage()),
-      ),
-    ));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('QuickplayPage · 小屏 320×568', (tester) async {
-    tester.view.physicalSize = const Size(320, 568);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        playbackProvider
-            .overrideWith(() => _FakePlayback(_snapshot(current: _track))),
-        coverProvider.overrideWith((ref, key) async => null),
-        recentAddedAlbumsProvider
-            .overrideWith((ref) => Stream.value(const <AlbumGroup>[])),
-        albumFirstTrackProvider.overrideWith((ref, key) async => _track),
-        artistFirstTrackProvider.overrideWith((ref, key) async => _track),
-        playlistFirstTrackProvider.overrideWith((ref, id) async => null),
-        albumTracksProvider
-            .overrideWith((ref, key) => Stream.value([_track])),
-        artistTracksProvider
-            .overrideWith((ref, key) => Stream.value([_track])),
-        quickplayProvider.overrideWith(
-            () => _FakeQuickplay(const QuickplayState(loaded: true, pins: [
-                  QuickplayPin(
-                    kind: QuickplayKind.album,
-                    key: '十一月的萧邦',
-                    title: '十一月的萧邦',
-                    subtitle: '周杰伦',
-                  ),
-                  QuickplayPin(
-                    kind: QuickplayKind.artist,
-                    key: '周杰伦',
-                    title: '周杰伦',
-                    subtitle: '全部专辑',
-                  ),
-                  QuickplayPin(
-                    kind: QuickplayKind.album,
-                    key: '叶惠美',
-                    title: '叶惠美',
-                    subtitle: '周杰伦',
-                  ),
-                ]))),
-      ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
-        home: const Scaffold(body: QuickplayPage()),
       ),
     ));
     await tester.pump();
@@ -433,7 +298,7 @@ void main() {
   testWidgets('showWpToast · 显示与自动收回', (tester) async {
     await tester.pumpWidget(MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: buildIaTheme(accent: kDefaultAccent),
+      theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
       home: const Scaffold(body: _ToastHost()),
     ));
     await tester.tap(find.text('toast'));
@@ -462,7 +327,7 @@ void main() {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: buildIaTheme(accent: kDefaultAccent),
+        theme: buildIaTheme(accent: kDefaultAccent, brightness: IaBrightness.dark),
         home: const MusicSearchPage(),
       ),
     ));

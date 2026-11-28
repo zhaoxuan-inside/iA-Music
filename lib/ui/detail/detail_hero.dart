@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/design_tokens.dart';
 import '../../domain/entities/track.dart';
-import '../shared/ambient.dart';
+import '../components/mapped/ambient.dart';
 
 /// 详情页头部（专辑/艺人/歌单/流派四型同壳）。
 class DetailHero extends StatelessWidget {
@@ -67,7 +67,7 @@ class DetailHero extends StatelessWidget {
               Text(
                 typeLabel.toUpperCase(),
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 11.5,
                   fontWeight: IaType.semibold,
                   letterSpacing: IaType.kickerTracking,
                   color: p.accent,
@@ -78,8 +78,8 @@ class DetailHero extends StatelessWidget {
                 title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 32,
+                style: TextStyle(
+                  fontSize: 34,
                   height: 1.1,
                   fontWeight: IaType.light,
                   letterSpacing: IaType.titleTracking,
@@ -91,8 +91,8 @@ class DetailHero extends StatelessWidget {
                 subtitle,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12.5,
+                style: TextStyle(
+                  fontSize: 14,
                   height: 1.4,
                   color: IaColors.textMid,
                 ),
@@ -102,7 +102,7 @@ class DetailHero extends StatelessWidget {
                 Text(
                   '$trackCount 首 · $total',
                   style:
-                      const TextStyle(fontSize: 11, color: IaColors.textLow),
+                      TextStyle(fontSize: 12.5, color: IaColors.textLow),
                 ),
               ],
             ],

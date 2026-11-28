@@ -16,11 +16,12 @@ import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
+import '../actions/actions.dart';
+import '../collect/link_extract_page.dart';
+import '../components/mapped/cover.dart';
 import '../detail/detail_page.dart';
-import '../settings/link_extract_page.dart';
-import '../settings/plugins_page.dart';
-import '../shared/actions.dart';
-import '../shared/cover.dart';
+
+import '../plugins/plugins_page.dart';
 import '../shared/ui_kit.dart';
 
 /// 在线搜索结果（跨插件统一形状）。
@@ -126,18 +127,18 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                         }
                       },
                       style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 26,
                           fontWeight: IaType.light,
                           letterSpacing: IaType.titleTracking,
                           color: IaColors.textHi),
                       decoration: InputDecoration(
                         hintText: '歌曲 / 艺人 / 专辑 / 歌单',
-                        hintStyle: const TextStyle(
-                            fontSize: 24,
+                        hintStyle: TextStyle(
+                            fontSize: 26,
                             fontWeight: IaType.light,
                             letterSpacing: IaType.titleTracking,
                             color: IaColors.textLow),
-                        enabledBorder: const UnderlineInputBorder(
+                        enabledBorder: UnderlineInputBorder(
                             borderSide:
                                 BorderSide(color: IaColors.hairlineStrong)),
                         focusedBorder: UnderlineInputBorder(
@@ -174,11 +175,11 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                   InkWell(
                     onTap: () => Navigator.of(context).push(zuneRoute<void>(
                         builder: (_) => const LinkExtractPage())),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 6),
                       child: Text('从链接提取 ›',
                           style:
-                              TextStyle(fontSize: 11, color: IaColors.textLow)),
+                              TextStyle(fontSize: 12.5, color: IaColors.textLow)),
                     ),
                   ),
                 ],
@@ -252,11 +253,11 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
                             ),
                         ],
                         if (localEmpty)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(top: IaSpacing.m),
                             child: Text('本地曲库没有匹配的结果',
                                 style: TextStyle(
-                                    fontSize: 12.5, color: IaColors.textLow)),
+                                    fontSize: 14, color: IaColors.textLow)),
                           ),
                       ],
                     ),
@@ -275,7 +276,7 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
         meta: _onlineLoading ? '搜索中…' : '已登录的音频源插件',
         trailing: IconButton(
           visualDensity: VisualDensity.compact,
-          icon: const Icon(Icons.refresh, size: 17, color: IaColors.textLow),
+          icon: Icon(Icons.refresh, size: 17, color: IaColors.textLow),
           onPressed: _onlineLoading ? null : _searchOnline,
         ),
       ),
@@ -287,12 +288,12 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       if (_onlineError != null) ...[
         const SizedBox(height: IaSpacing.s),
         Text(_onlineError!,
-            style: const TextStyle(fontSize: 12, color: IaColors.error)),
+            style: TextStyle(fontSize: 13.5, color: IaColors.error)),
         TextButton(
           onPressed: () => Navigator.of(context).push(
               zuneRoute<void>(builder: (_) => const PluginsPage())),
-          child: const Text('去「插件」管理音频源',
-              style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+          child: Text('去「插件」管理音频源',
+              style: TextStyle(fontSize: 13.5, color: IaColors.textLow)),
         ),
       ],
       for (final r in _onlineResults)
@@ -300,10 +301,10 @@ class _MusicSearchPageState extends ConsumerState<MusicSearchPage> {
       if (!_onlineLoading &&
           _onlineError == null &&
           _onlineResults.isEmpty)
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(top: IaSpacing.s),
           child: Text('在线来源没有结果',
-              style: TextStyle(fontSize: 12.5, color: IaColors.textLow)),
+              style: TextStyle(fontSize: 14, color: IaColors.textLow)),
         ),
       const SizedBox(height: IaSpacing.xl),
     ];
@@ -439,10 +440,10 @@ class _TextRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(
               horizontal: IaSpacing.m, vertical: IaSpacing.m),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: IaColors.hairline))),
           child: Text(text,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: IaType.list, color: IaColors.textHi)),
         ),
       ),
@@ -470,7 +471,7 @@ class _OnlineRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(
               horizontal: IaSpacing.m, vertical: IaSpacing.m),
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: IaColors.hairline))),
           child: Row(
             children: [
@@ -481,14 +482,14 @@ class _OnlineRow extends StatelessWidget {
                     Text(title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: IaType.list, color: IaColors.textHi)),
                     const SizedBox(height: IaSpacing.xs),
                     Text('$source · $author · ${formatDuration(dur * 1000)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12, color: IaColors.textLow)),
+                        style: TextStyle(
+                            fontSize: 13.5, color: IaColors.textLow)),
                   ],
                 ),
               ),

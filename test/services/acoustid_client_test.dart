@@ -49,7 +49,7 @@ void main() {
     expect(lastBody, contains('duration=253'));
     expect(lastBody, contains('fingerprint=FPBASE64'));
     expect(lastBody,
-        contains('meta=${Uri.encodeQueryComponent('recordings sources')}'));
+        contains('meta=${Uri.encodeQueryComponent('recordings releases sources')}'));
     expect(match!.title, '爱如潮水');
     expect(match.artist, '张信哲');
   });

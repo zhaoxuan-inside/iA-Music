@@ -18,6 +18,10 @@ class ScanState {
     this.done = 0,
     this.total = 0,
     this.lastSummary = '',
+    this.lastIns = 0,
+    this.lastUpd = 0,
+    this.lastMiss = 0,
+    this.lastRev = 0,
     this.lastError,
   });
 
@@ -25,6 +29,12 @@ class ScanState {
   final int done;
   final int total;
   final String lastSummary;
+
+  /// 上次扫描的结构化计数（曲库统计环形图数据面）。
+  final int lastIns;
+  final int lastUpd;
+  final int lastMiss;
+  final int lastRev;
 
   /// 最近一次扫描失败的真实原因（成功时置 null）。
   final String? lastError;
@@ -34,6 +44,10 @@ class ScanState {
     int? done,
     int? total,
     String? lastSummary,
+    int? lastIns,
+    int? lastUpd,
+    int? lastMiss,
+    int? lastRev,
     Object? lastError = _unset,
   }) =>
       ScanState(
@@ -41,6 +55,10 @@ class ScanState {
         done: done ?? this.done,
         total: total ?? this.total,
         lastSummary: lastSummary ?? this.lastSummary,
+        lastIns: lastIns ?? this.lastIns,
+        lastUpd: lastUpd ?? this.lastUpd,
+        lastMiss: lastMiss ?? this.lastMiss,
+        lastRev: lastRev ?? this.lastRev,
         lastError: lastError == _unset ? this.lastError : lastError as String?,
       );
 }
@@ -150,6 +168,10 @@ class ScanController extends Notifier<ScanState> {
         scanning: false,
         lastSummary: 'ins=${summary.inserted} upd=${summary.updated} '
             'miss=${summary.missing} rev=${summary.revived}',
+        lastIns: summary.inserted,
+        lastUpd: summary.updated,
+        lastMiss: summary.missing,
+        lastRev: summary.revived,
         lastError: null,
       );
       // 轮次汇总进日志（损坏件另有明细条目）
@@ -163,7 +185,7 @@ class ScanController extends Notifier<ScanState> {
             .read(diagnosticsProvider.notifier)
             .record('扫描 · 损坏文件', summary.failedSamples.join('\n')));
       }
-      // 扫完即补全：元数据缺失件自动入补全队列（补全进度见收集页）
+      // 扫完即补全：元数据缺失件自动入补全队列（进度见歌曲处理页）
       unawaited(ref.read(enrichProvider.notifier).runOnce());
     } on Object catch (e, st) {
       // 不吞：真实原因入状态 + 诊断持久化（常驻「存储」页可读）
@@ -192,6 +214,10 @@ class ScanController extends Notifier<ScanState> {
         scanning: false,
         lastSummary: 'ins=${summary.inserted} upd=${summary.updated} '
             'miss=${summary.missing} rev=${summary.revived}',
+        lastIns: summary.inserted,
+        lastUpd: summary.updated,
+        lastMiss: summary.missing,
+        lastRev: summary.revived,
         lastError: null,
       );
       // 轮次汇总进日志（损坏件另有明细条目）

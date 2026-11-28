@@ -4,6 +4,7 @@
 /// 1. DB meta 有 lrcPath（sidecar/pasted）→ 读文件
 /// 2. 内嵌歌词（audio USLT/LYRICS）
 /// 3. 在线（LRCLIB）→ 写 sidecar（尽力）→ meta kind=online
+/// 纯文本歌词（无时间轴）逐行 tMs=0 成形，不当解析失败丢弃。
 /// 偏移只存 DB（渲染期生效），不改写歌词文件。
 library;
 
@@ -40,13 +41,15 @@ class LyricsPipeline {
     final offsetMs = meta?.offsetMs ?? 0;
 
     // 1. DB 指向的 lrc 文件（sidecar / pasted / 既往 online）——异步 IO，
-    // 不阻塞 UI isolate（每次开歌都会走到这里）。
+    // 不阻塞 UI isolate（每次开歌都会走到这里）。纯文本（无时间轴）也逐行
+    // 成形，不再当解析失败跳过——否则在线纯文本词每次播放都白拉一轮网
+    // 还永远显示无词。
     final lrcPath = meta?.lrcPath;
     if (lrcPath != null && lrcPath.isNotEmpty) {
       final f = File(lrcPath);
       if (await f.exists()) {
         try {
-          final doc = parseLrc(await f.readAsString(), kind: _kindOf(meta!.kind));
+          final doc = parseLrcOrPlain(await f.readAsString(), kind: _kindOf(meta!.kind));
           if (doc.lines.isNotEmpty) {
             return LyricsResult(doc: doc, offsetMs: offsetMs);
           }
@@ -59,16 +62,7 @@ class LyricsPipeline {
     // 2. 内嵌
     final embedded = await _metadata.readEmbeddedLyrics(track.path);
     if (embedded != null && embedded.trim().isNotEmpty) {
-      final doc = parseLrc(embedded, kind: LyricSourceKind.embedded);
-      final use = doc.lines.isNotEmpty
-          ? doc
-          : LyricDoc(
-              lines: [
-                for (final line in embedded.split(RegExp(r'\r?\n')))
-                  if (line.trim().isNotEmpty) LyricLine(tMs: 0, text: line.trim()),
-              ],
-              sourceKind: LyricSourceKind.embedded,
-            );
+      final use = parseLrcOrPlain(embedded, kind: LyricSourceKind.embedded);
       await _remember(track.id, kind: 'embedded', lrcPath: null, edited: meta?.edited ?? false, offsetMs: offsetMs);
       return LyricsResult(doc: use, offsetMs: offsetMs);
     }
@@ -87,7 +81,7 @@ class LyricsPipeline {
         if (text.trim().isNotEmpty) {
           final path = await _writeSidecar(track, text);
           await _remember(track.id, kind: 'online', lrcPath: path, edited: false, offsetMs: offsetMs);
-          return LyricsResult(doc: parseLrc(text, kind: LyricSourceKind.online), offsetMs: offsetMs);
+          return LyricsResult(doc: parseLrcOrPlain(text, kind: LyricSourceKind.online), offsetMs: offsetMs);
         }
       } on NetworkError {
         // 离线：不记账，下次再试

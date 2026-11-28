@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/design_tokens.dart';
 import '../../../state/media_providers.dart';
 import '../../../state/playback_controller.dart';
-import '../../shared/hub_scaffold.dart';
+import '../../layout/hub_scaffold.dart';
 
 /// 歌词屏（pivot 第 1 屏）。
 class NpLyricsPane extends ConsumerStatefulWidget {
@@ -56,9 +56,9 @@ class _NpLyricsPaneState extends ConsumerState<NpLyricsPane> {
                 ),
               ),
               const SizedBox(height: IaSpacing.m),
-              const Text(
+              Text(
                 '这首歌还没有歌词 —— 之后可在设置中补全',
-                style: TextStyle(fontSize: 12, color: IaColors.textLow),
+                style: TextStyle(fontSize: 13.5, color: IaColors.textLow),
               ),
             ],
           ),

@@ -175,7 +175,15 @@ async function lyrics(id)        // → { synced?, plain? } | null
 
 ## 8. 参考实现
 
-`plugins/` 目录存放参考插件（也是桥协议的活文档）：
+`plugins/` 目录存放随包插件（也是桥协议的活文档）：
 - `demo-source.plugin.js` —— 最小 `source` 插件：fetch 桥 + kv 沙箱 + crypto 签名演示。
+- `bilibili.plugin.js` / `youtube.plugin.js` —— B 站（扫码登录 · wbi 签名 · DASH）与
+  YouTube（InnerTube · Cookie 导入）。
+- 开放音频源六件套：`jamendo.plugin.js`（CC 音乐，client_id 登录）、
+  `internetarchive.plugin.js`（公有领域条目整取）、`audius.plugin.js`（去中心化平台）、
+  `librivox.plugin.js`（公有领域有声书）、`podcast.plugin.js`（RSS 订阅）、
+  `subsonic.plugin.js`（自托管曲库，凭据登录）。认证口径三形态齐活：
+  none（IA/Audius/LibriVox/播客）、cookie 复用为凭据粘贴（Jamendo client_id、
+  Subsonic 三行凭据，校验规则由插件 authImport 定义）、歌词统一回落 lrclib。
 
 新能力落地时的最小验收 = 该能力契约条目的入口函数能被宿主按 §3 统一约定调用成功。

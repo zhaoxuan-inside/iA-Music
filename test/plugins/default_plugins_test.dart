@@ -41,7 +41,7 @@ void main() {
     expect(changed, isEmpty);
     final after = await registry.byId('app.iamusic.bilibili');
     expect(after!.installedAt, before!.installedAt);
-    expect((await registry.list()), hasLength(2));
+    expect((await registry.list()), hasLength(defaultPluginAssets.length));
   });
 
   test('版本升级：随包版本更高则覆盖，启用态保留', () async {

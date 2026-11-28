@@ -16,6 +16,12 @@ import 'plugin_registry.dart';
 const List<String> defaultPluginAssets = [
   'plugins/bilibili.plugin.js',
   'plugins/youtube.plugin.js',
+  'plugins/jamendo.plugin.js',
+  'plugins/internetarchive.plugin.js',
+  'plugins/audius.plugin.js',
+  'plugins/librivox.plugin.js',
+  'plugins/podcast.plugin.js',
+  'plugins/subsonic.plugin.js',
 ];
 
 /// 设置键：用户卸载过的默认插件 id（JSON 数组）。

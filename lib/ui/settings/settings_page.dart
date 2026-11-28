@@ -8,10 +8,9 @@ import '../../app/theme/design_tokens.dart';
 import '../../state/collect_providers.dart';
 import '../../state/library_providers.dart';
 import '../../state/settings_controller.dart';
+import '../routing/app_routes.dart' show openPlugins, openProcess;
 import '../shared/ui_kit.dart';
 import 'about_page.dart';
-import 'extract_page.dart';
-import 'plugins_page.dart';
 import 'storage_page.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -35,6 +34,11 @@ class SettingsPage extends ConsumerWidget {
       ),
       children: [
         BigRow(
+          title: '外观',
+          subtitle: _appearanceName(st.appearance),
+          onTap: () => _appearanceMenu(context, ref),
+        ),
+        BigRow(
           title: '主题色',
           subtitle: '当前：${accentName ?? '自定义'}',
           onTap: () => Navigator.of(context).push(zuneRoute<void>(
@@ -47,26 +51,46 @@ class SettingsPage extends ConsumerWidget {
               zuneRoute<void>(builder: (_) => const StorageSubPage())),
         ),
         BigRow(
-          title: '提取与补全进度',
+          title: '歌曲处理',
           subtitle: taskCount > 0 ? '$taskCount 项任务' : '后台自动运行',
-          onTap: () => Navigator.of(context).push(
-              zuneRoute<void>(builder: (_) => const ExtractPage())),
+          onTap: () => openProcess(context),
         ),
         BigRow(
           title: '插件',
           subtitle: '市场 · 本地导入 · 外部平台能力',
-          onTap: () => Navigator.of(context).push(
-              zuneRoute<void>(builder: (_) => const PluginsPage())),
+          onTap: () => openPlugins(context),
         ),
         BigRow(
           title: '关于',
-          subtitle: '语言 · 开箱仪式',
+          subtitle: '语言 · 版本 · 日志',
           onTap: () => Navigator.of(context).push(
               zuneRoute<void>(builder: (_) => const AboutSubPage())),
         ),
         const SizedBox(height: IaSpacing.xl),
       ],
     );
+  }
+
+  static String _appearanceName(String mode) => switch (mode) {
+        AppearanceMode.light => '白天',
+        AppearanceMode.dark => '黑夜',
+        _ => '跟随系统',
+      };
+
+  /// 外观选择（WP 菜单）：跟随系统 / 白天 / 黑夜。
+  void _appearanceMenu(BuildContext context, WidgetRef ref) {
+    final cur = ref.read(settingsProvider).appearance;
+    showWpMenu(context, title: '外观', items: [
+      for (final (mode, name) in const [
+        (AppearanceMode.system, '跟随系统'),
+        (AppearanceMode.light, '白天'),
+        (AppearanceMode.dark, '黑夜'),
+      ])
+        (
+          mode == cur ? '✓ $name' : name,
+          () => ref.read(settingsProvider.notifier).setAppearance(mode),
+        ),
+    ]);
   }
 }
 
@@ -89,20 +113,9 @@ class ThemeSubPage extends ConsumerWidget {
         child: ListView(
           padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
           children: [
-            Row(
-              children: [
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 16),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: IaSpacing.s),
             const PageHeader(
               kicker: '个性化',
               title: '主题色',
-              subtitle: 'WP 经典色板 · 点一下，全 App 立即变色',
             ),
             const SizedBox(height: IaSpacing.xl),
             Wrap(
@@ -126,7 +139,7 @@ class ThemeSubPage extends ConsumerWidget {
                       ),
                       alignment: Alignment.center,
                       child: st.accent.toARGB32() == w.value.toARGB32()
-                          ? const Icon(Icons.check,
+                          ? Icon(Icons.check,
                               size: 20, color: IaColors.onAccent)
                           : null,
                     ),
@@ -160,17 +173,14 @@ class ThemeSubPage extends ConsumerWidget {
                     ),
                     alignment: Alignment.center,
                     child: accentName == null
-                        ? const Icon(Icons.check,
+                        ? Icon(Icons.check,
                             size: 20, color: IaColors.onAccent)
-                        : const Icon(Icons.colorize,
+                        : Icon(Icons.colorize,
                             size: 18, color: IaColors.onAccent),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: IaSpacing.xl),
-            Text('当前：${accentName ?? '自定义'}',
-                style: const TextStyle(fontSize: 12.5, color: IaColors.textLow)),
           ],
         ),
       ),
@@ -358,7 +368,7 @@ class _AccentPickerPageState extends ConsumerState<AccentPickerPage> {
                 const SizedBox(width: IaSpacing.m),
                 Text(
                   '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}',
-                  style: const TextStyle(fontSize: 12.5, color: IaColors.textMid),
+                  style: TextStyle(fontSize: 14, color: IaColors.textMid),
                 ),
               ],
             ),

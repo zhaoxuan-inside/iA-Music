@@ -8,15 +8,19 @@ import 'package:drift_flutter/drift_flutter.dart';
 import 'daos/collect_dao.dart';
 import 'daos/history_dao.dart';
 import 'daos/library_dao.dart';
+import 'daos/model_dao.dart';
 import 'daos/playlist_dao.dart';
 import 'daos/settings_dao.dart';
+import 'daos/vector_dao.dart';
 import 'tables.dart';
 
 export 'daos/collect_dao.dart';
 export 'daos/history_dao.dart';
 export 'daos/library_dao.dart';
+export 'daos/model_dao.dart';
 export 'daos/playlist_dao.dart';
 export 'daos/settings_dao.dart';
+export 'daos/vector_dao.dart';
 
 part 'database.g.dart';
 
@@ -34,10 +38,21 @@ const String kFtsDdl =
     PlaylistTracks,
     PlayHistory,
     LyricsMeta,
+    TrackVectors,
+    ModelFiles,
     Settings,
     CollectTasks,
   ],
-  daos: [LibraryDao, PlaylistDao, HistoryDao, CollectDao, LyricsDao, SettingsDao],
+  daos: [
+    LibraryDao,
+    PlaylistDao,
+    HistoryDao,
+    CollectDao,
+    LyricsDao,
+    SettingsDao,
+    VectorDao,
+    ModelDao,
+  ],
 )
 class IaDatabase extends _$IaDatabase {
   IaDatabase(super.e);
@@ -46,7 +61,7 @@ class IaDatabase extends _$IaDatabase {
   IaDatabase.connect(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -103,6 +118,25 @@ class IaDatabase extends _$IaDatabase {
             await m.createAll();
             await ensureCol('collect_tasks', 'error_text', 'error_text TEXT');
           }
+          if (from < 8) {
+            // v8：音频嵌入向量分表（track_vectors，1:1 冷数据）——新表无
+            // 加列风险，createAll 幂等建表即完成迁移（v7 同款模式）。
+            await m.createAll();
+          }
+          if (from < 9) {
+            // v9：模型文件登记表（model_files）——推理模型改为在线下载、
+            // data 层统一管理后的记账面。新表幂等建表即完成迁移。
+            await m.createAll();
+          }
+          if (from < 10) {
+            // v10：补全阶段时刻扩容（专辑/音轨）——AcoustID releases
+            // 提供来源后，两字段进结论性记账与进度条。幂等加列（v6 模式：
+            // 先 PRAGMA 查存在性，蛇形列名）。
+            await ensureCol('tracks', 'album_matched_at',
+                'album_matched_at INTEGER');
+            await ensureCol('tracks', 'track_matched_at',
+                'track_matched_at INTEGER');
+          }
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
@@ -133,6 +167,10 @@ class IaDatabase extends _$IaDatabase {
           await customStatement(
               'CREATE INDEX IF NOT EXISTS idx_collect_status '
               'ON collect_tasks (status)');
+          // 向量域：待算池/全量载入按 model 过滤（换模型重算不混用）。
+          await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_vectors_model '
+              'ON track_vectors (model)');
         },
       );
 }

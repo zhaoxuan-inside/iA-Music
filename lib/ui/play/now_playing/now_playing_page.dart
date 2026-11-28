@@ -10,7 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../app/theme/design_tokens.dart';
 import '../../../state/playback_controller.dart';
-import '../../shared/hub_scaffold.dart';
+import '../../layout/hub_scaffold.dart';
 import 'np_lyrics_pane.dart';
 import 'np_play_pane.dart';
 import 'np_queue_pane.dart';
@@ -137,7 +137,7 @@ class _NowPlayingPageState extends ConsumerState<NowPlayingPage> {
 
 /* ── 页头：Zune pivot ─────────────────────────────────────────────── */
 
-class _NpHeader extends ConsumerWidget {
+class _NpHeader extends StatelessWidget {
   const _NpHeader({
     required this.pane,
     required this.edge,
@@ -149,10 +149,7 @@ class _NpHeader extends ConsumerWidget {
   final ValueChanged<int> onPick;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // select：index/队列长度只在切歌与队列编辑时变化。
-    final (index, total) = ref
-        .watch(playbackProvider.select((s) => (s.index, s.queue.length)));
+  Widget build(BuildContext context) {
     final p = Theme.of(context).extension<IaPalette>()!;
     return Padding(
       padding: EdgeInsets.fromLTRB(edge.left, 8, edge.right, 0),
@@ -207,19 +204,6 @@ class _NpHeader extends ConsumerWidget {
                           color: p.accent,
                         ),
                       ],
-                    ),
-                  ),
-                ),
-              const Spacer(),
-              if (total > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    '${(index + 1).toString().padLeft(2, '0')} / ${total.toString().padLeft(2, '0')}',
-                    style: const TextStyle(
-                      fontSize: 10.5,
-                      letterSpacing: 1.2,
-                      color: IaColors.textLow,
                     ),
                   ),
                 ),

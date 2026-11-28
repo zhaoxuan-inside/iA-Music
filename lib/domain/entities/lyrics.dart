@@ -72,6 +72,24 @@ LyricDoc parseLrc(String raw, {LyricSourceKind kind = LyricSourceKind.none}) {
   return LyricDoc(lines: out, sourceKind: kind);
 }
 
+/// 解析歌词文本：先按 LRC 时间轴；整篇无有效时间戳（纯文本）时逐行
+/// tMs=0 成形，不丢内容。LRCLIB plainLyrics / 用户粘贴文本没有时间轴，
+/// 直接 parseLrc 会被当解析失败丢弃——落盘文件在、DB 记账在、进度绿了，
+/// 播放屏却显示「无词」。
+LyricDoc parseLrcOrPlain(String raw, {LyricSourceKind kind = LyricSourceKind.none}) {
+  final doc = parseLrc(raw, kind: kind);
+  if (doc.lines.isNotEmpty) {
+    return doc;
+  }
+  return LyricDoc(
+    lines: [
+      for (final line in raw.split(RegExp(r'\r?\n')))
+        if (line.trim().isNotEmpty) LyricLine(tMs: 0, text: line.trim()),
+    ],
+    sourceKind: kind,
+  );
+}
+
 /// 成形为标准 LRC 文本（供落盘；[offsetMs] 作用于时间轴，正=整体延后）。
 String formatLrc(List<LyricLine> lines, {int offsetMs = 0}) {
   final buf = StringBuffer();

@@ -15,7 +15,6 @@ abstract final class SettingKeys {
   static const repeat = 'playback.repeat'; // off | all | one
   static const session = 'playback.session'; // 会话恢复快照
   static const accent = 'appearance.accent'; // WP 色板色值字符串
-  static const quickplay = 'quickplay.pins'; // 固定到快速播放的磁贴
 }
 
 class SettingsService {

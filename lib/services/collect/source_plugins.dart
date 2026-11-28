@@ -2,7 +2,8 @@
 ///
 /// 枚举已启用且带 source 能力的插件；每个插件懒开一个沙箱会话，
 /// 契约入口（docs/PLUGIN.md §3.2）封装成类型化方法。平台知识 100% 在
-/// 插件里，本门面只做「会话管理 + JSON 形状对齐」。
+/// 插件里，本门面只做「会话管理 + JSON 形状对齐」（唯一宿主侧策略：
+/// search 关键词默认补「分p」后缀，见 [SourcePluginHandle.search]）。
 library;
 
 import 'dart:async';
@@ -62,8 +63,23 @@ class SourcePluginHandle {
   Future<Map<String, Object?>?> lyrics(String trackId) =>
       _callMap('lyrics', [trackId], timeout: const Duration(seconds: 20));
 
+  /// 发往插件的搜索关键词默认后缀（站内搜索策略；不回显给用户——
+  /// 输入框与结果列表仍显示用户原词）。
+  static const String _searchSuffix = '分p';
+
+  /// 组装发往插件的关键词：原词去空白后默认追加「分p」；用户已自带
+  /// （不分大小写）则原样透传，避免「分p分p」。
+  static String _withSearchSuffix(String q) {
+    final query = q.trim();
+    return query.toLowerCase().endsWith(_searchSuffix)
+        ? query
+        : '$query$_searchSuffix';
+  }
+
+  /// 站内搜索（docs/PLUGIN.md §3.2）。插件收到的关键词默认带「分p」后缀。
   Future<List<Map<String, Object?>>> search(String q) async {
-    final r = await _callMap('search', [q], timeout: const Duration(seconds: 20));
+    final r = await _callMap('search', [_withSearchSuffix(q)],
+        timeout: const Duration(seconds: 20));
     final items = r?['items'];
     if (items is! List) {
       return const [];

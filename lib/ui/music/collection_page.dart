@@ -14,10 +14,10 @@ import '../../state/letter.dart';
 import '../../state/library_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
+import '../actions/actions.dart';
+import '../components/mapped/album_tile.dart';
+import '../components/mapped/cover.dart';
 import '../detail/detail_page.dart';
-import '../shared/actions.dart';
-import '../shared/album_tile.dart';
-import '../shared/cover.dart';
 import '../shared/ui_kit.dart';
 
 class CollectionPage extends ConsumerStatefulWidget {
@@ -84,7 +84,7 @@ class _CollectionPageState extends ConsumerState<CollectionPage> {
                       Text(
                         '分类浏览',
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11.5,
                           fontWeight: IaType.semibold,
                           letterSpacing: IaType.kickerTracking,
                           color: Theme.of(context)
@@ -208,7 +208,7 @@ class _ArtistsList extends ConsumerWidget {
         padding: const EdgeInsets.only(top: IaSpacing.l, bottom: IaSpacing.s),
         child: Text(L,
             style: TextStyle(
-                fontSize: 12,
+                fontSize: 13.5,
                 fontWeight: IaType.semibold,
                 letterSpacing: 1.2,
                 color: Theme.of(context).extension<IaPalette>()!.accent)),
@@ -242,17 +242,17 @@ class _ArtistsList extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(
                   horizontal: IaSpacing.m, vertical: IaSpacing.m),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: IaColors.hairline))),
               child: Row(
                 children: [
                   Text(a.artist,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: IaType.list, color: IaColors.textHi)),
                   const Spacer(),
                   Text('${a.trackCount} 首',
-                      style: const TextStyle(
-                          fontSize: 12, color: IaColors.textLow)),
+                      style: TextStyle(
+                          fontSize: 13.5, color: IaColors.textLow)),
                 ],
               ),
             ),
@@ -374,17 +374,17 @@ class _PlaylistsList extends ConsumerWidget {
             child: Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: IaSpacing.m, vertical: IaSpacing.l),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: IaColors.hairline))),
               child: Row(
                 children: [
                   Text(p.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: IaType.list, color: IaColors.textHi)),
                   const Spacer(),
                   Text('${p.trackCount} 首',
-                      style: const TextStyle(
-                          fontSize: 12, color: IaColors.textLow)),
+                      style: TextStyle(
+                          fontSize: 13.5, color: IaColors.textLow)),
                 ],
               ),
             ),

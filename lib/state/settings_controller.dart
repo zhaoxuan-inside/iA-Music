@@ -16,10 +16,18 @@ abstract final class LocaleMode {
   static const en = 'en';
 }
 
+/// 外观模式值（与 IaAppearance 对齐；独立声明避免 state→theme 反向依赖）。
+abstract final class AppearanceMode {
+  static const system = 'system';
+  static const light = 'light';
+  static const dark = 'dark';
+}
+
 class SettingsState {
   const SettingsState({
     this.accent = kDefaultAccent,
     this.locale = LocaleMode.system,
+    this.appearance = AppearanceMode.system,
     this.onboardingDone = false,
     this.loaded = false,
   });
@@ -27,18 +35,23 @@ class SettingsState {
   /// 用户选定的 accent（WP 色板色值）。
   final Color accent;
   final String locale;
+
+  /// 外观模式（system 跟随系统 / light 白天 / dark 黑夜）。
+  final String appearance;
   final bool onboardingDone;
   final bool loaded;
 
   SettingsState copyWith({
     Color? accent,
     String? locale,
+    String? appearance,
     bool? onboardingDone,
     bool? loaded,
   }) =>
       SettingsState(
         accent: accent ?? this.accent,
         locale: locale ?? this.locale,
+        appearance: appearance ?? this.appearance,
         onboardingDone: onboardingDone ?? this.onboardingDone,
         loaded: loaded ?? this.loaded,
       );
@@ -56,11 +69,14 @@ class SettingsController extends Notifier<SettingsState> {
   Future<void> _load() async {
     final accentHex = await _settings.getString(SettingKeys.accent);
     final locale = await _settings.getString(SettingKeys.locale) ?? LocaleMode.system;
+    final appearance =
+        await _settings.getString(SettingKeys.appearance) ?? AppearanceMode.system;
     final done = await _settings.getBool(SettingKeys.onboardingDone);
     final accent = _parseAccent(accentHex);
     state = state.copyWith(
       accent: accent,
       locale: locale,
+      appearance: appearance,
       onboardingDone: done,
       loaded: true,
     );
@@ -90,15 +106,14 @@ class SettingsController extends Notifier<SettingsState> {
     await _settings.setString(SettingKeys.locale, mode);
   }
 
+  Future<void> setAppearance(String mode) async {
+    state = state.copyWith(appearance: mode);
+    await _settings.setString(SettingKeys.appearance, mode);
+  }
+
   Future<void> completeOnboarding() async {
     state = state.copyWith(onboardingDone: true);
     await _settings.setBool(SettingKeys.onboardingDone, true);
-  }
-
-  /// 重播开箱仪式：清守卫位，下次冷启动回到 OnboardingPage。
-  Future<void> resetOnboarding() async {
-    state = state.copyWith(onboardingDone: false);
-    await _settings.setBool(SettingKeys.onboardingDone, false);
   }
 }
 

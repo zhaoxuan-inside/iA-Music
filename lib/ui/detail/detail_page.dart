@@ -3,7 +3,7 @@
 ///
 /// 头部使用「封面 + 倒影」，把详情页从一张列表变成一张唱片内页。
 /// 头部与行组件拆在同目录（detail_hero / detail_rows），专辑磁贴在
-/// shared/album_tile（与分类页共用）。
+/// components/mapped/album_tile（与分类页共用）。
 library;
 
 import 'package:flutter/material.dart';
@@ -11,17 +11,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
-import '../../domain/entities/quickplay.dart';
 import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
 import '../../state/playlist_providers.dart';
-import '../../state/quickplay_providers.dart';
+import '../actions/actions.dart';
+import '../components/mapped/album_tile.dart';
+import '../library/track_edit_page.dart';
 import '../playlists/playlist_edit.dart';
 import '../search/search_page.dart';
-import '../shared/actions.dart';
-import '../shared/album_tile.dart';
 import '../shared/ui_kit.dart';
 import 'detail_hero.dart';
 import 'detail_rows.dart';
@@ -96,16 +95,6 @@ class DetailPage extends ConsumerWidget {
         tracks.fold<int>(0, (sum, t) => sum + t.durationMs);
     final total = _fmtTotal(totalMs);
 
-    final qp = ref.watch(quickplayProvider);
-    final qpKind = switch (type) {
-      DetailType.album => QuickplayKind.album,
-      DetailType.artist => QuickplayKind.artist,
-      DetailType.playlist => QuickplayKind.playlist,
-      DetailType.genre => null,
-    };
-    final pinned = qpKind != null && qp.isPinned(qpKind, id);
-    final accent = Theme.of(context).extension<IaPalette>()!.accent;
-
     return Scaffold(
       backgroundColor: IaColors.canvas,
       body: CustomScrollView(
@@ -127,7 +116,7 @@ class DetailPage extends ConsumerWidget {
                   IconButton(
                     visualDensity: VisualDensity.compact,
                     tooltip: '编辑歌单',
-                    icon: const Icon(Icons.edit_outlined, size: 19,
+                    icon: Icon(Icons.edit_outlined, size: 19,
                         color: IaColors.textHi),
                     onPressed: () {
                       final pl = ref.watch(playlistListProvider).value
@@ -135,30 +124,6 @@ class DetailPage extends ConsumerWidget {
                           .firstOrNull;
                       if (pl != null) {
                         showPlaylistEditMenu(context, ref, pl);
-                      }
-                    },
-                  ),
-                if (qpKind != null)
-                  IconButton(
-                    visualDensity: VisualDensity.compact,
-                    tooltip: pinned ? '解除快速播放固定' : '固定到快速播放',
-                    icon: Icon(
-                      pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                      size: 19,
-                      color: pinned ? accent : IaColors.textHi,
-                    ),
-                    onPressed: () async {
-                      final notifier =
-                          ref.read(quickplayProvider.notifier);
-                      if (pinned) {
-                        await notifier.unpin(qpKind, id);
-                      } else {
-                        await notifier.pin(QuickplayPin(
-                          kind: qpKind,
-                          key: id,
-                          title: title,
-                          subtitle: subtitle,
-                        ));
                       }
                     },
                   ),
@@ -300,6 +265,12 @@ class DetailPage extends ConsumerWidget {
       (
         '插播：下一首播放',
         () => ref.read(dbActionsProvider).playNext(track),
+      ),
+      (
+        '编辑歌曲信息…',
+        () => Navigator.of(context).push(zuneRoute<void>(
+              builder: (_) => TrackEditPage(track: track),
+            )),
       ),
       (
         '查看专辑',

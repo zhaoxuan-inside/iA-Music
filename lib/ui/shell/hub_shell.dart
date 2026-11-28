@@ -1,4 +1,4 @@
-/// Hub 全景壳：水平 PageView 八屏（负一屏听法 ← 屏1 在播 → … → 设置）+
+/// Hub 全景壳：水平 PageView 六屏（负一屏听法 ← 屏1 在播 → … → 设置）+
 /// 迷你条吸底 + NP 展开。
 ///
 /// 屏宽自适应：viewportFraction = 1.0，每屏吃满屏宽（内容再吃曲面安全区）；
@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme/design_tokens.dart';
-import '../added/added_page.dart';
 import '../library/songs_page.dart';
 import '../listen/listen_page.dart';
 import '../play/mini_player.dart';
@@ -17,19 +16,16 @@ import '../play/now_playing/now_playing_page.dart';
 import '../played/played_page.dart';
 import '../playing/playing_page.dart';
 import '../playlists/playlists_page.dart';
-import '../quickplay/quickplay_page.dart';
 import '../settings/settings_page.dart';
 import 'panorama_backdrop.dart';
 
-/// Hub 八屏。
+/// Hub 六屏。
 enum HubScreen {
   listen, // 负一屏 听法
-  playing, // 屏1 正在播放
-  quickplay, // 屏2 快速播放（Zune Quickplay）
-  songs, // 屏3 曲库（歌曲列表）
-  added, // 屏4 最近添加
-  played, // 屏5 常听与历史
-  playlists, // 屏6 歌单
+  playing, // 屏1 正在播放（初始屏）
+  songs, // 屏2 曲库（歌曲列表）
+  played, // 屏3 常听与历史
+  playlists, // 屏4 歌单
   settings, // 屏末 设置
 }
 
@@ -42,15 +38,13 @@ class HubShell extends ConsumerStatefulWidget {
 
 class _HubShellState extends ConsumerState<HubShell> {
   late final PageController _pc = PageController(
-      initialPage: HubScreen.quickplay.index, viewportFraction: 1.0);
+      initialPage: HubScreen.playing.index, viewportFraction: 1.0);
 
   /// 背景巨字与 HubScreen 一一对应。
   static const _titles = [
     '听法',
     '音乐',
-    '快速播放',
     '曲库',
-    '最近添加',
     '常听',
     '歌单',
     '设置',
@@ -77,9 +71,7 @@ class _HubShellState extends ConsumerState<HubShell> {
             children: const [
               ListenPage(),
               PlayingPage(),
-              QuickplayPage(),
               SongsPage(),
-              AddedPage(),
               PlayedPage(),
               PlaylistsPage(),
               SettingsPage(),

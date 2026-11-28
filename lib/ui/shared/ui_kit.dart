@@ -1,16 +1,16 @@
-/// 共享 UI 组件导出桶：21 处引用零改动的稳定门面。
+/// 共享 UI 组件导出桶：稳定的 re-export 门面。
 ///
-/// 实现按职责拆在同目录（route/hub_scaffold/rows/letter_rail/wp_menu/
-/// wp_toast/empty_state/wp_switch/format）；新代码可按需精确 import，
-/// 既有代码继续走本桶。
+/// 实现已按 UI 分层落位（layout=页面骨架 / components=页面组件 /
+/// motion=交互动画基元，见 docs/ARCHITECTURE.md UI 节）；本桶只做
+/// re-export——既有引用零改动，新代码建议按层精确 import。
 library;
 
-export 'empty_state.dart';
-export 'format.dart';
-export 'hub_scaffold.dart';
-export 'letter_rail.dart';
-export 'route.dart';
-export 'rows.dart';
-export 'wp_menu.dart';
-export 'wp_switch.dart';
-export 'wp_toast.dart';
+export '../components/kit/format.dart';
+export '../components/kit/letter_rail.dart';
+export '../components/kit/rows.dart';
+export '../components/kit/wp_menu.dart';
+export '../components/kit/wp_switch.dart';
+export '../components/kit/wp_toast.dart';
+export '../layout/empty_state.dart';
+export '../layout/hub_scaffold.dart';
+export '../layout/route.dart';

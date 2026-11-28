@@ -10,6 +10,7 @@ mixin _$LibraryDaoMixin on DatabaseAccessor<IaDatabase> {
   $PlaylistsTable get playlists => attachedDatabase.playlists;
   $PlaylistTracksTable get playlistTracks => attachedDatabase.playlistTracks;
   $LyricsMetaTable get lyricsMeta => attachedDatabase.lyricsMeta;
+  $TrackVectorsTable get trackVectors => attachedDatabase.trackVectors;
   LibraryDaoManager get managers => LibraryDaoManager(this);
 }
 
@@ -34,4 +35,6 @@ class LibraryDaoManager {
       );
   $$LyricsMetaTableTableManager get lyricsMeta =>
       $$LyricsMetaTableTableManager(_db.attachedDatabase, _db.lyricsMeta);
+  $$TrackVectorsTableTableManager get trackVectors =>
+      $$TrackVectorsTableTableManager(_db.attachedDatabase, _db.trackVectors);
 }

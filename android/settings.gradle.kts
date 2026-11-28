@@ -23,4 +23,14 @@ plugins {
     id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
 
+dependencyResolutionManagement {
+    // PREFER_PROJECT：插件工程自声明的仓库优先（file_picker 等），
+    // settings 仓库兜底补 LiteRT（com.google.ai.edge.litert）的坐标解析。
+    repositoriesMode = RepositoriesMode.PREFER_PROJECT
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 include(":app")

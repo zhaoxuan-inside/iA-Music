@@ -9,7 +9,7 @@ library;
 
 const String kAppName = 'iA-Music';
 
-const String kAppTagline = '本地优先的个人音乐库——把散落的音乐收进来、看得清、听得好';
+const String kAppTagline = '让散落的歌，被看见、被听见';
 
 /// 目标平台。
 const String kAppPlatform = 'Android（arm64）';

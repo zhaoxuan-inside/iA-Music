@@ -1,4 +1,8 @@
-/// 关于子页：应用信息（版本读安装包元数据）+ 日志追踪 + 语言 + 重播开箱。
+/// 关于子页：语言（置顶）+ 应用信息（版本读安装包元数据）+
+/// 诊断日志（全 App 唯一日志出口）。
+///
+/// 唯一入口 = 设置页直达；风格与 Hub 页同基线（PageHeader 固定页头，
+/// 无返回钮——返回走系统手势）。
 library;
 
 import 'package:flutter/material.dart';
@@ -10,7 +14,6 @@ import '../../app/providers.dart';
 import '../../app/theme/design_tokens.dart';
 import '../../state/diagnostics.dart';
 import '../../state/settings_controller.dart';
-import '../shared/sub_header.dart';
 import '../shared/ui_kit.dart';
 
 /// 关于子页。
@@ -19,85 +22,63 @@ class AboutSubPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final edge = edgeInsets(context);
     // 版本读安装包元数据（pubspec version 的构建产物）；加载未完成显示占位
     final pkg = ref.watch(packageInfoProvider).value;
     return Scaffold(
       backgroundColor: IaColors.canvas,
-      body: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(edge.left, IaSpacing.l, edge.right, 40),
-          children: [
-            const SubHeader(title: '关于'),
-            const SizedBox(height: IaSpacing.xl),
-            Text(kAppName,
-                style: const TextStyle(
-                    fontSize: IaType.page,
-                    fontWeight: IaType.light,
-                    letterSpacing: IaType.titleTracking,
-                    color: IaColors.textHi)),
-            const SizedBox(height: IaSpacing.s),
-            Text(kAppTagline,
-                style: const TextStyle(
-                    fontSize: 12.5, height: 1.5, color: IaColors.textMid)),
-            const SizedBox(height: IaSpacing.xl),
-            _InfoRow(
-                label: '版本',
-                value: pkg == null
-                    ? '…'
-                    : 'v${pkg.version} (${pkg.buildNumber})'),
-            _InfoRow(label: '版本号', value: pkg?.buildNumber ?? '…'),
-            _InfoRow(label: '平台', value: kAppPlatform),
-            const SizedBox(height: IaSpacing.xl),
-            const _TraceLogBlock(),
-            const SizedBox(height: IaSpacing.xl),
-            InkWell(
-              onTap: () => _languageMenu(context, ref),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.m, vertical: IaSpacing.l),
-                decoration: const BoxDecoration(
-                    border:
-                        Border(bottom: BorderSide(color: IaColors.hairline))),
-                child: Row(
-                  children: [
-                    const Text('语言',
-                        style: TextStyle(
-                            fontSize: IaType.list, color: IaColors.textHi)),
-                    const Spacer(),
-                    Text(_localeName(ref.watch(settingsProvider).locale),
-                        style:
-                            const TextStyle(fontSize: 12, color: IaColors.textLow)),
-                    const SizedBox(width: IaSpacing.xs),
-                    const Icon(Icons.chevron_right,
-                        size: 14, color: IaColors.textLow),
-                  ],
-                ),
-              ),
-            ),
-            InkWell(
-              onTap: () => _replayOnboarding(context, ref),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: IaSpacing.m, vertical: IaSpacing.l),
-                child: const Row(
-                  children: [
-                    Text('重播开箱仪式',
-                        style: TextStyle(
-                            fontSize: IaType.list, color: IaColors.textHi)),
-                    Spacer(),
-                    Text('选色 → 文件夹',
-                        style: TextStyle(fontSize: 12, color: IaColors.textLow)),
-                    SizedBox(width: IaSpacing.xs),
-                    Icon(Icons.chevron_right,
-                        size: 14, color: IaColors.textLow),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: IaSpacing.xl),
-          ],
+      body: HubPage(
+        header: const PageHeader(
+          kicker: '应用',
+          title: '关于',
+          subtitle: '语言 · 版本 · 日志',
         ),
+        children: [
+          Text(kAppName,
+              style: TextStyle(
+                  fontSize: IaType.page,
+                  fontWeight: IaType.light,
+                  letterSpacing: IaType.titleTracking,
+                  color: IaColors.textHi)),
+          const SizedBox(height: IaSpacing.s),
+          Text(kAppTagline,
+              style: TextStyle(
+                  fontSize: 14, height: 1.5, color: IaColors.textMid)),
+          const SizedBox(height: IaSpacing.xl),
+          InkWell(
+            onTap: () => _languageMenu(context, ref),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: IaSpacing.m, vertical: IaSpacing.l),
+              decoration: BoxDecoration(
+                  border:
+                      Border(bottom: BorderSide(color: IaColors.hairline))),
+              child: Row(
+                children: [
+                  Text('语言',
+                      style: TextStyle(
+                          fontSize: IaType.list, color: IaColors.textHi)),
+                  const Spacer(),
+                  Text(_localeName(ref.watch(settingsProvider).locale),
+                      style:
+                          TextStyle(fontSize: 13.5, color: IaColors.textLow)),
+                  const SizedBox(width: IaSpacing.xs),
+                  Icon(Icons.chevron_right,
+                      size: 14, color: IaColors.textLow),
+                ],
+              ),
+            ),
+          ),
+          _InfoRow(
+              label: '版本',
+              value: pkg == null
+                  ? '…'
+                  : 'v${pkg.version} (${pkg.buildNumber})'),
+          _InfoRow(label: '平台', value: kAppPlatform),
+          const SizedBox(height: IaSpacing.xl),
+          // ── 诊断日志（全 App 唯一出口）：日志开关 + 条数 + 复制/清除 ──
+          const _LogBlock(),
+          const SizedBox(height: IaSpacing.xl),
+        ],
       ),
     );
   }
@@ -123,15 +104,6 @@ class AboutSubPage extends ConsumerWidget {
         ),
     ]);
   }
-
-  /// 重播开箱仪式：清守卫位并回到首页（根级 home 切换即回 OnboardingPage）。
-  Future<void> _replayOnboarding(BuildContext context, WidgetRef ref) async {
-    await ref.read(settingsProvider.notifier).resetOnboarding();
-    if (!context.mounted) {
-      return;
-    }
-    Navigator.of(context).popUntil((r) => r.isFirst);
-  }
 }
 
 /// 关于页信息行（label + value）。
@@ -146,47 +118,52 @@ class _InfoRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: IaSpacing.m, vertical: IaSpacing.l),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: IaColors.hairline))),
       child: Row(
         children: [
           Text(label,
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: IaType.list, color: IaColors.textHi)),
           const Spacer(),
           Text(value,
               style:
-                  const TextStyle(fontSize: 12, color: IaColors.textLow)),
+                  TextStyle(fontSize: 13.5, color: IaColors.textLow)),
         ],
       ),
     );
   }
 }
 
-/// 日志追踪区块（关于页）：开关 + 一键复制追踪期全部错误日志。
-class _TraceLogBlock extends ConsumerWidget {
-  const _TraceLogBlock();
+/// 诊断日志区块（关于页 · 全 App 唯一日志出口）：日志开关 + 条数 +
+/// 复制/清除（唯一一套按钮；不展示日志详情——详情随「复制」带走）。
+/// 有未清除错误时边框转红提示。
+class _LogBlock extends ConsumerWidget {
+  const _LogBlock();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final trace = ref.watch(traceLogProvider);
+    final hasError = ref.watch(diagnosticsProvider) != null;
     final p = Theme.of(context).extension<IaPalette>()!;
 
     return Container(
       padding: const EdgeInsets.all(IaSpacing.m),
       decoration: BoxDecoration(
         border: Border.all(
-            color: trace.enabled
-                ? p.accent.withValues(alpha: 0.5)
-                : IaColors.hairlineStrong),
+            color: hasError
+                ? IaColors.error.withValues(alpha: 0.5)
+                : trace.enabled
+                    ? p.accent.withValues(alpha: 0.5)
+                    : IaColors.hairlineStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
-                child: Text('日志追踪',
+              Expanded(
+                child: Text('日志',
                     style: TextStyle(
                         fontSize: IaType.list, color: IaColors.textHi)),
               ),
@@ -197,27 +174,12 @@ class _TraceLogBlock extends ConsumerWidget {
               ),
             ],
           ),
-          Text(
-            trace.enabled
-                ? '开启中——所有错误（框架 / 未捕获 / 链路）实时入册，上限 200 条，跨重启保留'
-                : '开启后记录所有错误日志，用于排查问题；关闭期间不采集',
-            style: const TextStyle(fontSize: 11, color: IaColors.textLow),
-          ),
           if (trace.enabled) ...[
-            const SizedBox(height: IaSpacing.s),
-            Builder(builder: (context) {
-              final path = ref.watch(logFilePathProvider).value;
-              return Text(
-                path == null ? '日志文件准备中…' : '文件：$path（≤100MB 滚动）',
-                style: const TextStyle(
-                    fontSize: 10.5, color: IaColors.textLow),
-              );
-            }),
             const SizedBox(height: IaSpacing.m),
             Row(
               children: [
                 Text('${trace.entries.length} 条日志',
-                    style: TextStyle(fontSize: 12, color: p.accent)),
+                    style: TextStyle(fontSize: 13.5, color: p.accent)),
                 const Spacer(),
                 TextButton(
                   onPressed: () async {
@@ -226,17 +188,17 @@ class _TraceLogBlock extends ConsumerWidget {
                     await Clipboard.setData(ClipboardData(text: text));
                     if (context.mounted) {
                       showWpToast(context,
-                          title: '日志追踪', message: '已复制全部错误日志');
+                          title: '日志', message: '已复制全部错误日志');
                     }
                   },
-                  child: Text('一键复制',
-                      style: TextStyle(fontSize: 12, color: p.accent)),
+                  child: Text('复制',
+                      style: TextStyle(fontSize: 13.5, color: p.accent)),
                 ),
                 TextButton(
                   onPressed: () =>
                       ref.read(traceLogProvider.notifier).clear(),
-                  child: const Text('清除',
-                      style: TextStyle(fontSize: 12, color: IaColors.textLow)),
+                  child: Text('清除',
+                      style: TextStyle(fontSize: 13.5, color: IaColors.textLow)),
                 ),
               ],
             ),

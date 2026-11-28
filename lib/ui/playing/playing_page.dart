@@ -14,11 +14,12 @@ import '../../domain/entities/track.dart';
 import '../../state/library_providers.dart';
 import '../../state/listen_providers.dart';
 import '../../state/playback_controller.dart';
+import '../actions/radio_starter.dart';
+import '../components/kit/search_action.dart';
+import '../components/mapped/ambient.dart';
+import '../components/mapped/cover.dart';
 import '../detail/detail_page.dart';
 import '../play/now_playing/now_playing_page.dart';
-import '../shared/ambient.dart';
-import '../shared/cover.dart';
-import '../shared/search_action.dart';
 import '../shared/ui_kit.dart';
 
 class PlayingPage extends ConsumerWidget {
@@ -121,8 +122,8 @@ class _NowHeroState extends ConsumerState<_NowHero> {
                       cur.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 28,
+                      style: TextStyle(
+                        fontSize: 30,
                         height: 1.14,
                         fontWeight: IaType.light,
                         letterSpacing: IaType.titleTracking,
@@ -134,8 +135,8 @@ class _NowHeroState extends ConsumerState<_NowHero> {
                       '${cur.artistDisplay} · ${cur.albumDisplay}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
+                      style: TextStyle(
+                        fontSize: 14,
                         color: IaColors.textMid,
                       ),
                     ),
@@ -171,7 +172,7 @@ class _NowHeroState extends ConsumerState<_NowHero> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => ref.read(playbackProvider.notifier).previous(),
-              icon: const Icon(
+              icon: Icon(
                 Icons.skip_previous,
                 size: 22,
                 color: IaColors.textMid,
@@ -180,7 +181,7 @@ class _NowHeroState extends ConsumerState<_NowHero> {
             IconButton(
               visualDensity: VisualDensity.compact,
               onPressed: () => ref.read(playbackProvider.notifier).next(),
-              icon: const Icon(
+              icon: Icon(
                 Icons.skip_next,
                 size: 22,
                 color: IaColors.textMid,
@@ -189,9 +190,9 @@ class _NowHeroState extends ConsumerState<_NowHero> {
             const Spacer(),
             TextButton(
               onPressed: () => openNowPlaying(context),
-              child: const Text(
+              child: Text(
                 '打开播放页  ›',
-                style: TextStyle(fontSize: 12, color: IaColors.textMid),
+                style: TextStyle(fontSize: 13.5, color: IaColors.textMid),
               ),
             ),
           ],
@@ -244,12 +245,12 @@ class _NowHeroSeekState extends ConsumerState<_NowHeroSeek> {
           children: [
             Text(
               formatDuration(positionMs),
-              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+              style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
             ),
             const Spacer(),
             Text(
               formatDuration(durationMs),
-              style: const TextStyle(fontSize: 11, color: IaColors.textLow),
+              style: TextStyle(fontSize: 12.5, color: IaColors.textLow),
             ),
           ],
         ),
@@ -270,7 +271,11 @@ class _RandomTile extends ConsumerWidget {
     final four = albums.take(4).toList();
 
     return InkWell(
-      onTap: () => _listenRandom(context, ref),
+      onTap: () => startRadio(
+          ref, context,
+          strategyById(
+              ref.read(listenStrategiesProvider), kListenStrategyRandom),
+          successToast: false),
       child: SizedBox(
         height: 212,
         child: ClipRect(
@@ -288,7 +293,7 @@ class _RandomTile extends ConsumerWidget {
                     children: [
                       for (final a in four) _AlbumCover(album: a),
                       for (var i = four.length; i < 4; i++)
-                        const ColoredBox(color: IaColors.canvas),
+                        ColoredBox(color: IaColors.canvas),
                     ],
                   ),
                 ),
@@ -343,9 +348,9 @@ class _RandomTile extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: IaSpacing.s),
-                    const Text(
+                    Text(
                       '全曲库随机 · 一点就开 ▶',
-                      style: TextStyle(fontSize: 12, color: IaColors.textLow),
+                      style: TextStyle(fontSize: 13.5, color: IaColors.textLow),
                     ),
                   ],
                 ),
@@ -355,19 +360,6 @@ class _RandomTile extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _listenRandom(BuildContext context, WidgetRef ref) async {
-    final lib = ref.read(listenLibraryProvider);
-    final tracks = await lib.all();
-    if (!context.mounted) {
-      return;
-    }
-    if (tracks.isEmpty) {
-      showWpToast(context, title: '随缘听歌', message: '曲库为空——先去收集音乐');
-      return;
-    }
-    await ref.read(playbackProvider.notifier).playTracks(tracks, shuffle: true);
   }
 }
 
@@ -380,9 +372,9 @@ class _RecentStrip extends ConsumerWidget {
     final albums =
         ref.watch(recentAddedAlbumsProvider).value ?? const <AlbumGroup>[];
     if (albums.isEmpty) {
-      return const Text(
+      return Text(
         '曲库还是空的——先去收集音乐',
-        style: TextStyle(fontSize: 12, color: IaColors.textLow),
+        style: TextStyle(fontSize: 13.5, color: IaColors.textLow),
       );
     }
     return SizedBox(
@@ -411,8 +403,8 @@ class _RecentStrip extends ConsumerWidget {
                         a.album,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12.5,
+                        style: TextStyle(
+                          fontSize: 14,
                           color: IaColors.textHi,
                         ),
                       ),
@@ -422,7 +414,7 @@ class _RecentStrip extends ConsumerWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style:
-                            TextStyle(fontSize: 11, color: IaColors.textLow),
+                            TextStyle(fontSize: 12.5, color: IaColors.textLow),
                       ),
                     ],
                   ),
@@ -454,10 +446,10 @@ class _AlbumCover extends ConsumerWidget {
         return SizedBox(
           width: size,
           height: size,
-          child: const ColoredBox(color: IaColors.hairline),
+          child: ColoredBox(color: IaColors.hairline),
         );
       }
-      return const ColoredBox(color: IaColors.hairline);
+      return ColoredBox(color: IaColors.hairline);
     }
     return InkWell(
       onTap: () async {
